@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Eye, Loader2, RefreshCw, Save, Search, Send, Sparkles, Telescope, Trash2 } from 'lucide-react'
+import { Copy, Eye, Loader2, RefreshCw, Save, Search, Send, Sparkles, Telescope, Trash2 } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { SyncStatusCard } from '../../components/SyncStatusCard'
+import { generateAstrologicalReport } from '../../lib/astrological-report'
 
 type MapaResumo = {
   id: string
@@ -78,6 +79,7 @@ export function AstrologoModule() {
   const [nomeConsulente, setNomeConsulente] = useState('')
   const [relatorioHtml, setRelatorioHtml] = useState('')
   const [relatorioTexto, setRelatorioTexto] = useState('')
+  const [copiedField, setCopiedField] = useState<'html' | 'texto' | null>(null)
   const [sendingEmail, setSendingEmail] = useState(false)
 
   const disabled = useMemo(() => loading, [loading])
@@ -150,6 +152,16 @@ export function AstrologoModule() {
       }
 
       setSelectedMapa(payload.mapa)
+      
+      // Auto-generate astrological reports
+      try {
+        const report = generateAstrologicalReport(payload.mapa, 'completo')
+        setRelatorioHtml(report.html)
+        setRelatorioTexto(report.text)
+      } catch (err) {
+        showNotification('Aviso: falha ao gerar relatório automático, preencha manualmente.', 'info')
+      }
+      
       showNotification(withTrace('Mapa carregado com detalhes completos.', payload), 'success')
     } catch {
       showNotification('Não foi possível carregar os detalhes do mapa.', 'error')
@@ -288,6 +300,39 @@ export function AstrologoModule() {
       showNotification('Não foi possível enviar o e-mail do Astrólogo.', 'error')
     } finally {
       setSendingEmail(false)
+    }
+  }
+
+  const copyReportToClipboard = async (field: 'html' | 'texto') => {
+    const text = field === 'html' ? relatorioHtml : relatorioTexto
+    if (!text.trim()) {
+      showNotification(`Relatório em ${field} está vazio.`, 'error')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      showNotification(`Relatório (${field}) copiado para clipboard.`, 'success')
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch {
+      showNotification('Falha ao copiar para clipboard.', 'error')
+    }
+  }
+
+  const restoreDefaultReport = () => {
+    if (!selectedMapa) {
+      showNotification('Selecione um mapa antes de restaurar o padrão.', 'error')
+      return
+    }
+
+    try {
+      const report = generateAstrologicalReport(selectedMapa, 'completo')
+      setRelatorioHtml(report.html)
+      setRelatorioTexto(report.text)
+      showNotification('Relatórios restaurados para padrão.', 'success')
+    } catch {
+      showNotification('Falha ao restaurar relatório padrão.', 'error')
     }
   }
 
@@ -526,6 +571,15 @@ export function AstrologoModule() {
             onChange={(event) => setRelatorioHtml(event.target.value)}
             disabled={sendingEmail}
           />
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => void copyReportToClipboard('html')}
+            disabled={sendingEmail || !relatorioHtml.trim()}
+          >
+            {copiedField === 'html' ? '✓ Copiado' : <Copy size={16} />}
+            {copiedField === 'html' ? '' : 'Copiar HTML'}
+          </button>
         </div>
 
         <div className="field-group">
@@ -538,12 +592,30 @@ export function AstrologoModule() {
             onChange={(event) => setRelatorioTexto(event.target.value)}
             disabled={sendingEmail}
           />
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => void copyReportToClipboard('texto')}
+            disabled={sendingEmail || !relatorioTexto.trim()}
+          >
+            {copiedField === 'texto' ? '✓ Copiado' : <Copy size={16} />}
+            {copiedField === 'texto' ? '' : 'Copiar Texto'}
+          </button>
         </div>
 
         <div className="form-actions">
           <button type="submit" className="primary-button" disabled={sendingEmail}>
             {sendingEmail ? <Loader2 size={18} className="spin" /> : <Send size={18} />}
             Enviar e-mail
+          </button>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => restoreDefaultReport()}
+            disabled={sendingEmail || !selectedMapa}
+          >
+            <RefreshCw size={16} />
+            Restaurar padrão
           </button>
         </div>
       </form>
