@@ -1,20 +1,32 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
 import { createResponseTrace } from '../_lib/request-trace'
-import { fetchLegacyJson, normalizeDomain, type Context, type LegacyZone, toHeaders } from '../_lib/mtasts-admin'
+import { listCloudflareZones } from '../_lib/cloudflare-api'
 
-const mapZone = (zone: LegacyZone) => {
-  const name = normalizeDomain(zone.name)
-  const id = String(zone.id ?? '').trim()
-
-  if (!name || !id) {
-    return null
-  }
-
-  return {
-    name,
-    id,
+type Context = {
+  request: Request
+  env: {
+    BIGDATA_DB?: D1Database
+    CF_API_TOKEN?: string
+    CLOUDFLARE_DNS?: string
+    CLOUDFLARE_API_TOKEN?: string
   }
 }
+
+type D1PreparedStatement = {
+  bind: (...values: Array<string | number | null>) => D1PreparedStatement
+  first: <T>() => Promise<T | null>
+  all: <T>() => Promise<{ results?: T[] }>
+  run: () => Promise<unknown>
+}
+
+type D1Database = {
+  prepare: (query: string) => D1PreparedStatement
+}
+
+const toHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store',
+})
 
 const toError = (message: string, trace: { request_id: string; timestamp: string }, status = 500) => new Response(JSON.stringify({
   ok: false,
@@ -28,20 +40,18 @@ const toError = (message: string, trace: { request_id: string; timestamp: string
 export async function onRequestGet(context: Context) {
   const trace = createResponseTrace(context.request)
   try {
-    const zones = await fetchLegacyJson<LegacyZone[]>(context.env, '/api/zones', 'Falha ao carregar zonas do legado MTA-STS')
-    const payload = (Array.isArray(zones) ? zones : [])
-      .map((zone) => mapZone(zone))
-      .filter((zone): zone is NonNullable<ReturnType<typeof mapZone>> => zone !== null)
+    const payload = await listCloudflareZones(context.env)
 
     if (context.env.BIGDATA_DB) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mtasts',
-          source: 'legacy-admin',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: true,
           metadata: {
             action: 'zones-list',
+            provider: 'cloudflare-api',
             totalZones: payload.length,
           },
         })
@@ -53,6 +63,7 @@ export async function onRequestGet(context: Context) {
     return new Response(JSON.stringify({
       ok: true,
       ...trace,
+      fonte: 'cloudflare-api',
       zones: payload,
     }), {
       headers: toHeaders(),
@@ -64,12 +75,13 @@ export async function onRequestGet(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mtasts',
-          source: 'legacy-admin',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
           metadata: {
             action: 'zones-list',
+            provider: 'cloudflare-api',
           },
         })
       } catch {

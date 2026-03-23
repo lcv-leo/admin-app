@@ -18,13 +18,7 @@ type LegacyMapa = {
   email?: string
 }
 
-type LegacyListResponse = {
-  success?: boolean
-  mapas?: LegacyMapa[]
-}
-
 type Env = {
-  ASTROLOGO_ADMIN_API_BASE_URL?: string
   BIGDATA_DB?: D1Database
 }
 
@@ -50,14 +44,10 @@ type BigdataMapa = {
   analise_ia?: string | null
 }
 
-const DEFAULT_ASTROLOGO_ADMIN_URL = 'https://admin-astrologo.lcv.app.br'
-
 const toResponseHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
 })
-
-const normalizeBaseUrl = (value: string) => value.endsWith('/') ? value.slice(0, -1) : value
 
 const toItem = (mapa: LegacyMapa): Item | null => {
   const id = (mapa.id ?? '').trim()
@@ -79,29 +69,6 @@ const toItem = (mapa: LegacyMapa): Item | null => {
     dataNascimento,
     status,
   }
-}
-
-const filterItems = (
-  items: Item[],
-  filtros: { nome: string; dataInicial: string; dataFinal: string },
-) => {
-  const { nome, dataInicial, dataFinal } = filtros
-  let filtered = [...items]
-
-  if (nome) {
-    const nomeNormalized = nome.toLowerCase()
-    filtered = filtered.filter((item) => item.nome.toLowerCase().includes(nomeNormalized))
-  }
-
-  if (dataInicial) {
-    filtered = filtered.filter((item) => item.dataNascimento >= dataInicial)
-  }
-
-  if (dataFinal) {
-    filtered = filtered.filter((item) => item.dataNascimento <= dataFinal)
-  }
-
-  return filtered
 }
 
 const queryBigdataItems = async (
@@ -159,8 +126,6 @@ export async function onRequestGet(context: Context) {
   const dataFinal = (url.searchParams.get('dataFinal') ?? '').trim()
   const email = (url.searchParams.get('email') ?? '').trim()
 
-  const astrologoAdminBaseUrl = normalizeBaseUrl(env.ASTROLOGO_ADMIN_API_BASE_URL ?? DEFAULT_ASTROLOGO_ADMIN_URL)
-  const astrologoListUrl = `${astrologoAdminBaseUrl}/api/admin/listar`
   const avisos: string[] = []
 
   if (email) {
@@ -197,80 +162,16 @@ export async function onRequestGet(context: Context) {
     }
   }
 
-  try {
-    const response = await fetch(astrologoListUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Falha no backend legado: HTTP ${response.status}`)
-    }
-
-    const payload = await response.json() as LegacyListResponse
-    if (!payload.success || !Array.isArray(payload.mapas)) {
-      throw new Error('Resposta inválida do backend legado do Astrólogo')
-    }
-
-    const normalizedItems = payload.mapas
-      .map((mapa) => toItem(mapa))
-      .filter((item): item is Item => item !== null)
-
-    const filteredItems = filterItems(normalizedItems, { nome, dataInicial, dataFinal })
-
-    if (env.BIGDATA_DB) {
-      try {
-        await logModuleOperationalEvent(env.BIGDATA_DB, {
-          module: 'astrologo',
-          source: 'legacy-admin',
-          fallbackUsed: true,
-          ok: true,
-          metadata: { total: filteredItems.length },
-        })
-      } catch {
-        // Não bloquear resposta por falha de telemetria.
-      }
-    }
-
-    return new Response(JSON.stringify({
-      ok: true,
-      ...trace,
-      total: filteredItems.length,
-      fonte: 'legacy-admin',
-      filtros: { nome, dataInicial, dataFinal, email },
-      avisos,
-      items: filteredItems,
-    }), { headers: toResponseHeaders() })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erro desconhecido no módulo Astrólogo'
-
-    if (env.BIGDATA_DB) {
-      try {
-        await logModuleOperationalEvent(env.BIGDATA_DB, {
-          module: 'astrologo',
-          source: 'legacy-admin',
-          fallbackUsed: true,
-          ok: false,
-          errorMessage: message,
-        })
-      } catch {
-        // Não bloquear resposta por falha de telemetria.
-      }
-    }
-
-    return new Response(JSON.stringify({
-      ok: false,
-      ...trace,
-      error: message,
-      total: 0,
-      filtros: { nome, dataInicial, dataFinal, email },
-      avisos: ['Fallback de mock desativado: integração operando em modo real.'],
-      items: [] as Item[],
-    }), {
-      status: 502,
-      headers: toResponseHeaders(),
-    })
-  }
+  return new Response(JSON.stringify({
+    ok: false,
+    ...trace,
+    error: 'BIGDATA_DB indisponível para leitura do módulo Astrólogo.',
+    total: 0,
+    filtros: { nome, dataInicial, dataFinal, email },
+    avisos: [...avisos, 'Fallback para admin legado desativado por Cloudflare Access.'],
+    items: [] as Item[],
+  }), {
+    status: 503,
+    headers: toResponseHeaders(),
+  })
 }

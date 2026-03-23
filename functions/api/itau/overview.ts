@@ -14,7 +14,6 @@ type D1Database = {
 
 type Env = {
   BIGDATA_DB?: D1Database
-  ITAU_ADMIN_API_BASE_URL?: string
 }
 
 type Context = {
@@ -26,28 +25,6 @@ type BacktestRow = {
   created_at?: number
   moeda?: string
   erro_percentual?: number
-}
-
-type LegacyOverviewResponse = {
-  backtest?: {
-    total_observacoes?: number
-    observacoes_7d?: number
-    mape_7d_percent?: number | null
-    ultimas_observacoes?: Array<{
-      created_at?: number
-      moeda?: string
-      erro_percentual?: number
-    }>
-  }
-  oraculo_telemetria?: {
-    total?: number
-    cache_hits?: number
-    avg_duration_ms?: number | null
-    errors?: number
-  }
-  contexto_operacional?: {
-    is_plantao?: boolean
-  }
 }
 
 type ItauOverviewPayload = {
@@ -75,14 +52,10 @@ type ItauOverviewPayload = {
   }>
 }
 
-const DEFAULT_ITAU_ADMIN_URL = 'https://admin-itau.lcv.app.br'
-
 const toResponseHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
 })
-
-const normalizeBaseUrl = (value: string) => value.endsWith('/') ? value.slice(0, -1) : value
 
 const normalizeMoeda = (rawValue: string) => rawValue.trim().toUpperCase()
 
@@ -92,46 +65,6 @@ const parseDias = (rawValue: string | null) => {
     return 7
   }
   return Math.min(90, Math.max(1, parsed))
-}
-
-const mapLegacyPayload = (
-  legacy: LegacyOverviewResponse,
-  filtros: { moeda: string; dias: number },
-  avisos: string[],
-): ItauOverviewPayload => {
-  const ultimas = Array.isArray(legacy.backtest?.ultimas_observacoes)
-    ? legacy.backtest?.ultimas_observacoes
-    : []
-
-  const mappedUltimas = ultimas
-    .filter((item) => Number.isFinite(Number(item.created_at)) && typeof item.moeda === 'string' && Number.isFinite(Number(item.erro_percentual)))
-    .map((item) => ({
-      createdAt: Number(item.created_at),
-      moeda: String(item.moeda),
-      erroPercentual: Number(item.erro_percentual),
-    }))
-
-  return {
-    ok: true,
-    fonte: 'legacy-admin',
-    filtros,
-    avisos,
-    resumo: {
-      totalObservacoes: Number(legacy.backtest?.total_observacoes ?? 0),
-      observacoesJanela: Number(legacy.backtest?.observacoes_7d ?? 0),
-      mapeJanelaPercent: Number.isFinite(Number(legacy.backtest?.mape_7d_percent))
-        ? Number(legacy.backtest?.mape_7d_percent)
-        : null,
-      telemetriaTotal: Number(legacy.oraculo_telemetria?.total ?? 0),
-      telemetriaErros: Number(legacy.oraculo_telemetria?.errors ?? 0),
-      telemetriaCacheHits: Number(legacy.oraculo_telemetria?.cache_hits ?? 0),
-      telemetriaAvgDurationMs: Number.isFinite(Number(legacy.oraculo_telemetria?.avg_duration_ms))
-        ? Number(legacy.oraculo_telemetria?.avg_duration_ms)
-        : null,
-      isPlantao: typeof legacy.contexto_operacional?.is_plantao === 'boolean' ? legacy.contexto_operacional.is_plantao : null,
-    },
-    ultimasObservacoes: mappedUltimas,
-  }
 }
 
 const queryBigdataOverview = async (
@@ -240,88 +173,29 @@ export async function onRequestGet(context: Context) {
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao consultar bigdata_db'
-      avisos.push(`Fallback para legado ativado: ${message}`)
+      avisos.push(`Leitura em modo D1 indisponível: ${message}`)
     }
   }
 
-  const legacyBaseUrl = normalizeBaseUrl(env.ITAU_ADMIN_API_BASE_URL ?? DEFAULT_ITAU_ADMIN_URL)
-  const legacyUrl = `${legacyBaseUrl}/api/admin/overview`
-
-  try {
-    const response = await fetch(legacyUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Falha no backend legado do Itaú: HTTP ${response.status}`)
-    }
-
-    const payload = await response.json() as LegacyOverviewResponse
-    const mapped = mapLegacyPayload(payload, filtros, avisos)
-
-    if (env.BIGDATA_DB) {
-      try {
-        await logModuleOperationalEvent(env.BIGDATA_DB, {
-          module: 'itau',
-          source: 'legacy-admin',
-          fallbackUsed: true,
-          ok: true,
-          metadata: {
-            totalObservacoes: mapped.resumo.totalObservacoes,
-            observacoesJanela: mapped.resumo.observacoesJanela,
-          },
-        })
-      } catch {
-        // Não bloquear resposta por falha de telemetria.
-      }
-    }
-
-    return new Response(JSON.stringify({
-      ...mapped,
-      ...trace,
-    }), {
-      headers: toResponseHeaders(),
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erro desconhecido no módulo Itaú'
-
-    if (env.BIGDATA_DB) {
-      try {
-        await logModuleOperationalEvent(env.BIGDATA_DB, {
-          module: 'itau',
-          source: 'legacy-admin',
-          fallbackUsed: true,
-          ok: false,
-          errorMessage: message,
-        })
-      } catch {
-        // Não bloquear resposta por falha de telemetria.
-      }
-    }
-
-    return new Response(JSON.stringify({
-      ok: false,
-      ...trace,
-      error: message,
-      filtros,
-      avisos,
-      resumo: {
-        totalObservacoes: 0,
-        observacoesJanela: 0,
-        mapeJanelaPercent: null,
-        telemetriaTotal: 0,
-        telemetriaErros: 0,
-        telemetriaCacheHits: 0,
-        telemetriaAvgDurationMs: null,
-        isPlantao: null,
-      },
-      ultimasObservacoes: [],
-    }), {
-      status: 502,
-      headers: toResponseHeaders(),
-    })
-  }
+  return new Response(JSON.stringify({
+    ok: false,
+    ...trace,
+    error: 'BIGDATA_DB indisponível para leitura do módulo Itaú.',
+    filtros,
+    avisos: [...avisos, 'Fallback para admin legado desativado por Cloudflare Access.'],
+    resumo: {
+      totalObservacoes: 0,
+      observacoesJanela: 0,
+      mapeJanelaPercent: null,
+      telemetriaTotal: 0,
+      telemetriaErros: 0,
+      telemetriaCacheHits: 0,
+      telemetriaAvgDurationMs: null,
+      isPlantao: null,
+    },
+    ultimasObservacoes: [],
+  }), {
+    status: 503,
+    headers: toResponseHeaders(),
+  })
 }
