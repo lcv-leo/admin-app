@@ -19,7 +19,7 @@ type ModuleEventInput = {
 }
 
 type SyncRunStart = {
-  module: 'astrologo' | 'itau'
+  module: 'astrologo' | 'itau' | 'mainsite' | 'mtasts'
   status: 'running'
   startedAt: number
   metadata?: Record<string, unknown>

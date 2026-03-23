@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Activity, AlertTriangle, Database, Loader2, Search } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
+import { SyncStatusCard } from '../../components/SyncStatusCard'
 
 type Resumo = {
   totalObservacoes: number
@@ -179,6 +180,13 @@ export function ItauModule() {
           </ul>
         )}
       </article>
+
+      <SyncStatusCard
+        module="itau"
+        endpoint="/api/itau/sync"
+        title="Sync manual do Itaú"
+        description="Sincroniza observabilidade e policies de rate limit do legado para o `bigdata_db`, com execução real ou dry run."
+      />
     </section>
   )
 }
