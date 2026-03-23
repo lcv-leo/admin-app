@@ -1,6 +1,7 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
 import { listPoliciesWithStats, resetRateLimitPolicy, SUPPORTED_ROUTES, toHeaders, upsertRateLimitPolicy, type Context } from '../_lib/calculadora-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
+import { createResponseTrace } from '../_lib/request-trace'
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -61,10 +62,11 @@ const mirrorPoliciesToBigdata = async (context: Context) => {
 }
 
 export async function onRequestGet(context: Context) {
+  const trace = createResponseTrace(context.request)
   const adminActor = resolveAdminActorFromRequest(context.request)
 
   if (!context.env.CALC_SOURCE_DB) {
-    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.' }, 503)
+    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.', ...trace }, 503)
   }
 
   try {
@@ -92,6 +94,7 @@ export async function onRequestGet(context: Context) {
       ok: true,
       admin_email: adminActor,
       admin_actor: adminActor,
+      ...trace,
       policies,
     })
   } catch (error) {
@@ -112,13 +115,15 @@ export async function onRequestGet(context: Context) {
       }
     }
 
-    return json({ ok: false, error: message }, 500)
+    return json({ ok: false, error: message, ...trace }, 500)
   }
 }
 
 export async function onRequestPost(context: Context) {
+  const trace = createResponseTrace(context.request)
+
   if (!context.env.CALC_SOURCE_DB) {
-    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.' }, 503)
+    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.', ...trace }, 503)
   }
 
   try {
@@ -127,7 +132,7 @@ export async function onRequestPost(context: Context) {
     const routeKey = normalizeRoute(body.route_key)
 
     if (!routeKey) {
-      return json({ ok: false, error: 'Rota de rate limit inválida.' }, 400)
+      return json({ ok: false, error: 'Rota de rate limit inválida.', ...trace }, 400)
     }
 
     const action = String(body.action ?? 'update').trim()
@@ -155,7 +160,7 @@ export async function onRequestPost(context: Context) {
         }
       }
 
-      return json({ ok: true, action: 'restore_default', policies, admin_actor: adminActor })
+      return json({ ok: true, action: 'restore_default', policies, admin_actor: adminActor, ...trace })
     }
 
     const enabled = body.enabled ? 1 : 0
@@ -163,7 +168,7 @@ export async function onRequestPost(context: Context) {
     const windowMinutes = toPositiveInt(body.window_minutes, 10)
 
     if (maxRequests > 5000 || windowMinutes > 1440) {
-      return json({ ok: false, error: 'Parâmetros fora da faixa permitida.' }, 400)
+      return json({ ok: false, error: 'Parâmetros fora da faixa permitida.', ...trace }, 400)
     }
 
     await upsertRateLimitPolicy(context.env.CALC_SOURCE_DB, {
@@ -198,7 +203,7 @@ export async function onRequestPost(context: Context) {
       }
     }
 
-    return json({ ok: true, action: 'update', policies, admin_actor: adminActor })
+    return json({ ok: true, action: 'update', policies, admin_actor: adminActor, ...trace })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao salvar painel de rate limit do Calculadora'
 
@@ -217,6 +222,6 @@ export async function onRequestPost(context: Context) {
       }
     }
 
-    return json({ ok: false, error: message }, 500)
+    return json({ ok: false, error: message, ...trace }, 500)
   }
 }

@@ -1,6 +1,7 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
 import { readLatestParams, SUPPORTED_ROUTES, toHeaders, toRate, validateRate, type Context } from '../_lib/calculadora-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
+import { createResponseTrace } from '../_lib/request-trace'
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -9,10 +10,11 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 
 export async function onRequestGet(context: Context) {
   const { env } = context
+  const trace = createResponseTrace(context.request)
   const adminActor = resolveAdminActorFromRequest(context.request)
 
   if (!env.CALC_SOURCE_DB) {
-    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.' }, 503)
+    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.', ...trace }, 503)
   }
 
   try {
@@ -41,6 +43,7 @@ export async function onRequestGet(context: Context) {
       ok: true,
       admin_email: adminActor,
       admin_actor: adminActor,
+      ...trace,
       parametros_vigentes: parametros,
       parametros_form: {
         iof_cartao_percent: Number((parametros.iof_cartao * 100).toFixed(4)),
@@ -71,15 +74,16 @@ export async function onRequestGet(context: Context) {
       }
     }
 
-    return json({ ok: false, error: message }, 500)
+    return json({ ok: false, error: message, ...trace }, 500)
   }
 }
 
 export async function onRequestPost(context: Context) {
   const { env } = context
+  const trace = createResponseTrace(context.request)
 
   if (!env.CALC_SOURCE_DB) {
-    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.' }, 503)
+    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.', ...trace }, 503)
   }
 
   try {
@@ -110,7 +114,7 @@ export async function onRequestPost(context: Context) {
     ].filter(Boolean)
 
     if (validations.length) {
-      return json({ ok: false, error: validations[0] }, 400)
+      return json({ ok: false, error: validations[0], ...trace }, 400)
     }
 
     const values = {
@@ -179,6 +183,7 @@ export async function onRequestPost(context: Context) {
       ok: true,
       admin_email: adminActor,
       admin_actor: adminActor,
+      ...trace,
       saved_at: new Date().toISOString(),
       parametros_salvos: values,
       mudancas_registradas: mudancas.length,
@@ -201,6 +206,6 @@ export async function onRequestPost(context: Context) {
       }
     }
 
-    return json({ ok: false, error: message }, 500)
+    return json({ ok: false, error: message, ...trace }, 500)
   }
 }

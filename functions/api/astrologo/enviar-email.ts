@@ -1,6 +1,7 @@
 import { logModuleOperationalEvent, type D1Database } from '../_lib/operational'
 import { toHeaders } from '../_lib/astrologo-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
+import { createResponseTrace } from '../_lib/request-trace'
 
 type Env = {
   RESEND_API_KEY?: string
@@ -21,6 +22,7 @@ const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.te
 
 export async function onRequestPost(context: Context) {
   const { request, env } = context
+  const trace = createResponseTrace(request)
 
   try {
     const body = await request.json() as Record<string, unknown>
@@ -31,15 +33,15 @@ export async function onRequestPost(context: Context) {
     const nomeConsulente = String(body.nomeConsulente ?? '').trim()
 
     if (!isValidEmail(emailDestino)) {
-      return json({ ok: false, error: 'E-mail de destino inválido.' }, 400)
+      return json({ ok: false, error: 'E-mail de destino inválido.', ...trace }, 400)
     }
 
     if (!relatorioHtml && !relatorioTexto) {
-      return json({ ok: false, error: 'Relatório vazio.' }, 400)
+      return json({ ok: false, error: 'Relatório vazio.', ...trace }, 400)
     }
 
     if (!env.RESEND_API_KEY) {
-      return json({ ok: false, error: 'RESEND_API_KEY não configurada no runtime.' }, 503)
+      return json({ ok: false, error: 'RESEND_API_KEY não configurada no runtime.', ...trace }, 503)
     }
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -81,7 +83,7 @@ export async function onRequestPost(context: Context) {
         }
       }
 
-      return json({ ok: false, error: message }, 502)
+      return json({ ok: false, error: message, ...trace }, 502)
     }
 
     if (env.BIGDATA_DB) {
@@ -108,6 +110,7 @@ export async function onRequestPost(context: Context) {
       provider: 'resend',
       id: resendPayload.id ?? null,
       admin_actor: adminActor,
+      ...trace,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha interna na comunicação do e-mail.'
@@ -129,6 +132,6 @@ export async function onRequestPost(context: Context) {
       }
     }
 
-    return json({ ok: false, error: message }, 500)
+    return json({ ok: false, error: message, ...trace }, 500)
   }
 }

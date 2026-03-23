@@ -1,6 +1,7 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
 import { toHeaders, type Context } from '../_lib/astrologo-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
+import { createResponseTrace } from '../_lib/request-trace'
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -8,8 +9,10 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 })
 
 export async function onRequestPost(context: Context) {
+  const trace = createResponseTrace(context.request)
+
   if (!context.env.ASTROLOGO_SOURCE_DB) {
-    return json({ ok: false, error: 'ASTROLOGO_SOURCE_DB não configurado no runtime.' }, 503)
+    return json({ ok: false, error: 'ASTROLOGO_SOURCE_DB não configurado no runtime.', ...trace }, 503)
   }
 
   try {
@@ -18,7 +21,7 @@ export async function onRequestPost(context: Context) {
     const id = String(body.id ?? '').trim()
 
     if (!id) {
-      return json({ ok: false, error: 'ID inválido.' }, 400)
+      return json({ ok: false, error: 'ID inválido.', ...trace }, 400)
     }
 
     await context.env.ASTROLOGO_SOURCE_DB.prepare('DELETE FROM mapas_astrologicos WHERE id = ?')
@@ -47,7 +50,7 @@ export async function onRequestPost(context: Context) {
       }
     }
 
-    return json({ ok: true, id, admin_actor: adminActor })
+    return json({ ok: true, id, admin_actor: adminActor, ...trace })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao excluir mapa do Astrólogo'
 
@@ -66,6 +69,6 @@ export async function onRequestPost(context: Context) {
       }
     }
 
-    return json({ ok: false, error: message }, 500)
+    return json({ ok: false, error: message, ...trace }, 500)
   }
 }
