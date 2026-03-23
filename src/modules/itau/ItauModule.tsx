@@ -88,6 +88,9 @@ const initialResumo: Resumo = {
 
 export function ItauModule() {
   const { showNotification } = useNotification()
+  const withTrace = (message: string, payload?: { request_id?: string }) => (
+    payload?.request_id ? `${message} (req ${payload.request_id})` : message
+  )
 
   const [loading, setLoading] = useState(false)
   const [loadingParametros, setLoadingParametros] = useState(false)
@@ -185,13 +188,13 @@ export function ItauModule() {
         }),
       })
 
-      const payload = await response.json() as { ok: boolean; error?: string }
+      const payload = await response.json() as { ok: boolean; error?: string; request_id?: string }
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error ?? 'Falha ao salvar parâmetros do Itaú.')
       }
 
       await loadParametros()
-      showNotification('Parâmetros administrativos do Itaú salvos com sucesso.', 'success')
+      showNotification(withTrace('Parâmetros administrativos do Itaú salvos com sucesso.', payload), 'success')
     } catch {
       showNotification('Não foi possível salvar os parâmetros do Itaú.', 'error')
     } finally {
@@ -236,15 +239,15 @@ export function ItauModule() {
         }),
       })
 
-      const payload = await response.json() as { ok: boolean; error?: string; policies?: RatePolicy[] }
+      const payload = await response.json() as { ok: boolean; error?: string; policies?: RatePolicy[]; request_id?: string }
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error ?? 'Falha ao salvar policy de rate limit do Itaú.')
       }
 
       setRatePolicies(Array.isArray(payload.policies) ? payload.policies : [])
-      showNotification(action === 'restore_default'
+      showNotification(withTrace(action === 'restore_default'
         ? `Policy ${routeKey} restaurada para padrão.`
-        : `Policy ${routeKey} atualizada com sucesso.`, 'success')
+        : `Policy ${routeKey} atualizada com sucesso.`, payload), 'success')
     } catch {
       showNotification('Não foi possível salvar a policy de rate limit do Itaú.', 'error')
     } finally {

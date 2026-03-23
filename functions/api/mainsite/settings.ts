@@ -1,24 +1,29 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
 import { fetchLegacyAdminJson, readLegacyPublicSettings, type Context, type MainsitePublicSettings, toHeaders, upsertPublicSettingsIntoBigdata } from '../_lib/mainsite-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
+import { createResponseTrace, type ResponseTrace } from '../_lib/request-trace'
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const buildErrorResponse = (message: string, status = 500) => new Response(JSON.stringify({
+const buildErrorResponse = (message: string, trace: ResponseTrace, status = 500) => new Response(JSON.stringify({
   ok: false,
   error: message,
+  ...trace,
 }), {
   status,
   headers: toHeaders(),
 })
 
 export async function onRequestGet(context: Context) {
+  const trace = createResponseTrace(context.request)
+
   try {
     const settings = await readLegacyPublicSettings(context.env)
 
     return new Response(JSON.stringify({
       ok: true,
       settings,
+      ...trace,
     }), {
       headers: toHeaders(),
     })
@@ -42,17 +47,19 @@ export async function onRequestGet(context: Context) {
       }
     }
 
-    return buildErrorResponse(message, 502)
+    return buildErrorResponse(message, trace, 502)
   }
 }
 
 export async function onRequestPut(context: Context) {
+  const trace = createResponseTrace(context.request)
+
   try {
     const body = await context.request.json() as Partial<MainsitePublicSettings>
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
 
     if (!isRecord(body.appearance) || !isRecord(body.rotation) || !isRecord(body.disclaimers)) {
-      return buildErrorResponse('Appearance, rotation e disclaimers precisam ser objetos JSON válidos.', 400)
+      return buildErrorResponse('Appearance, rotation e disclaimers precisam ser objetos JSON válidos.', trace, 400)
     }
 
     const settings: MainsitePublicSettings = {
@@ -92,6 +99,7 @@ export async function onRequestPut(context: Context) {
       ok: true,
       settingsUpserted,
       admin_actor: adminActor,
+      ...trace,
     }), {
       headers: toHeaders(),
     })
@@ -115,6 +123,6 @@ export async function onRequestPut(context: Context) {
       }
     }
 
-    return buildErrorResponse(message)
+    return buildErrorResponse(message, trace)
   }
 }

@@ -1,6 +1,7 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
 import { fetchLegacyAdminJson, fetchLegacyJson, type Context, type LegacyPost, toHeaders, upsertPostsIntoBigdata } from '../_lib/mainsite-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
+import { createResponseTrace, type ResponseTrace } from '../_lib/request-trace'
 
 const parseId = (rawValue: unknown) => {
   const parsed = Number(rawValue)
@@ -10,22 +11,25 @@ const parseId = (rawValue: unknown) => {
   return parsed
 }
 
-const buildErrorResponse = (message: string, status = 500) => new Response(JSON.stringify({
+const buildErrorResponse = (message: string, trace: ResponseTrace, status = 500) => new Response(JSON.stringify({
   ok: false,
   error: message,
+  ...trace,
 }), {
   status,
   headers: toHeaders(),
 })
 
 export async function onRequestPost(context: Context) {
+  const trace = createResponseTrace(context.request)
+
   try {
     const body = await context.request.json() as { id?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
     const id = parseId(body.id)
 
     if (!id) {
-      return buildErrorResponse('ID válido é obrigatório para alternar fixação do post.', 400)
+      return buildErrorResponse('ID válido é obrigatório para alternar fixação do post.', trace, 400)
     }
 
     const payload = await fetchLegacyAdminJson<{ success?: boolean; is_pinned?: number }>(
@@ -67,6 +71,7 @@ export async function onRequestPost(context: Context) {
       isPinned: Number(payload.is_pinned ?? 0) === 1,
       syncedPosts,
       admin_actor: adminActor,
+      ...trace,
     }), {
       headers: toHeaders(),
     })
@@ -90,6 +95,6 @@ export async function onRequestPost(context: Context) {
       }
     }
 
-    return buildErrorResponse(message)
+    return buildErrorResponse(message, trace)
   }
 }

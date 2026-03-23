@@ -1,6 +1,7 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
 import { deletePostFromBigdata, fetchLegacyAdminJson, fetchLegacyJson, type Context, type LegacyPost, toHeaders, upsertPostsIntoBigdata } from '../_lib/mainsite-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
+import { createResponseTrace, type ResponseTrace } from '../_lib/request-trace'
 
 const parseId = (rawValue: unknown) => {
   const parsed = Number(rawValue)
@@ -12,9 +13,10 @@ const parseId = (rawValue: unknown) => {
 
 const parseText = (rawValue: unknown) => String(rawValue ?? '').trim()
 
-const buildErrorResponse = (message: string, status = 500) => new Response(JSON.stringify({
+const buildErrorResponse = (message: string, trace: ResponseTrace, status = 500) => new Response(JSON.stringify({
   ok: false,
   error: message,
+  ...trace,
 }), {
   status,
   headers: toHeaders(),
@@ -22,19 +24,20 @@ const buildErrorResponse = (message: string, status = 500) => new Response(JSON.
 
 export async function onRequestGet(context: Context) {
   const { request } = context
+  const trace = createResponseTrace(request)
   const url = new URL(request.url)
   const id = parseId(url.searchParams.get('id'))
 
   try {
     if (id) {
       const payload = await fetchLegacyJson<LegacyPost>(context.env, `/api/posts/${id}`, 'Falha ao consultar post do MainSite legado')
-      return new Response(JSON.stringify({ ok: true, post: payload }), {
+      return new Response(JSON.stringify({ ok: true, post: payload, ...trace }), {
         headers: toHeaders(),
       })
     }
 
     const payload = await fetchLegacyJson<LegacyPost[]>(context.env, '/api/posts', 'Falha ao listar posts do MainSite legado')
-    return new Response(JSON.stringify({ ok: true, posts: Array.isArray(payload) ? payload : [] }), {
+    return new Response(JSON.stringify({ ok: true, posts: Array.isArray(payload) ? payload : [], ...trace }), {
       headers: toHeaders(),
     })
   } catch (error) {
@@ -57,11 +60,13 @@ export async function onRequestGet(context: Context) {
       }
     }
 
-    return buildErrorResponse(message, 502)
+    return buildErrorResponse(message, trace, 502)
   }
 }
 
 export async function onRequestPost(context: Context) {
+  const trace = createResponseTrace(context.request)
+
   try {
     const body = await context.request.json() as { title?: unknown; content?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
@@ -69,7 +74,7 @@ export async function onRequestPost(context: Context) {
     const content = parseText(body.content)
 
     if (!title || !content) {
-      return buildErrorResponse('Título e conteúdo são obrigatórios para criar um post.', 400)
+      return buildErrorResponse('Título e conteúdo são obrigatórios para criar um post.', trace, 400)
     }
 
     await fetchLegacyAdminJson<{ success?: boolean }>(
@@ -108,6 +113,7 @@ export async function onRequestPost(context: Context) {
       ok: true,
       syncedPosts,
       admin_actor: adminActor,
+      ...trace,
     }), {
       status: 201,
       headers: toHeaders(),
@@ -132,11 +138,13 @@ export async function onRequestPost(context: Context) {
       }
     }
 
-    return buildErrorResponse(message)
+    return buildErrorResponse(message, trace)
   }
 }
 
 export async function onRequestPut(context: Context) {
+  const trace = createResponseTrace(context.request)
+
   try {
     const body = await context.request.json() as { id?: unknown; title?: unknown; content?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
@@ -145,7 +153,7 @@ export async function onRequestPut(context: Context) {
     const content = parseText(body.content)
 
     if (!id || !title || !content) {
-      return buildErrorResponse('ID, título e conteúdo são obrigatórios para atualizar um post.', 400)
+      return buildErrorResponse('ID, título e conteúdo são obrigatórios para atualizar um post.', trace, 400)
     }
 
     await fetchLegacyAdminJson<{ success?: boolean }>(
@@ -184,6 +192,7 @@ export async function onRequestPut(context: Context) {
       ok: true,
       syncedPosts,
       admin_actor: adminActor,
+      ...trace,
     }), {
       headers: toHeaders(),
     })
@@ -207,18 +216,20 @@ export async function onRequestPut(context: Context) {
       }
     }
 
-    return buildErrorResponse(message)
+    return buildErrorResponse(message, trace)
   }
 }
 
 export async function onRequestDelete(context: Context) {
+  const trace = createResponseTrace(context.request)
+
   try {
     const body = await context.request.json() as { id?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
     const id = parseId(body.id)
 
     if (!id) {
-      return buildErrorResponse('ID válido é obrigatório para excluir um post.', 400)
+      return buildErrorResponse('ID válido é obrigatório para excluir um post.', trace, 400)
     }
 
     await fetchLegacyAdminJson<{ success?: boolean }>(
@@ -254,6 +265,7 @@ export async function onRequestDelete(context: Context) {
       ok: true,
       deletedId: id,
       admin_actor: adminActor,
+      ...trace,
     }), {
       headers: toHeaders(),
     })
@@ -277,6 +289,6 @@ export async function onRequestDelete(context: Context) {
       }
     }
 
-    return buildErrorResponse(message)
+    return buildErrorResponse(message, trace)
   }
 }

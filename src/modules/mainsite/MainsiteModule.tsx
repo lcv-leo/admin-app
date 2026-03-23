@@ -56,6 +56,9 @@ const initialPayload: OverviewPayload = {
 
 export function MainsiteModule() {
   const { showNotification } = useNotification()
+  const withTrace = (message: string, payload?: { request_id?: string }) => (
+    payload?.request_id ? `${message} (req ${payload.request_id})` : message
+  )
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [postsLoading, setPostsLoading] = useState(false)
   const [settingsLoading, setSettingsLoading] = useState(false)
@@ -227,7 +230,7 @@ export function MainsiteModule() {
         }),
       })
 
-      const nextPayload = await response.json() as { ok: boolean; error?: string }
+      const nextPayload = await response.json() as { ok: boolean; error?: string; request_id?: string }
 
       if (!response.ok || !nextPayload.ok) {
         throw new Error(nextPayload.error ?? 'Falha ao salvar o post do MainSite.')
@@ -235,7 +238,7 @@ export function MainsiteModule() {
 
       resetPostEditor()
       await Promise.all([loadManagedPosts(), loadOverview()])
-      showNotification(isEditing ? 'Post do MainSite atualizado com sucesso.' : 'Post do MainSite criado com sucesso.', 'success')
+      showNotification(withTrace(isEditing ? 'Post do MainSite atualizado com sucesso.' : 'Post do MainSite criado com sucesso.', nextPayload), 'success')
     } catch {
       showNotification('Não foi possível salvar o post do MainSite.', 'error')
     } finally {
@@ -259,7 +262,7 @@ export function MainsiteModule() {
         body: JSON.stringify({ id, adminActor }),
       })
 
-      const nextPayload = await response.json() as { ok: boolean; error?: string }
+      const nextPayload = await response.json() as { ok: boolean; error?: string; request_id?: string }
       if (!response.ok || !nextPayload.ok) {
         throw new Error(nextPayload.error ?? 'Falha ao excluir o post do MainSite.')
       }
@@ -269,7 +272,7 @@ export function MainsiteModule() {
       }
 
       await Promise.all([loadManagedPosts(), loadOverview()])
-      showNotification('Post do MainSite excluído com sucesso.', 'success')
+      showNotification(withTrace('Post do MainSite excluído com sucesso.', nextPayload), 'success')
     } catch {
       showNotification('Não foi possível excluir o post do MainSite.', 'error')
     } finally {
@@ -289,13 +292,13 @@ export function MainsiteModule() {
         body: JSON.stringify({ id, adminActor }),
       })
 
-      const nextPayload = await response.json() as { ok: boolean; error?: string; isPinned?: boolean }
+      const nextPayload = await response.json() as { ok: boolean; error?: string; isPinned?: boolean; request_id?: string }
       if (!response.ok || !nextPayload.ok) {
         throw new Error(nextPayload.error ?? 'Falha ao alternar fixação do post do MainSite.')
       }
 
       await Promise.all([loadManagedPosts(), loadOverview()])
-      showNotification(nextPayload.isPinned ? 'Post fixado com sucesso.' : 'Post desafixado com sucesso.', 'success')
+      showNotification(withTrace(nextPayload.isPinned ? 'Post fixado com sucesso.' : 'Post desafixado com sucesso.', nextPayload), 'success')
     } catch {
       showNotification('Não foi possível alternar a fixação do post.', 'error')
     } finally {
@@ -332,13 +335,13 @@ export function MainsiteModule() {
         }),
       })
 
-      const nextPayload = await response.json() as { ok: boolean; error?: string }
+      const nextPayload = await response.json() as { ok: boolean; error?: string; request_id?: string }
       if (!response.ok || !nextPayload.ok) {
         throw new Error(nextPayload.error ?? 'Falha ao salvar os settings públicos do MainSite.')
       }
 
       await Promise.all([loadPublicSettings(), loadOverview()])
-      showNotification('Settings públicos do MainSite salvos com sucesso.', 'success')
+      showNotification(withTrace('Settings públicos do MainSite salvos com sucesso.', nextPayload), 'success')
     } catch {
       showNotification('Não foi possível salvar os settings públicos do MainSite.', 'error')
     } finally {

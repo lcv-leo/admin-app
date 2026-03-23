@@ -61,6 +61,9 @@ const initialPayload: MtastsPayload = {
 
 export function MtastsModule() {
   const { showNotification } = useNotification()
+  const withTrace = (message: string, payload?: { request_id?: string }) => (
+    payload?.request_id ? `${message} (req ${payload.request_id})` : message
+  )
   const [overviewLoading, setOverviewLoading] = useState(false)
   const [zonesLoading, setZonesLoading] = useState(false)
   const [policyLoading, setPolicyLoading] = useState(false)
@@ -238,7 +241,7 @@ export function MtastsModule() {
         }),
       })
 
-      const nextPayload = await response.json() as { ok: boolean; error?: string; id?: string }
+      const nextPayload = await response.json() as { ok: boolean; error?: string; id?: string; request_id?: string }
       if (!response.ok || !nextPayload.ok) {
         throw new Error(nextPayload.error ?? 'Falha ao orquestrar sincronização MTA-STS.')
       }
@@ -262,7 +265,7 @@ export function MtastsModule() {
         })(),
       ])
 
-      showNotification(`MTA-STS sincronizado com sucesso para ${selectedDomain}.`, 'success')
+      showNotification(withTrace(`MTA-STS sincronizado com sucesso para ${selectedDomain}.`, nextPayload), 'success')
     } catch {
       showNotification('Não foi possível executar a sincronização orquestrada do MTA-STS.', 'error')
     } finally {

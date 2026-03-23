@@ -58,6 +58,9 @@ type RatePolicy = {
 
 export function AstrologoModule() {
   const { showNotification } = useNotification()
+  const withTrace = (message: string, payload?: { request_id?: string }) => (
+    payload?.request_id ? `${message} (req ${payload.request_id})` : message
+  )
   const [loading, setLoading] = useState(false)
   const [loadingRateLimit, setLoadingRateLimit] = useState(false)
   const [updatingRateRoute, setUpdatingRateRoute] = useState<string | null>(null)
@@ -140,14 +143,14 @@ export function AstrologoModule() {
         body: JSON.stringify({ id, adminActor }),
       })
 
-      const payload = await response.json() as { ok: boolean; error?: string; mapa?: MapaDetalhado }
+      const payload = await response.json() as { ok: boolean; error?: string; mapa?: MapaDetalhado; request_id?: string }
 
       if (!response.ok || !payload.ok || !payload.mapa) {
         throw new Error(payload.error ?? 'Falha ao ler mapa do Astrólogo.')
       }
 
       setSelectedMapa(payload.mapa)
-      showNotification('Mapa carregado com detalhes completos.', 'success')
+      showNotification(withTrace('Mapa carregado com detalhes completos.', payload), 'success')
     } catch {
       showNotification('Não foi possível carregar os detalhes do mapa.', 'error')
     } finally {
@@ -172,14 +175,14 @@ export function AstrologoModule() {
         body: JSON.stringify({ id, adminActor }),
       })
 
-      const payload = await response.json() as { ok: boolean; error?: string }
+      const payload = await response.json() as { ok: boolean; error?: string; request_id?: string }
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error ?? 'Falha ao excluir mapa do Astrólogo.')
       }
 
       setItems((current) => current.filter((item) => item.id !== id))
       setSelectedMapa((current) => (current?.id === id ? null : current))
-      showNotification('Mapa excluído com sucesso.', 'success')
+      showNotification(withTrace('Mapa excluído com sucesso.', payload), 'success')
     } catch {
       showNotification('Não foi possível excluir o mapa selecionado.', 'error')
     } finally {
@@ -229,15 +232,15 @@ export function AstrologoModule() {
         }),
       })
 
-      const payload = await response.json() as { ok: boolean; error?: string; policies?: RatePolicy[] }
+      const payload = await response.json() as { ok: boolean; error?: string; policies?: RatePolicy[]; request_id?: string }
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error ?? 'Falha ao salvar policy de rate limit do Astrólogo.')
       }
 
       setRatePolicies(Array.isArray(payload.policies) ? payload.policies : [])
-      showNotification(action === 'restore_default'
+      showNotification(withTrace(action === 'restore_default'
         ? `Policy ${route} restaurada para padrão.`
-        : `Policy ${route} atualizada com sucesso.`, 'success')
+        : `Policy ${route} atualizada com sucesso.`, payload), 'success')
     } catch {
       showNotification('Não foi possível salvar a policy de rate limit do Astrólogo.', 'error')
     } finally {
@@ -275,12 +278,12 @@ export function AstrologoModule() {
         }),
       })
 
-      const payload = await response.json() as { ok: boolean; error?: string }
+      const payload = await response.json() as { ok: boolean; error?: string; request_id?: string }
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error ?? 'Falha ao enviar e-mail do Astrólogo.')
       }
 
-      showNotification('E-mail enviado com sucesso para o consulente.', 'success')
+      showNotification(withTrace('E-mail enviado com sucesso para o consulente.', payload), 'success')
     } catch {
       showNotification('Não foi possível enviar o e-mail do Astrólogo.', 'error')
     } finally {

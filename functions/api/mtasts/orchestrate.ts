@@ -1,6 +1,7 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
 import { generateMtastsId, normalizeDomain, postLegacyJson, type Context, toHeaders } from '../_lib/mtasts-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
+import { createResponseTrace, type ResponseTrace } from '../_lib/request-trace'
 
 type OrchestratePayload = {
   domain?: unknown
@@ -9,9 +10,10 @@ type OrchestratePayload = {
   tlsrptEmail?: unknown
 }
 
-const toError = (message: string, status = 500) => new Response(JSON.stringify({
+const toError = (message: string, trace: ResponseTrace, status = 500) => new Response(JSON.stringify({
   ok: false,
   error: message,
+  ...trace,
 }), {
   status,
   headers: toHeaders(),
@@ -28,6 +30,8 @@ const normalizeTlsRptEmail = (value: unknown) => {
 }
 
 export async function onRequestPost(context: Context) {
+  const trace = createResponseTrace(context.request)
+
   try {
     const body = await context.request.json() as OrchestratePayload
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
@@ -38,7 +42,7 @@ export async function onRequestPost(context: Context) {
     const tlsrptEmail = normalizeTlsRptEmail(body.tlsrptEmail)
 
     if (!domain || !zoneId || !policyText) {
-      return toError('Domain, zoneId e policyText são obrigatórios para orquestrar o MTA-STS.', 400)
+      return toError('Domain, zoneId e policyText são obrigatórios para orquestrar o MTA-STS.', trace, 400)
     }
 
     const id = generateMtastsId()
@@ -122,6 +126,7 @@ export async function onRequestPost(context: Context) {
       policySaved: true,
       historySaved: true,
       admin_actor: adminActor,
+      ...trace,
     }), {
       headers: toHeaders(),
     })
@@ -145,6 +150,6 @@ export async function onRequestPost(context: Context) {
       }
     }
 
-    return toError(message)
+    return toError(message, trace)
   }
 }
