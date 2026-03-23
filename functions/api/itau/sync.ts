@@ -30,6 +30,8 @@ type LegacyRateLimitResponse = {
 type Env = {
   BIGDATA_DB?: D1Database
   CALC_ADMIN_API_BASE_URL?: string
+  CALC_CF_ACCESS_CLIENT_ID?: string
+  CALC_CF_ACCESS_CLIENT_SECRET?: string
 }
 
 type Context = {
@@ -183,14 +185,20 @@ export async function onRequestPost(context: Context) {
   try {
     const baseUrl = normalizeBaseUrl(env.CALC_ADMIN_API_BASE_URL ?? DEFAULT_CALC_ADMIN_URL)
 
+    const cfAccessHeaders: Record<string, string> = {}
+    if (env.CALC_CF_ACCESS_CLIENT_ID && env.CALC_CF_ACCESS_CLIENT_SECRET) {
+      cfAccessHeaders['CF-Access-Client-Id'] = env.CALC_CF_ACCESS_CLIENT_ID
+      cfAccessHeaders['CF-Access-Client-Secret'] = env.CALC_CF_ACCESS_CLIENT_SECRET
+    }
+
     const [overviewResponse, rateLimitResponse] = await Promise.all([
       fetch(`${baseUrl}/api/admin/overview`, {
         method: 'GET',
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...cfAccessHeaders },
       }),
       fetch(`${baseUrl}/api/admin/rate-limit`, {
         method: 'GET',
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...cfAccessHeaders },
       }),
     ])
 
