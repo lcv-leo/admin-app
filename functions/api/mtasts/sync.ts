@@ -1,9 +1,12 @@
 import { finishSyncRun, logModuleOperationalEvent, startSyncRun } from '../_lib/operational'
 import type { D1Database } from '../_lib/operational'
+import { getCloudflareDnsSnapshot, listCloudflareZones } from '../_lib/cloudflare-api'
 
 type Env = {
   BIGDATA_DB?: D1Database
-  MTASTS_ADMIN_API_BASE_URL?: string
+  CF_API_TOKEN?: string
+  CLOUDFLARE_DNS?: string
+  CLOUDFLARE_API_TOKEN?: string
 }
 
 type Context = {
@@ -11,71 +14,23 @@ type Context = {
   env: Env
 }
 
-type LegacyZone = {
-  name?: string
-  id?: string
-}
-
-type LegacyHistoryRow = {
+type HistoryRow = {
   gerado_em?: string
   domain?: string | null
 }
 
-type LegacyPolicyPayload = {
-  savedPolicy?: string | null
-  savedEmail?: string | null
-}
-
-type SyncHistoryRow = {
-  geradoEm: string
-  domain: string | null
-}
-
-type SyncPolicyRow = {
+type PolicyRow = {
   domain: string
-  policyText: string
-  tlsrptEmail: string | null
+  policy_text?: string | null
+  tlsrpt_email?: string | null
 }
-
-const DEFAULT_MTASTS_ADMIN_URL = 'https://mtasts-admin.lcv.app.br'
 
 const parseDryRun = (rawValue: string | null) => rawValue === '1' || rawValue === 'true'
-
-const normalizeBaseUrl = (value: string) => value.endsWith('/') ? value.slice(0, -1) : value
 
 const toHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
 })
-
-const toSyncHistoryRow = (row: LegacyHistoryRow) => {
-  const geradoEm = String(row.gerado_em ?? '').trim()
-  if (!geradoEm) {
-    return null
-  }
-
-  const domain = row.domain == null ? null : String(row.domain).trim().toLowerCase()
-
-  return {
-    geradoEm,
-    domain,
-  } satisfies SyncHistoryRow
-}
-
-const toSyncPolicyRow = (zone: LegacyZone, payload: LegacyPolicyPayload) => {
-  const domain = String(zone.name ?? '').trim().toLowerCase()
-  const policyText = String(payload.savedPolicy ?? '').trim()
-
-  if (!domain || !policyText) {
-    return null
-  }
-
-  return {
-    domain,
-    policyText,
-    tlsrptEmail: payload.savedEmail == null ? null : String(payload.savedEmail).trim().toLowerCase(),
-  } satisfies SyncPolicyRow
-}
 
 export async function onRequestPost(context: Context) {
   const { request, env } = context
@@ -92,7 +47,6 @@ export async function onRequestPost(context: Context) {
 
   const url = new URL(request.url)
   const dryRun = parseDryRun(url.searchParams.get('dryRun'))
-  const baseUrl = normalizeBaseUrl(env.MTASTS_ADMIN_API_BASE_URL ?? DEFAULT_MTASTS_ADMIN_URL)
 
   const startedAt = Date.now()
   const syncRunId = await startSyncRun(env.BIGDATA_DB, {
@@ -103,45 +57,36 @@ export async function onRequestPost(context: Context) {
   })
 
   try {
-    const [historyResponse, zonesResponse] = await Promise.all([
-      fetch(`${baseUrl}/api/id`, { headers: { Accept: 'application/json' } }),
-      fetch(`${baseUrl}/api/zones`, { headers: { Accept: 'application/json' } }),
+    const [zones, historyRowsRaw, policyRowsRaw] = await Promise.all([
+      listCloudflareZones(env),
+      env.BIGDATA_DB.prepare('SELECT gerado_em, domain FROM mtasts_history ORDER BY id DESC').all<HistoryRow>(),
+      env.BIGDATA_DB.prepare('SELECT domain, policy_text, tlsrpt_email FROM mtasts_mta_sts_policies').all<PolicyRow>(),
     ])
 
-    if (!historyResponse.ok) {
-      throw new Error(`Falha ao ler histórico do legado MTA-STS: HTTP ${historyResponse.status}`)
-    }
+    const historyRows = (historyRowsRaw.results ?? [])
+      .map((row) => ({
+        geradoEm: String(row.gerado_em ?? '').trim(),
+        domain: row.domain == null ? null : String(row.domain).trim().toLowerCase(),
+      }))
+      .filter((row) => row.geradoEm)
 
-    if (!zonesResponse.ok) {
-      throw new Error(`Falha ao ler zonas do legado MTA-STS: HTTP ${zonesResponse.status}`)
-    }
+    const policyByDomain = new Map(
+      (policyRowsRaw.results ?? [])
+        .map((row) => ({
+          domain: String(row.domain ?? '').trim().toLowerCase(),
+          policyText: String(row.policy_text ?? '').trim(),
+          tlsrptEmail: row.tlsrpt_email == null ? null : String(row.tlsrpt_email).trim().toLowerCase(),
+        }))
+        .filter((row) => row.domain && row.policyText)
+        .map((row) => [row.domain, row] as const),
+    )
 
-    const historyPayload = await historyResponse.json() as LegacyHistoryRow[]
-    const zonesPayload = await zonesResponse.json() as LegacyZone[]
-
-    const historyRows = (Array.isArray(historyPayload) ? historyPayload : [])
-      .map((row) => toSyncHistoryRow(row))
-      .filter((row): row is SyncHistoryRow => row !== null)
-
-    const zones = (Array.isArray(zonesPayload) ? zonesPayload : [])
-      .filter((zone) => String(zone.name ?? '').trim() && String(zone.id ?? '').trim())
-
-    const policyResponses = await Promise.all(zones.map(async (zone) => {
-      const domain = String(zone.name ?? '').trim().toLowerCase()
-      const zoneId = String(zone.id ?? '').trim()
-      const response = await fetch(`${baseUrl}/api/policy?domain=${encodeURIComponent(domain)}&zoneId=${encodeURIComponent(zoneId)}`, {
-        headers: { Accept: 'application/json' },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Falha ao ler policy de ${domain}: HTTP ${response.status}`)
-      }
-
-      const payload = await response.json() as LegacyPolicyPayload
-      return toSyncPolicyRow(zone, payload)
-    }))
-
-    const policyRows = policyResponses.filter((row): row is SyncPolicyRow => row !== null)
+    const dnsSnapshots = await Promise.all(
+      zones.map(async (zone) => ({
+        zone,
+        dns: await getCloudflareDnsSnapshot(env, zone.name, zone.id),
+      })),
+    )
 
     let historyUpserted = 0
     let policiesUpserted = 0
@@ -160,7 +105,15 @@ export async function onRequestPost(context: Context) {
         historyUpserted += 1
       }
 
-      for (const row of policyRows) {
+      for (const item of dnsSnapshots) {
+        const domain = item.zone.name
+        const existing = policyByDomain.get(domain)
+        const policyText = existing?.policyText
+
+        if (!policyText) {
+          continue
+        }
+
         await env.BIGDATA_DB.prepare(`
           INSERT INTO mtasts_mta_sts_policies (domain, policy_text, tlsrpt_email, updated_at)
           VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -169,14 +122,14 @@ export async function onRequestPost(context: Context) {
             tlsrpt_email = excluded.tlsrpt_email,
             updated_at = CURRENT_TIMESTAMP
         `)
-          .bind(row.domain, row.policyText, row.tlsrptEmail)
+          .bind(domain, policyText, item.dns.dnsTlsRptEmail ?? existing.tlsrptEmail)
           .run()
 
         policiesUpserted += 1
       }
     }
 
-    const recordsRead = historyRows.length + policyRows.length
+    const recordsRead = historyRows.length + dnsSnapshots.length
     const recordsUpserted = dryRun ? 0 : historyUpserted + policiesUpserted
 
     await finishSyncRun(env.BIGDATA_DB, {
@@ -194,11 +147,12 @@ export async function onRequestPost(context: Context) {
       ok: true,
       metadata: {
         action: 'sync',
-        pulledFrom: 'legacy-admin',
+        pulledFrom: 'cloudflare-api+d1',
+        provider: 'cloudflare-api',
         dryRun,
         historyLido: historyRows.length,
         historyUpserted: dryRun ? 0 : historyUpserted,
-        policiesLidas: policyRows.length,
+        policiesLidas: dnsSnapshots.length,
         policiesUpserted: dryRun ? 0 : policiesUpserted,
         zonesAuditadas: zones.length,
       },
@@ -215,7 +169,7 @@ export async function onRequestPost(context: Context) {
         upserted: dryRun ? 0 : historyUpserted,
       },
       policies: {
-        lidas: policyRows.length,
+        lidas: dnsSnapshots.length,
         upserted: dryRun ? 0 : policiesUpserted,
       },
       zonesAuditadas: zones.length,
@@ -244,7 +198,8 @@ export async function onRequestPost(context: Context) {
       errorMessage: message,
       metadata: {
         action: 'sync',
-        pulledFrom: 'legacy-admin',
+        pulledFrom: 'cloudflare-api+d1',
+        provider: 'cloudflare-api',
         dryRun,
       },
     })

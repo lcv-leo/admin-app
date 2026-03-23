@@ -14,17 +14,20 @@ Shell administrativo unificado da LCV em `admin.lcv.app.br`, desenvolvido com Re
 - Sync manual disponível para MainSite em `POST /api/mainsite/sync` (posts + settings públicos).
 - Ações administrativas do MainSite já disponíveis no shell: `GET|POST|PUT|DELETE /api/mainsite/posts`, `POST /api/mainsite/posts-pin` e `GET|PUT /api/mainsite/settings`.
 - Sync manual disponível para MTA-STS em `POST /api/mtasts/sync` (history + policies auditáveis por zonas).
-- Orquestração operacional do MTA-STS já disponível no shell: `GET /api/mtasts/zones`, `GET /api/mtasts/policy` e `POST /api/mtasts/orchestrate` (policy + DNS + novo ID).
+- Orquestração operacional do MTA-STS já disponível no shell: `GET /api/mtasts/zones`, `GET /api/mtasts/policy` e `POST /api/mtasts/orchestrate` com integração direta à API Cloudflare (sem dependência de admin legado protegido por Access).
 - Diretriz de continuidade: `adminhub` e `apphub` também serão incorporados ao `admin-app` como módulos, com configurações persistidas em D1 (`bigdata_db`) durante a consolidação.
 - Configuração dos hubs já disponível no shell: `GET|PUT /api/apphub/config` e `GET|PUT /api/adminhub/config` (bootstrap via `cards.json` legado e persistência em D1).
 - Convenção global de auditoria: ações administrativas críticas dos módulos (`astrologo`, `calculadora`, `mainsite` e `mtasts`) aceitam `X-Admin-Actor` e registram o operador na telemetria operacional (`adminapp_module_events`).
 - Convenção de rastreabilidade de resposta: endpoints administrativos, de leitura híbrida e de visão operacional retornam `request_id` e `timestamp` para correlação de logs/incidentes em suporte operacional.
 - Health check ativo em `/api/health`.
+- Diretriz operacional aplicada: fallback para URLs administrativas protegidas por Cloudflare Access foi desativado nos fluxos de leitura críticos (`mtasts`, `astrologo`, `calculadora`), priorizando D1/source DB e API Cloudflare.
 
 ## Diretivas de arquitetura
 
 - Segredos reais: **somente server-side** (Cloudflare Secrets).
+- Diretriz global de integração: como toda a operação roda em Cloudflare, priorizar APIs nativas da plataforma (D1, DNS/Zone API, Workers/Pages bindings) antes de depender de endpoints administrativos legados protegidos por Access.
 - Para habilitar CRUD e save de settings públicos do MainSite, configurar o secret `MAINSITE_WORKER_API_SECRET` no runtime do `admin-app`.
+- Para operações DNS/auditoria do MTA-STS, configurar no runtime um dos tokens: `CF_API_TOKEN` (preferencial), `CLOUDFLARE_DNS` ou `CLOUDFLARE_API_TOKEN`.
 - Variáveis client-side públicas: prefixo `VITE_`.
 - Migração D1 futura para `bigdata_db`:
   - **Prefixação obrigatória por contexto** em tabelas, índices e políticas.

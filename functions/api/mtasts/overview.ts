@@ -14,7 +14,6 @@ type D1Database = {
 
 type Env = {
   BIGDATA_DB?: D1Database
-  MTASTS_ADMIN_API_BASE_URL?: string
 }
 
 type Context = {
@@ -35,19 +34,10 @@ type MtastsPolicyRow = {
   updated_at?: string
 }
 
-type LegacyHistoryRow = {
-  gerado_em?: string
-  domain?: string | null
-}
-
-const DEFAULT_MTASTS_ADMIN_URL = 'https://mtasts-admin.lcv.app.br'
-
 const toResponseHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
 })
-
-const normalizeBaseUrl = (value: string) => value.endsWith('/') ? value.slice(0, -1) : value
 
 const parseLimit = (rawValue: string | null) => {
   const parsed = Number.parseInt(rawValue ?? '30', 10)
@@ -149,108 +139,26 @@ export async function onRequestGet(context: Context) {
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao consultar bigdata_db'
-      avisos.push(`Fallback para legado ativado: ${message}`)
+      avisos.push(`Leitura em modo D1 indisponível: ${message}`)
     }
   }
 
-  const legacyBaseUrl = normalizeBaseUrl(env.MTASTS_ADMIN_API_BASE_URL ?? DEFAULT_MTASTS_ADMIN_URL)
-  const legacyUrl = `${legacyBaseUrl}/api/id`
+  const message = 'BIGDATA_DB indisponível para leitura de overview do MTA-STS.'
 
-  try {
-    const response = await fetch(legacyUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Falha no backend legado MTA-STS: HTTP ${response.status}`)
-    }
-
-    const legacyPayload = await response.json() as LegacyHistoryRow[]
-    const rows = Array.isArray(legacyPayload) ? legacyPayload : []
-
-    let history = rows
-      .map((row) => mapHistoryRow(row))
-      .filter((item): item is NonNullable<ReturnType<typeof mapHistoryRow>> => item !== null)
-
-    if (domain) {
-      history = history.filter((item) => item.domain === domain)
-    }
-
-    history = history.slice(0, limit)
-
-    avisos.push('Policies não disponíveis no fallback público (/api/id) do legado MTA-STS.')
-
-    const payload = {
-      ok: true,
-      fonte: 'legacy-admin',
-      filtros: { domain, limit },
-      avisos,
-      resumo: {
-        totalHistorico: history.length,
-        totalPolicies: 0,
-      },
-      historico: history,
-      policies: [],
-    }
-
-    if (env.BIGDATA_DB) {
-      try {
-        await logModuleOperationalEvent(env.BIGDATA_DB, {
-          module: 'mtasts',
-          source: 'legacy-admin',
-          fallbackUsed: true,
-          ok: true,
-          metadata: {
-            totalHistorico: payload.resumo.totalHistorico,
-            totalPolicies: payload.resumo.totalPolicies,
-          },
-        })
-      } catch {
-        // Não bloquear resposta por falha de telemetria.
-      }
-    }
-
-    return new Response(JSON.stringify({
-      ...payload,
-      ...trace,
-    }), {
-      headers: toResponseHeaders(),
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erro desconhecido no módulo MTA-STS'
-
-    if (env.BIGDATA_DB) {
-      try {
-        await logModuleOperationalEvent(env.BIGDATA_DB, {
-          module: 'mtasts',
-          source: 'legacy-admin',
-          fallbackUsed: true,
-          ok: false,
-          errorMessage: message,
-        })
-      } catch {
-        // Não bloquear resposta por falha de telemetria.
-      }
-    }
-
-    return new Response(JSON.stringify({
-      ok: false,
-      ...trace,
-      error: message,
-      filtros: { domain, limit },
-      avisos,
-      resumo: {
-        totalHistorico: 0,
-        totalPolicies: 0,
-      },
-      historico: [],
-      policies: [],
-    }), {
-      status: 502,
-      headers: toResponseHeaders(),
-    })
-  }
+  return new Response(JSON.stringify({
+    ok: false,
+    ...trace,
+    error: message,
+    filtros: { domain, limit },
+    avisos: [...avisos, 'Fallback para admin legado desativado por Cloudflare Access.'],
+    resumo: {
+      totalHistorico: 0,
+      totalPolicies: 0,
+    },
+    historico: [],
+    policies: [],
+  }), {
+    status: 503,
+    headers: toResponseHeaders(),
+  })
 }

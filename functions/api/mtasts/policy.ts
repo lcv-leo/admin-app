@@ -1,6 +1,6 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
 import { createResponseTrace } from '../_lib/request-trace'
-import { fetchLegacyJson, normalizeDomain, type Context, type LegacyPolicyPayload, toHeaders } from '../_lib/mtasts-admin'
+import { getCloudflareDnsSnapshot } from '../_lib/cloudflare-api'
 
 type PolicyResponse = {
   savedPolicy: string | null
@@ -11,6 +11,43 @@ type PolicyResponse = {
   mxRecords: string[]
 }
 
+type Context = {
+  request: Request
+  env: {
+    BIGDATA_DB?: D1Database
+    CF_API_TOKEN?: string
+    CLOUDFLARE_DNS?: string
+    CLOUDFLARE_API_TOKEN?: string
+  }
+}
+
+type D1PreparedStatement = {
+  bind: (...values: Array<string | number | null>) => D1PreparedStatement
+  first: <T>() => Promise<T | null>
+  all: <T>() => Promise<{ results?: T[] }>
+  run: () => Promise<unknown>
+}
+
+type D1Database = {
+  prepare: (query: string) => D1PreparedStatement
+}
+
+type DbPolicyRow = {
+  policy_text?: string | null
+  tlsrpt_email?: string | null
+}
+
+type DbHistoryRow = {
+  gerado_em?: string | null
+}
+
+const normalizeDomain = (rawValue: string | null) => String(rawValue ?? '').trim().toLowerCase()
+
+const toHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store',
+})
+
 const toError = (message: string, trace: { request_id: string; timestamp: string }, status = 500) => new Response(JSON.stringify({
   ok: false,
   ...trace,
@@ -18,17 +55,6 @@ const toError = (message: string, trace: { request_id: string; timestamp: string
 }), {
   status,
   headers: toHeaders(),
-})
-
-const mapPolicyPayload = (payload: LegacyPolicyPayload): PolicyResponse => ({
-  savedPolicy: typeof payload.savedPolicy === 'string' ? payload.savedPolicy : null,
-  savedEmail: typeof payload.savedEmail === 'string' ? payload.savedEmail.trim().toLowerCase() : null,
-  dnsTlsRptEmail: typeof payload.dnsTlsRptEmail === 'string' ? payload.dnsTlsRptEmail.trim().toLowerCase() : null,
-  dnsMtaStsId: typeof payload.dnsMtaStsId === 'string' ? payload.dnsMtaStsId.trim() : null,
-  lastGeneratedId: typeof payload.lastGeneratedId === 'string' ? payload.lastGeneratedId.trim() : null,
-  mxRecords: Array.isArray(payload.mxRecords)
-    ? payload.mxRecords.map((record) => String(record).trim().toLowerCase()).filter(Boolean)
-    : [],
 })
 
 export async function onRequestGet(context: Context) {
@@ -42,23 +68,56 @@ export async function onRequestGet(context: Context) {
   }
 
   try {
-    const payload = await fetchLegacyJson<LegacyPolicyPayload>(
-      context.env,
-      `/api/policy?domain=${encodeURIComponent(domain)}&zoneId=${encodeURIComponent(zoneId)}`,
-      `Falha ao auditar policy do domínio ${domain}`,
-    )
+    const dnsSnapshot = await getCloudflareDnsSnapshot(context.env, domain, zoneId)
 
-    const mapped = mapPolicyPayload(payload)
+    let savedPolicy: string | null = null
+    let savedEmail: string | null = null
+    let lastGeneratedId: string | null = null
+
+    if (context.env.BIGDATA_DB) {
+      const policyRow = await context.env.BIGDATA_DB.prepare(`
+        SELECT policy_text, tlsrpt_email
+        FROM mtasts_mta_sts_policies
+        WHERE domain = ?
+        LIMIT 1
+      `)
+        .bind(domain)
+        .first<DbPolicyRow>()
+
+      const historyRow = await context.env.BIGDATA_DB.prepare(`
+        SELECT gerado_em
+        FROM mtasts_history
+        WHERE domain = ?
+        ORDER BY id DESC
+        LIMIT 1
+      `)
+        .bind(domain)
+        .first<DbHistoryRow>()
+
+      savedPolicy = typeof policyRow?.policy_text === 'string' ? policyRow.policy_text : null
+      savedEmail = typeof policyRow?.tlsrpt_email === 'string' ? policyRow.tlsrpt_email.trim().toLowerCase() : null
+      lastGeneratedId = typeof historyRow?.gerado_em === 'string' ? historyRow.gerado_em.trim() : null
+    }
+
+    const mapped: PolicyResponse = {
+      savedPolicy,
+      savedEmail,
+      dnsTlsRptEmail: dnsSnapshot.dnsTlsRptEmail,
+      dnsMtaStsId: dnsSnapshot.dnsMtaStsId,
+      lastGeneratedId,
+      mxRecords: dnsSnapshot.mxRecords,
+    }
 
     if (context.env.BIGDATA_DB) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mtasts',
-          source: 'legacy-admin',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: true,
           metadata: {
             action: 'policy-read',
+            provider: 'cloudflare-api',
             domain,
             hasSavedPolicy: Boolean(mapped.savedPolicy),
           },
@@ -84,12 +143,13 @@ export async function onRequestGet(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mtasts',
-          source: 'legacy-admin',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
           metadata: {
             action: 'policy-read',
+            provider: 'cloudflare-api',
             domain,
           },
         })
