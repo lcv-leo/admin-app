@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
+  AppWindow,
   ArrowUpRight,
   Database,
+  FolderKanban,
   Globe,
   Lock,
   PanelsTopLeft,
@@ -18,8 +20,10 @@ import { AstrologoModule } from './modules/astrologo/AstrologoModule'
 import { CalculadoraModule } from './modules/calculadora/CalculadoraModule'
 import { MainsiteModule } from './modules/mainsite/MainsiteModule'
 import { MtastsModule } from './modules/mtasts/MtastsModule'
+import { ApphubModule } from './modules/hubs/ApphubModule'
+import { AdminhubModule } from './modules/hubs/AdminhubModule'
 
-const APP_VERSION = 'APP v01.16.01'
+const APP_VERSION = 'APP v01.17.00'
 
 type OperationalModuleStatus = {
   module: string
@@ -47,7 +51,7 @@ type OperationalOverviewPayload = {
   sync: OperationalSyncStatus[]
 }
 
-type ModuleId = 'overview' | 'astrologo' | 'calculadora' | 'mainsite' | 'mtasts'
+type ModuleId = 'overview' | 'astrologo' | 'calculadora' | 'mainsite' | 'mtasts' | 'apphub' | 'adminhub'
 
 type ModuleCard = {
   id: Exclude<ModuleId, 'overview'>
@@ -96,6 +100,24 @@ const moduleCards: ModuleCard[] = [
     database: 'mtasts-admin_db',
     legacyAdmin: 'mtasts-admin.lcv.app.br',
   },
+  {
+    id: 'apphub',
+    title: 'AppHub',
+    description: 'Catálogo público de apps, agora consolidado como módulo configurável no admin-app.',
+    status: 'em-implantacao',
+    endpoint: '/api/apphub/config',
+    database: 'bigdata_db (apphub_cards)',
+    legacyAdmin: 'apphub.lcv.app.br',
+  },
+  {
+    id: 'adminhub',
+    title: 'AdminHub',
+    description: 'Catálogo administrativo consolidado no cockpit com persistência de configuração em D1.',
+    status: 'em-implantacao',
+    endpoint: '/api/adminhub/config',
+    database: 'bigdata_db (adminhub_cards)',
+    legacyAdmin: 'adminhub.lcv.app.br',
+  },
 ]
 
 const navItems: Array<{ id: ModuleId; label: string; icon: typeof PanelsTopLeft }> = [
@@ -104,6 +126,8 @@ const navItems: Array<{ id: ModuleId; label: string; icon: typeof PanelsTopLeft 
   { id: 'calculadora', label: 'Calculadora', icon: Database },
   { id: 'mainsite', label: 'MainSite', icon: Globe },
   { id: 'mtasts', label: 'MTA-STS', icon: ShieldCheck },
+  { id: 'apphub', label: 'AppHub', icon: AppWindow },
+  { id: 'adminhub', label: 'AdminHub', icon: FolderKanban },
 ]
 
 function App() {
@@ -187,7 +211,7 @@ function App() {
             <li>Novo shell entra em produção sem desligar os admins legados.</li>
             <li>Segredos reais ficam apenas em runtime server-side.</li>
             <li>`bigdata_db` entra na fase seguinte, com migração controlada e prefixação por contexto.</li>
-            <li>Em fase posterior, `adminhub` e `mtasts-admin` serão incorporados como módulos internos.</li>
+            <li>Diretriz vigente: `adminhub` e `apphub` em consolidação como módulos internos com persistência em D1.</li>
           </ul>
         </div>
       </aside>
@@ -228,8 +252,8 @@ function App() {
             <section className="metrics-grid">
               <article className="metric-card">
                 <div className="metric-icon"><PanelsTopLeft size={20} /></div>
-                <strong>4 módulos</strong>
-                <span>Astrólogo, Calculadora, MainSite e MTA-STS planejados no shell.</span>
+                <strong>6 módulos</strong>
+                <span>Astrólogo, Calculadora, MainSite, MTA-STS, AppHub e AdminHub no shell.</span>
               </article>
               <article className="metric-card">
                 <div className="metric-icon"><ShieldCheck size={20} /></div>
@@ -338,6 +362,10 @@ function App() {
           <MainsiteModule />
         ) : activeModule === 'mtasts' ? (
           <MtastsModule />
+        ) : activeModule === 'apphub' ? (
+          <ApphubModule />
+        ) : activeModule === 'adminhub' ? (
+          <AdminhubModule />
         ) : (
           <section className="detail-panel">
             <div className="detail-header">
