@@ -96,6 +96,7 @@ export function ItauModule() {
   const [updatingRateRoute, setUpdatingRateRoute] = useState<string | null>(null)
   const [moeda, setMoeda] = useState('')
   const [dias, setDias] = useState('7')
+  const [adminActor, setAdminActor] = useState('admin@app.lcv')
   const [fonte, setFonte] = useState<'bigdata_db' | 'legacy-admin'>('bigdata_db')
   const [resumo, setResumo] = useState<Resumo>(initialResumo)
   const [ultimasObservacoes, setUltimasObservacoes] = useState<Observacao[]>([])
@@ -107,7 +108,11 @@ export function ItauModule() {
   const loadParametros = useCallback(async (shouldNotify = false) => {
     setLoadingParametros(true)
     try {
-      const response = await fetch('/api/itau/parametros')
+      const response = await fetch('/api/itau/parametros', {
+        headers: {
+          'X-Admin-Actor': adminActor,
+        },
+      })
       const payload = await response.json() as { ok: boolean; error?: string; parametros_form?: ParametrosForm }
 
       if (!response.ok || !payload.ok || !payload.parametros_form) {
@@ -123,12 +128,16 @@ export function ItauModule() {
     } finally {
       setLoadingParametros(false)
     }
-  }, [showNotification])
+  }, [adminActor, showNotification])
 
   const loadRateLimit = useCallback(async (shouldNotify = false) => {
     setLoadingRateLimit(true)
     try {
-      const response = await fetch('/api/itau/rate-limit')
+      const response = await fetch('/api/itau/rate-limit', {
+        headers: {
+          'X-Admin-Actor': adminActor,
+        },
+      })
       const payload = await response.json() as { ok: boolean; error?: string; policies?: RatePolicy[] }
 
       if (!response.ok || !payload.ok) {
@@ -144,7 +153,7 @@ export function ItauModule() {
     } finally {
       setLoadingRateLimit(false)
     }
-  }, [showNotification])
+  }, [adminActor, showNotification])
 
   useEffect(() => {
     void loadParametros()
@@ -168,8 +177,12 @@ export function ItauModule() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Admin-Actor': adminActor,
         },
-        body: JSON.stringify(parametrosForm),
+        body: JSON.stringify({
+          ...parametrosForm,
+          adminActor,
+        }),
       })
 
       const payload = await response.json() as { ok: boolean; error?: string }
@@ -211,6 +224,7 @@ export function ItauModule() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Admin-Actor': adminActor,
         },
         body: JSON.stringify({
           action,
@@ -218,6 +232,7 @@ export function ItauModule() {
           enabled: policy.enabled,
           max_requests: policy.max_requests,
           window_minutes: policy.window_minutes,
+          adminActor,
         }),
       })
 
@@ -281,6 +296,19 @@ export function ItauModule() {
 
       <form className="form-card" onSubmit={handleSubmit}>
         <div className="form-grid">
+          <div className="field-group">
+            <label htmlFor="itau-admin-actor">Administrador responsável</label>
+            <input
+              id="itau-admin-actor"
+              name="itauAdminActor"
+              type="text"
+              autoComplete="email"
+              placeholder="admin@lcv.app.br"
+              value={adminActor}
+              onChange={(event) => setAdminActor(event.target.value)}
+            />
+          </div>
+
           <div className="field-group">
             <label htmlFor="itau-filtro-moeda">Moeda (opcional)</label>
             <input
