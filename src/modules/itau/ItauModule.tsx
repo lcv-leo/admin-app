@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Activity, AlertTriangle, Database, Loader2, Search } from 'lucide-react'
+import { Activity, AlertTriangle, Database, Loader2, RefreshCw, Save, Search } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { SyncStatusCard } from '../../components/SyncStatusCard'
 
@@ -34,6 +34,47 @@ type ApiResponse = {
   ultimasObservacoes: Observacao[]
 }
 
+type ParametrosForm = {
+  iof_cartao_percent: number
+  iof_global_percent: number
+  spread_cartao_percent: number
+  spread_global_aberto_percent: number
+  spread_global_fechado_percent: number
+  fator_calibragem_global: number
+  backtest_mape_boa_percent: number
+  backtest_mape_atencao_percent: number
+}
+
+type RatePolicy = {
+  route_key: 'oraculo_ia' | 'enviar_email'
+  label: string
+  enabled: boolean
+  max_requests: number
+  window_minutes: number
+  updated_at: number
+  updated_by: string | null
+  defaults: {
+    enabled: boolean
+    max_requests: number
+    window_minutes: number
+  }
+  stats: {
+    total_requests_window: number
+    distinct_ips_window: number
+  }
+}
+
+const initialParametrosForm: ParametrosForm = {
+  iof_cartao_percent: 3.5,
+  iof_global_percent: 3.5,
+  spread_cartao_percent: 5.5,
+  spread_global_aberto_percent: 0.78,
+  spread_global_fechado_percent: 1.18,
+  fator_calibragem_global: 0.99934,
+  backtest_mape_boa_percent: 1,
+  backtest_mape_atencao_percent: 2,
+}
+
 const initialResumo: Resumo = {
   totalObservacoes: 0,
   observacoesJanela: 0,
@@ -49,13 +90,152 @@ export function ItauModule() {
   const { showNotification } = useNotification()
 
   const [loading, setLoading] = useState(false)
+  const [loadingParametros, setLoadingParametros] = useState(false)
+  const [savingParametros, setSavingParametros] = useState(false)
+  const [loadingRateLimit, setLoadingRateLimit] = useState(false)
+  const [updatingRateRoute, setUpdatingRateRoute] = useState<string | null>(null)
   const [moeda, setMoeda] = useState('')
   const [dias, setDias] = useState('7')
   const [fonte, setFonte] = useState<'bigdata_db' | 'legacy-admin'>('bigdata_db')
   const [resumo, setResumo] = useState<Resumo>(initialResumo)
   const [ultimasObservacoes, setUltimasObservacoes] = useState<Observacao[]>([])
+  const [parametrosForm, setParametrosForm] = useState<ParametrosForm>(initialParametrosForm)
+  const [ratePolicies, setRatePolicies] = useState<RatePolicy[]>([])
 
   const disabled = useMemo(() => loading, [loading])
+
+  const loadParametros = useCallback(async (shouldNotify = false) => {
+    setLoadingParametros(true)
+    try {
+      const response = await fetch('/api/itau/parametros')
+      const payload = await response.json() as { ok: boolean; error?: string; parametros_form?: ParametrosForm }
+
+      if (!response.ok || !payload.ok || !payload.parametros_form) {
+        throw new Error(payload.error ?? 'Falha ao carregar parâmetros do Itaú.')
+      }
+
+      setParametrosForm(payload.parametros_form)
+      if (shouldNotify) {
+        showNotification('Parâmetros administrativos do Itaú recarregados.', 'success')
+      }
+    } catch {
+      showNotification('Não foi possível carregar os parâmetros do Itaú.', 'error')
+    } finally {
+      setLoadingParametros(false)
+    }
+  }, [showNotification])
+
+  const loadRateLimit = useCallback(async (shouldNotify = false) => {
+    setLoadingRateLimit(true)
+    try {
+      const response = await fetch('/api/itau/rate-limit')
+      const payload = await response.json() as { ok: boolean; error?: string; policies?: RatePolicy[] }
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? 'Falha ao carregar rate limit do Itaú.')
+      }
+
+      setRatePolicies(Array.isArray(payload.policies) ? payload.policies : [])
+      if (shouldNotify) {
+        showNotification('Painel de rate limit do Itaú atualizado.', 'success')
+      }
+    } catch {
+      showNotification('Não foi possível carregar o painel de rate limit do Itaú.', 'error')
+    } finally {
+      setLoadingRateLimit(false)
+    }
+  }, [showNotification])
+
+  useEffect(() => {
+    void loadParametros()
+    void loadRateLimit()
+  }, [loadParametros, loadRateLimit])
+
+  const handleParametroChange = (field: keyof ParametrosForm, value: string) => {
+    const parsed = Number(value)
+    setParametrosForm((current) => ({
+      ...current,
+      [field]: Number.isFinite(parsed) ? parsed : 0,
+    }))
+  }
+
+  const handleSaveParametros = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    setSavingParametros(true)
+    try {
+      const response = await fetch('/api/itau/parametros', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(parametrosForm),
+      })
+
+      const payload = await response.json() as { ok: boolean; error?: string }
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? 'Falha ao salvar parâmetros do Itaú.')
+      }
+
+      await loadParametros()
+      showNotification('Parâmetros administrativos do Itaú salvos com sucesso.', 'success')
+    } catch {
+      showNotification('Não foi possível salvar os parâmetros do Itaú.', 'error')
+    } finally {
+      setSavingParametros(false)
+    }
+  }
+
+  const handleRatePolicyChange = (routeKey: RatePolicy['route_key'], field: 'enabled' | 'max_requests' | 'window_minutes', value: boolean | number) => {
+    setRatePolicies((current) => current.map((policy) => {
+      if (policy.route_key !== routeKey) {
+        return policy
+      }
+      return {
+        ...policy,
+        [field]: value,
+      }
+    }))
+  }
+
+  const persistRatePolicy = async (routeKey: RatePolicy['route_key'], action: 'update' | 'restore_default') => {
+    const policy = ratePolicies.find((item) => item.route_key === routeKey)
+    if (!policy) {
+      showNotification('Policy de rate limit não encontrada para atualização.', 'error')
+      return
+    }
+
+    setUpdatingRateRoute(routeKey)
+    try {
+      const response = await fetch('/api/itau/rate-limit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          route_key: routeKey,
+          enabled: policy.enabled,
+          max_requests: policy.max_requests,
+          window_minutes: policy.window_minutes,
+        }),
+      })
+
+      const payload = await response.json() as { ok: boolean; error?: string; policies?: RatePolicy[] }
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? 'Falha ao salvar policy de rate limit do Itaú.')
+      }
+
+      setRatePolicies(Array.isArray(payload.policies) ? payload.policies : [])
+      showNotification(action === 'restore_default'
+        ? `Policy ${routeKey} restaurada para padrão.`
+        : `Policy ${routeKey} atualizada com sucesso.`, 'success')
+    } catch {
+      showNotification('Não foi possível salvar a policy de rate limit do Itaú.', 'error')
+    } finally {
+      setUpdatingRateRoute(null)
+    }
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -177,6 +357,155 @@ export function ItauModule() {
                 <span className="badge badge-em-implantacao">erro: {Number((item.erroPercentual * 100).toFixed(4))}%</span>
               </li>
             ))}
+          </ul>
+        )}
+      </article>
+
+      <form className="form-card" onSubmit={handleSaveParametros}>
+        <div className="result-toolbar">
+          <div>
+            <h4><Save size={16} /> Parâmetros administrativos</h4>
+            <p className="field-hint">Ajuste de IOF, spreads, calibragem e limites de MAPE com persistência no `ITAU_SOURCE_DB`.</p>
+          </div>
+          <div className="inline-actions">
+            <button type="button" className="ghost-button" onClick={() => void loadParametros(true)} disabled={loadingParametros || savingParametros}>
+              {loadingParametros ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+              Recarregar parâmetros
+            </button>
+          </div>
+        </div>
+
+        <div className="form-grid">
+          <div className="field-group">
+            <label htmlFor="itau-param-iof-cartao">IOF Cartão (%)</label>
+            <input id="itau-param-iof-cartao" name="itauParamIofCartao" type="number" step="0.0001" value={parametrosForm.iof_cartao_percent} onChange={(event) => handleParametroChange('iof_cartao_percent', event.target.value)} disabled={savingParametros} />
+          </div>
+          <div className="field-group">
+            <label htmlFor="itau-param-iof-global">IOF Global (%)</label>
+            <input id="itau-param-iof-global" name="itauParamIofGlobal" type="number" step="0.0001" value={parametrosForm.iof_global_percent} onChange={(event) => handleParametroChange('iof_global_percent', event.target.value)} disabled={savingParametros} />
+          </div>
+          <div className="field-group">
+            <label htmlFor="itau-param-spread-cartao">Spread Cartão (%)</label>
+            <input id="itau-param-spread-cartao" name="itauParamSpreadCartao" type="number" step="0.0001" value={parametrosForm.spread_cartao_percent} onChange={(event) => handleParametroChange('spread_cartao_percent', event.target.value)} disabled={savingParametros} />
+          </div>
+          <div className="field-group">
+            <label htmlFor="itau-param-spread-aberto">Spread Global Aberto (%)</label>
+            <input id="itau-param-spread-aberto" name="itauParamSpreadAberto" type="number" step="0.0001" value={parametrosForm.spread_global_aberto_percent} onChange={(event) => handleParametroChange('spread_global_aberto_percent', event.target.value)} disabled={savingParametros} />
+          </div>
+          <div className="field-group">
+            <label htmlFor="itau-param-spread-fechado">Spread Global Fechado (%)</label>
+            <input id="itau-param-spread-fechado" name="itauParamSpreadFechado" type="number" step="0.0001" value={parametrosForm.spread_global_fechado_percent} onChange={(event) => handleParametroChange('spread_global_fechado_percent', event.target.value)} disabled={savingParametros} />
+          </div>
+          <div className="field-group">
+            <label htmlFor="itau-param-calibragem">Fator de calibragem</label>
+            <input id="itau-param-calibragem" name="itauParamCalibragem" type="number" step="0.00001" value={parametrosForm.fator_calibragem_global} onChange={(event) => handleParametroChange('fator_calibragem_global', event.target.value)} disabled={savingParametros} />
+          </div>
+          <div className="field-group">
+            <label htmlFor="itau-param-mape-boa">MAPE Boa (%)</label>
+            <input id="itau-param-mape-boa" name="itauParamMapeBoa" type="number" step="0.0001" value={parametrosForm.backtest_mape_boa_percent} onChange={(event) => handleParametroChange('backtest_mape_boa_percent', event.target.value)} disabled={savingParametros} />
+          </div>
+          <div className="field-group">
+            <label htmlFor="itau-param-mape-atencao">MAPE Atenção (%)</label>
+            <input id="itau-param-mape-atencao" name="itauParamMapeAtencao" type="number" step="0.0001" value={parametrosForm.backtest_mape_atencao_percent} onChange={(event) => handleParametroChange('backtest_mape_atencao_percent', event.target.value)} disabled={savingParametros} />
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button type="submit" className="primary-button" disabled={savingParametros || loadingParametros}>
+            {savingParametros ? <Loader2 size={18} className="spin" /> : <Save size={18} />}
+            Salvar parâmetros
+          </button>
+        </div>
+      </form>
+
+      <article className="result-card">
+        <div className="result-toolbar">
+          <div>
+            <h4><Database size={16} /> Painel de rate limit</h4>
+            <p className="field-hint">Políticas por rota com atualização em tempo real e opção de restaurar padrão.</p>
+          </div>
+          <div className="inline-actions">
+            <button type="button" className="ghost-button" onClick={() => void loadRateLimit(true)} disabled={loadingRateLimit || updatingRateRoute !== null}>
+              {loadingRateLimit ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+              Recarregar rate limit
+            </button>
+          </div>
+        </div>
+
+        {ratePolicies.length === 0 ? (
+          <p className="result-empty">Sem policies de rate limit carregadas.</p>
+        ) : (
+          <ul className="result-list">
+            {ratePolicies.map((policy) => {
+              const isBusy = updatingRateRoute === policy.route_key
+              return (
+                <li key={policy.route_key} className="post-row">
+                  <div className="post-row-main">
+                    <strong>{policy.label}</strong>
+                    <div className="post-row-meta">
+                      <span>rota: {policy.route_key}</span>
+                      <span>janela atual: {policy.stats.total_requests_window} req / {policy.stats.distinct_ips_window} IPs</span>
+                      <span>updated by: {policy.updated_by ?? '—'}</span>
+                    </div>
+                  </div>
+
+                  <div className="form-grid">
+                    <div className="field-group">
+                      <label htmlFor={`itau-rate-enabled-${policy.route_key}`}>Escudo habilitado</label>
+                      <select
+                        id={`itau-rate-enabled-${policy.route_key}`}
+                        name={`itauRateEnabled${policy.route_key}`}
+                        value={policy.enabled ? '1' : '0'}
+                        onChange={(event) => handleRatePolicyChange(policy.route_key, 'enabled', event.target.value === '1')}
+                        disabled={isBusy}
+                      >
+                        <option value="1">Ativo</option>
+                        <option value="0">Inativo</option>
+                      </select>
+                    </div>
+
+                    <div className="field-group">
+                      <label htmlFor={`itau-rate-max-${policy.route_key}`}>Máx. requisições/IP</label>
+                      <input
+                        id={`itau-rate-max-${policy.route_key}`}
+                        name={`itauRateMax${policy.route_key}`}
+                        type="number"
+                        min={1}
+                        max={5000}
+                        value={policy.max_requests}
+                        onChange={(event) => handleRatePolicyChange(policy.route_key, 'max_requests', Number(event.target.value))}
+                        disabled={isBusy}
+                      />
+                    </div>
+
+                    <div className="field-group">
+                      <label htmlFor={`itau-rate-window-${policy.route_key}`}>Janela (min)</label>
+                      <input
+                        id={`itau-rate-window-${policy.route_key}`}
+                        name={`itauRateWindow${policy.route_key}`}
+                        type="number"
+                        min={1}
+                        max={1440}
+                        value={policy.window_minutes}
+                        onChange={(event) => handleRatePolicyChange(policy.route_key, 'window_minutes', Number(event.target.value))}
+                        disabled={isBusy}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="post-row-actions">
+                    <button type="button" className="ghost-button" onClick={() => void persistRatePolicy(policy.route_key, 'update')} disabled={isBusy}>
+                      {isBusy ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+                      Salvar policy
+                    </button>
+                    <button type="button" className="ghost-button" onClick={() => void persistRatePolicy(policy.route_key, 'restore_default')} disabled={isBusy}>
+                      {isBusy ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+                      Restaurar padrão
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </article>
