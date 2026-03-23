@@ -21,7 +21,8 @@ $migrationFiles = @(
     "db/migrations/002_bigdata_itau_prefixacao.sql",
     "db/migrations/003_bigdata_mainsite_prefixacao.sql",
     "db/migrations/004_bigdata_mtasts_prefixacao.sql",
-    "db/migrations/005_bigdata_adminapp_operational.sql"
+    "db/migrations/005_bigdata_adminapp_operational.sql",
+    "db/migrations/006_bigdata_hubs_config.sql"
 )
 
 Write-Host "[info] Projeto: $projectRoot"

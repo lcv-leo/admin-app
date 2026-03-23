@@ -5,7 +5,7 @@ Shell administrativo unificado da LCV em `admin.lcv.app.br`, desenvolvido com Re
 ## Estado atual
 
 - Fase 1 em andamento: shell paralelo sem desligar admins legados.
-- Módulos funcionais: Astrólogo (`/api/astrologo/listar`), Itaú (`/api/itau/overview`), MainSite (`/api/mainsite/overview`) e MTA-STS (`/api/mtasts/overview`) com leitura híbrida (prioriza `bigdata_db` via D1 e usa fallback legado).
+- Módulos funcionais: Astrólogo (`/api/astrologo/listar`), Itaú (`/api/itau/overview`), MainSite (`/api/mainsite/overview`), MTA-STS (`/api/mtasts/overview`), AppHub (`/api/apphub/config`) e AdminHub (`/api/adminhub/config`) com persistência operacional centralizada no `bigdata_db`.
 - Endurecimento operacional ativo: telemetria padronizada por módulo e indicadores de fallback em `/api/overview/operational`.
 - Sync manual disponível para Astrólogo em `POST /api/astrologo/sync` (mapas para `astrologo_mapas`).
 - Ações administrativas do Astrólogo já disponíveis no shell: `POST /api/astrologo/ler`, `POST /api/astrologo/excluir`, `GET|POST /api/astrologo/rate-limit` e `POST /api/astrologo/enviar-email` (com persistência no `ASTROLOGO_SOURCE_DB`, envio server-side via Resend e espelhamento de policies no `bigdata_db`). As ações aceitam `X-Admin-Actor` para trilha de auditoria por operador em telemetria operacional.
@@ -16,6 +16,7 @@ Shell administrativo unificado da LCV em `admin.lcv.app.br`, desenvolvido com Re
 - Sync manual disponível para MTA-STS em `POST /api/mtasts/sync` (history + policies auditáveis por zonas).
 - Orquestração operacional do MTA-STS já disponível no shell: `GET /api/mtasts/zones`, `GET /api/mtasts/policy` e `POST /api/mtasts/orchestrate` (policy + DNS + novo ID).
 - Diretriz de continuidade: `adminhub` e `apphub` também serão incorporados ao `admin-app` como módulos, com configurações persistidas em D1 (`bigdata_db`) durante a consolidação.
+- Configuração dos hubs já disponível no shell: `GET|PUT /api/apphub/config` e `GET|PUT /api/adminhub/config` (bootstrap via `cards.json` legado e persistência em D1).
 - Convenção global de auditoria: ações administrativas críticas dos módulos (`astrologo`, `itau`, `mainsite` e `mtasts`) aceitam `X-Admin-Actor` e registram o operador na telemetria operacional (`adminapp_module_events`).
 - Convenção de rastreabilidade de resposta: endpoints administrativos, de leitura híbrida e de visão operacional retornam `request_id` e `timestamp` para correlação de logs/incidentes em suporte operacional.
 - Health check ativo em `/api/health`.
@@ -34,6 +35,7 @@ Shell administrativo unificado da LCV em `admin.lcv.app.br`, desenvolvido com Re
   - Migration adicional criada: `db/migrations/003_bigdata_mainsite_prefixacao.sql`.
   - Migration adicional criada: `db/migrations/004_bigdata_mtasts_prefixacao.sql`.
   - Migration adicional criada: `db/migrations/005_bigdata_adminapp_operational.sql`.
+  - Migration adicional criada: `db/migrations/006_bigdata_hubs_config.sql`.
   - Passo-a-passo Wrangler CLI: `docs/wrangler-popular-bigdata-db.md`.
   - Automação opcional: `scripts/popular-bigdata-db.ps1`.
   - Sync manual Astrólogo: `docs/sync-astrologo-bigdata.md` + `scripts/sync-astrologo-bigdata.ps1`.

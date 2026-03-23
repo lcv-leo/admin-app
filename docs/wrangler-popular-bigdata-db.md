@@ -38,6 +38,7 @@ npx wrangler@latest d1 execute bigdata_db --config wrangler.json --file db/migra
 npx wrangler@latest d1 execute bigdata_db --config wrangler.json --file db/migrations/003_bigdata_mainsite_prefixacao.sql --remote
 npx wrangler@latest d1 execute bigdata_db --config wrangler.json --file db/migrations/004_bigdata_mtasts_prefixacao.sql --remote
 npx wrangler@latest d1 execute bigdata_db --config wrangler.json --file db/migrations/005_bigdata_adminapp_operational.sql --remote
+npx wrangler@latest d1 execute bigdata_db --config wrangler.json --file db/migrations/006_bigdata_hubs_config.sql --remote
 ```
 
 ## 4) Verificação pós-carga
