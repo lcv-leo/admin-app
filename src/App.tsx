@@ -25,7 +25,7 @@ import { MtastsModule } from './modules/mtasts/MtastsModule'
 import { ApphubModule } from './modules/hubs/ApphubModule'
 import { AdminhubModule } from './modules/hubs/AdminhubModule'
 
-const APP_VERSION = 'APP v01.31.02'
+const APP_VERSION = 'APP v01.31.03'
 
 type OperationalModuleStatus = {
   module: string

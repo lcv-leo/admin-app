@@ -1,7 +1,30 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
-import { fetchLegacyAdminJson, readLegacyPublicSettings, type Context, type MainsitePublicSettings, toHeaders, upsertPublicSettingsIntoBigdata } from '../_lib/mainsite-admin'
+import { type Context, type MainsitePublicSettings, toHeaders } from '../_lib/mainsite-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
 import { createResponseTrace, type ResponseTrace } from '../_lib/request-trace'
+
+type D1PreparedStatement = {
+  bind: (...values: Array<string | number | null>) => D1PreparedStatement
+  first: <T>() => Promise<T | null>
+  run: () => Promise<unknown>
+}
+
+type D1Database = {
+  prepare: (query: string) => D1PreparedStatement
+}
+
+type MainsiteEnv = Context['env'] & {
+  BIGDATA_DB?: D1Database
+}
+
+type MainsiteContext = {
+  request: Request
+  env: MainsiteEnv
+}
+
+type SettingRow = {
+  payload?: string
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -14,11 +37,58 @@ const buildErrorResponse = (message: string, trace: ResponseTrace, status = 500)
   headers: toHeaders(),
 })
 
-export async function onRequestGet(context: Context) {
+const requireDb = (env: MainsiteEnv) => {
+  if (!env.BIGDATA_DB) {
+    throw new Error('BIGDATA_DB não configurado no runtime do admin-app.')
+  }
+  return env.BIGDATA_DB
+}
+
+const safeParseObject = (rawPayload: string | undefined, fallback: Record<string, unknown>) => {
+  if (!rawPayload?.trim()) {
+    return fallback
+  }
+
+  try {
+    const parsed = JSON.parse(rawPayload) as unknown
+    return isRecord(parsed) ? parsed : fallback
+  } catch {
+    return fallback
+  }
+}
+
+const readPublicSettings = async (db: D1Database): Promise<MainsitePublicSettings> => {
+  const [appearanceRow, rotationRow, disclaimersRow] = await Promise.all([
+    db.prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1').bind('mainsite/appearance').first<SettingRow>(),
+    db.prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1').bind('mainsite/rotation').first<SettingRow>(),
+    db.prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1').bind('mainsite/disclaimers').first<SettingRow>(),
+  ])
+
+  return {
+    appearance: safeParseObject(appearanceRow?.payload, {}),
+    rotation: safeParseObject(rotationRow?.payload, {}),
+    disclaimers: safeParseObject(disclaimersRow?.payload, {}),
+  }
+}
+
+const upsertSetting = async (db: D1Database, id: string, payload: Record<string, unknown>) => {
+  await db.prepare(`
+    INSERT INTO mainsite_settings (id, payload, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(id) DO UPDATE SET
+      payload = excluded.payload,
+      updated_at = CURRENT_TIMESTAMP
+  `)
+    .bind(id, JSON.stringify(payload))
+    .run()
+}
+
+export async function onRequestGet(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const settings = await readLegacyPublicSettings(context.env)
+    const db = requireDb(context.env)
+    const settings = await readPublicSettings(db)
 
     return new Response(JSON.stringify({
       ok: true,
@@ -34,7 +104,7 @@ export async function onRequestGet(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mainsite',
-          source: 'legacy-worker',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
@@ -47,14 +117,15 @@ export async function onRequestGet(context: Context) {
       }
     }
 
-    return buildErrorResponse(message, trace, 502)
+    return buildErrorResponse(message, trace, 500)
   }
 }
 
-export async function onRequestPut(context: Context) {
+export async function onRequestPut(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
+    const db = requireDb(context.env)
     const body = await context.request.json() as Partial<MainsitePublicSettings>
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
 
@@ -69,35 +140,30 @@ export async function onRequestPut(context: Context) {
     }
 
     await Promise.all([
-      fetchLegacyAdminJson<{ success?: boolean }>(context.env, '/api/settings', 'PUT', 'Falha ao salvar appearance no MainSite legado', settings.appearance, adminActor),
-      fetchLegacyAdminJson<{ success?: boolean }>(context.env, '/api/settings/rotation', 'PUT', 'Falha ao salvar rotation no MainSite legado', settings.rotation, adminActor),
-      fetchLegacyAdminJson<{ success?: boolean }>(context.env, '/api/settings/disclaimers', 'PUT', 'Falha ao salvar disclaimers no MainSite legado', settings.disclaimers, adminActor),
+      upsertSetting(db, 'mainsite/appearance', settings.appearance),
+      upsertSetting(db, 'mainsite/rotation', settings.rotation),
+      upsertSetting(db, 'mainsite/disclaimers', settings.disclaimers),
     ])
 
-    let settingsUpserted = 0
-    if (context.env.BIGDATA_DB) {
-      settingsUpserted = await upsertPublicSettingsIntoBigdata(context.env.BIGDATA_DB, settings)
-
-      try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
-          module: 'mainsite',
-          source: 'legacy-worker',
-          fallbackUsed: false,
-          ok: true,
-          metadata: {
-            action: 'save-public-settings',
-            adminActor,
-            settingsUpserted,
-          },
-        })
-      } catch {
-        // Telemetria não deve bloquear a resposta.
-      }
+    try {
+      await logModuleOperationalEvent(db, {
+        module: 'mainsite',
+        source: 'bigdata_db',
+        fallbackUsed: false,
+        ok: true,
+        metadata: {
+          action: 'save-public-settings',
+          adminActor,
+          settingsUpserted: 3,
+        },
+      })
+    } catch {
+      // Telemetria não deve bloquear a resposta.
     }
 
     return new Response(JSON.stringify({
       ok: true,
-      settingsUpserted,
+      settingsUpserted: 3,
       admin_actor: adminActor,
       ...trace,
     }), {
@@ -110,7 +176,7 @@ export async function onRequestPut(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mainsite',
-          source: 'legacy-worker',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
