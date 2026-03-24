@@ -96,13 +96,59 @@ export function MtastsModule() {
   const [selectedDomain, setSelectedDomain] = useState('')
   const [selectedZoneId, setSelectedZoneId] = useState('')
   const [policyText, setPolicyText] = useState('')
+  const [baselinePolicyText, setBaselinePolicyText] = useState('')
   const [tlsrptEmail, setTlsrptEmail] = useState('')
+  const [baselineTlsrptEmail, setBaselineTlsrptEmail] = useState('')
   const [lastGeneratedId, setLastGeneratedId] = useState<string | null>(null)
   const [mxRecords, setMxRecords] = useState<string[]>([])
   const [integrityStatus, setIntegrityStatus] = useState<'idle' | 'ok' | 'warning' | 'error'>('idle')
   const [integrityIssues, setIntegrityIssues] = useState<string[]>([])
 
   const disabled = useMemo(() => overviewLoading, [overviewLoading])
+  const hasUnsavedPolicyDraft = useMemo(() => (
+    policyText.trim() !== baselinePolicyText.trim() || tlsrptEmail.trim().toLowerCase() !== baselineTlsrptEmail.trim().toLowerCase()
+  ), [baselinePolicyText, baselineTlsrptEmail, policyText, tlsrptEmail])
+  const operationalStatus = useMemo(() => {
+    if (orchestrating) {
+      return {
+        label: 'Sincronizando...',
+        tone: 'warning' as const,
+      }
+    }
+
+    if (hasUnsavedPolicyDraft) {
+      return {
+        label: 'Draft pendente',
+        tone: 'warning' as const,
+      }
+    }
+
+    if (integrityStatus === 'error') {
+      return {
+        label: `${integrityIssues.length} inconsistência(s)`,
+        tone: 'error' as const,
+      }
+    }
+
+    if (integrityStatus === 'warning') {
+      return {
+        label: `${integrityIssues.length} alerta(s)`,
+        tone: 'warning' as const,
+      }
+    }
+
+    if (integrityStatus === 'ok') {
+      return {
+        label: 'Sincronizado',
+        tone: 'ok' as const,
+      }
+    }
+
+    return {
+      label: 'Aguardando...',
+      tone: 'idle' as const,
+    }
+  }, [hasUnsavedPolicyDraft, integrityIssues.length, integrityStatus, orchestrating])
 
   const runIntegrityAudit = useCallback(() => {
     if (zones.length === 0 && payload.policies.length === 0) {
@@ -215,7 +261,9 @@ export function MtastsModule() {
       }
 
       setPolicyText(nextPayload.policy.savedPolicy ?? '')
+      setBaselinePolicyText(nextPayload.policy.savedPolicy ?? '')
       setTlsrptEmail(nextPayload.policy.savedEmail ?? nextPayload.policy.dnsTlsRptEmail ?? '')
+      setBaselineTlsrptEmail(nextPayload.policy.savedEmail ?? nextPayload.policy.dnsTlsRptEmail ?? '')
       setLastGeneratedId(nextPayload.policy.lastGeneratedId)
       setMxRecords(Array.isArray(nextPayload.policy.mxRecords) ? nextPayload.policy.mxRecords : [])
 
@@ -246,6 +294,20 @@ export function MtastsModule() {
     runIntegrityAudit()
   }, [runIntegrityAudit])
 
+  useEffect(() => {
+    if (!hasUnsavedPolicyDraft) {
+      return
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedPolicyDraft])
+
   const buildPolicyFromMx = () => {
     if (!Array.isArray(mxRecords) || mxRecords.length === 0) {
       showNotification('Sem MX retornado para gerar policy automaticamente.', 'info')
@@ -261,6 +323,12 @@ export function MtastsModule() {
 
     setPolicyText(baseLines.join('\n'))
     showNotification('Policy regenerada a partir dos registros MX atuais.', 'success')
+  }
+
+  const restorePolicyDraft = () => {
+    setPolicyText(baselinePolicyText)
+    setTlsrptEmail(baselineTlsrptEmail)
+    showNotification('Draft de policy restaurado para o último snapshot salvo.', 'info')
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -363,9 +431,13 @@ export function MtastsModule() {
       <div className="detail-header">
         <div className="detail-icon"><ShieldCheck size={22} /></div>
         <div>
-          <h3>MTA-STS — Histórico e Policies</h3>
-          <p>Consulta híbrida no shell: prioriza `bigdata_db` e recua para legado quando necessário.</p>
+          <h3>Orquestrador MTA-STS</h3>
+          <p>Gestão de Identidades e Segurança de Mensageria no cockpit unificado.</p>
         </div>
+        <span className={`ops-status-chip ops-status-chip--${operationalStatus.tone}`}>
+          <span className="ops-status-chip__dot" />
+          {operationalStatus.label}
+        </span>
       </div>
 
       {integrityStatus !== 'idle' && (
@@ -443,22 +515,29 @@ export function MtastsModule() {
           <div>
             <h4><ShieldCheck size={16} /> Orquestração MTA-STS</h4>
             <p className="field-hint">Sincroniza policy no D1 legado, atualiza DNS na Cloudflare e registra novo ID em histórico.</p>
+            {hasUnsavedPolicyDraft && (
+              <span className="badge badge-planejado">Draft não salvo</span>
+            )}
           </div>
           <div className="inline-actions">
             <button type="button" className="ghost-button" onClick={() => void loadZones(true)} disabled={zonesLoading || orchestrating}>
               {zonesLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
               Recarregar zonas
             </button>
+            <button type="button" className="ghost-button" onClick={restorePolicyDraft} disabled={policyLoading || orchestrating || !hasUnsavedPolicyDraft}>
+              <RefreshCw size={16} />
+              Restaurar draft
+            </button>
             <button type="button" className="ghost-button" onClick={buildPolicyFromMx} disabled={policyLoading || orchestrating}>
               <RefreshCw size={16} />
-              Gerar policy via MX
+              REGERAR VIA MX
             </button>
           </div>
         </div>
 
         <div className="form-grid">
           <div className="field-group">
-            <label htmlFor="mtasts-domain-operacao">Domínio alvo</label>
+            <label htmlFor="mtasts-domain-operacao">Domínio Alvo</label>
             <select
               id="mtasts-domain-operacao"
               name="mtastsDomainOperacao"
@@ -485,7 +564,7 @@ export function MtastsModule() {
         </div>
 
         <div className="field-group">
-          <label htmlFor="mtasts-tlsrpt-email">E-mail TLS-RPT</label>
+          <label htmlFor="mtasts-tlsrpt-email">E-mail TLS-RPT (RUA)</label>
           <input
             id="mtasts-tlsrpt-email"
             name="mtastsTlsRptEmail"
@@ -498,7 +577,7 @@ export function MtastsModule() {
         </div>
 
         <div className="field-group">
-          <label htmlFor="mtasts-policy-text">Policy mta-sts.txt</label>
+          <label htmlFor="mtasts-policy-text">Arquivo mta-sts.txt</label>
           <textarea
             id="mtasts-policy-text"
             name="mtastsPolicyText"
@@ -512,14 +591,14 @@ export function MtastsModule() {
         </div>
 
         <div className="post-row-meta">
-          <span>Último ID conhecido: <strong>{lastGeneratedId ?? '—'}</strong></span>
+          <span>Novo ID gerado: <strong>{lastGeneratedId ?? '—'}</strong></span>
           <span>MX detectados: {mxRecords.length}</span>
         </div>
 
         <div className="form-actions">
           <button type="submit" className="primary-button" disabled={orchestrating || policyLoading || zonesLoading}>
             {orchestrating ? <Loader2 size={18} className="spin" /> : <Save size={18} />}
-            Sincronizar dados + gerar ID
+            Sincronizar Dados e Gerar Novo ID
           </button>
         </div>
       </form>
@@ -544,7 +623,7 @@ export function MtastsModule() {
 
       <article className="result-card">
         <header className="result-header">
-          <h4><ShieldCheck size={16} /> Histórico recente</h4>
+          <h4><ShieldCheck size={16} /> Histórico Permanente</h4>
           <span>{payload.historico.length} item(ns)</span>
         </header>
 

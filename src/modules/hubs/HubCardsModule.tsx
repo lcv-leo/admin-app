@@ -11,6 +11,14 @@ type HubCard = {
   badge: string
 }
 
+const normalizeCardsForCompare = (items: HubCard[]) => items.map((card) => ({
+  name: card.name.trim(),
+  description: card.description.trim(),
+  url: card.url.trim(),
+  icon: card.icon.trim(),
+  badge: card.badge.trim(),
+}))
+
 type HubConfigPayload = {
   ok: boolean
   error?: string
@@ -75,13 +83,21 @@ export function HubCardsModule({
   const [adminActor, setAdminActor] = useState('admin@app.lcv')
   const [payload, setPayload] = useState<HubConfigPayload | null>(null)
   const [cards, setCards] = useState<HubCard[]>([])
+  const [baselineCards, setBaselineCards] = useState<HubCard[]>([])
   const [searchTerm, setSearchTerm] = useState('')
 
   const moduleToneClass = endpoint === '/api/apphub/config'
     ? 'module-shell-apphub'
     : 'module-shell-adminhub'
+  const previewLevel = endpoint === '/api/apphub/config' ? 'open' : 'restricted'
+  const previewSectionId = endpoint === '/api/apphub/config' ? 'section-open-title' : 'section-admin-title'
+  const previewSectionLabel = endpoint === '/api/apphub/config' ? 'Acesso Liberado' : 'Ferramentas & Gestão'
+  const previewPortalTitle = endpoint === '/api/apphub/config' ? 'Portal de Apps' : 'Painel Administrativo'
 
   const disabled = useMemo(() => loading || saving, [loading, saving])
+  const hasUnsavedCards = useMemo(() => (
+    JSON.stringify(normalizeCardsForCompare(cards)) !== JSON.stringify(normalizeCardsForCompare(baselineCards))
+  ), [baselineCards, cards])
 
   const duplicateStats = useMemo(() => {
     const nameCounts = new Map<string, number>()
@@ -221,7 +237,9 @@ export function HubCardsModule({
       }
 
       setPayload(nextPayload)
-      setCards(Array.isArray(nextPayload.cards) ? nextPayload.cards : [])
+      const nextCards = Array.isArray(nextPayload.cards) ? nextPayload.cards : []
+      setCards(nextCards)
+      setBaselineCards(nextCards)
 
       if (shouldNotify) {
         showNotification(withTrace(`${title} atualizado com ${nextPayload.total} card(s).`, nextPayload), 'success')
@@ -241,6 +259,20 @@ export function HubCardsModule({
   useEffect(() => {
     void loadConfig()
   }, [loadConfig])
+
+  useEffect(() => {
+    if (!hasUnsavedCards) {
+      return
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedCards])
 
   const updateCardField = (index: number, field: keyof HubCard, value: string) => {
     setCards((current) => current.map((card, cardIndex) => (
@@ -286,6 +318,11 @@ export function HubCardsModule({
       next.splice(targetIndex, 0, moved)
       return next
     })
+  }
+
+  const restoreSnapshot = () => {
+    setCards(baselineCards)
+    showNotification('Edição de cards restaurada para o último snapshot salvo.', 'info')
   }
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
@@ -363,11 +400,18 @@ export function HubCardsModule({
           <div>
             <h4><Save size={16} /> Configuração de cards</h4>
             <p className="field-hint">Cards persistidos no `bigdata_db`; edição visual com ordenação e validação por campos.</p>
+            {hasUnsavedCards && (
+              <span className="badge badge-planejado">Alterações não salvas</span>
+            )}
           </div>
           <div className="inline-actions">
             <button type="button" className="ghost-button" onClick={addCard} disabled={disabled}>
               <Plus size={16} />
               Adicionar card
+            </button>
+            <button type="button" className="ghost-button" onClick={restoreSnapshot} disabled={disabled || !hasUnsavedCards}>
+              <RefreshCw size={16} />
+              Restaurar snapshot
             </button>
             <button type="button" className="ghost-button" onClick={() => void loadConfig(true)} disabled={disabled}>
               {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
@@ -581,22 +625,31 @@ export function HubCardsModule({
 
       <article className="result-card">
         <header className="result-header">
-          <h4><RefreshCw size={16} /> Cards atuais</h4>
+          <h4><RefreshCw size={16} /> Catálogo (paridade visual)</h4>
           <span>{payload?.cards?.length ?? 0} item(ns)</span>
         </header>
 
         {!payload || payload.cards.length === 0 ? (
           <p className="result-empty">Sem cards carregados para este módulo.</p>
         ) : (
-          <ul className="result-list">
+          <section className="legacy-hub-preview" aria-labelledby={previewSectionId}>
+            <h5 className="legacy-hub-preview__title">{previewPortalTitle}</h5>
+            <h6 id={previewSectionId} className="legacy-hub-preview__section-heading">
+              <span className={`status-dot ${previewLevel}`} />
+              {previewSectionLabel}
+            </h6>
+            <div className="card-grid">
             {payload.cards.map((card, index) => (
-              <li key={`${card.name}-${index}`}>
-                <strong>{card.icon ? `${card.icon} ${card.name}` : card.name}</strong>
-                <span>{card.url}</span>
-                <span className="badge badge-em-implantacao">{card.badge || 'ação'}</span>
-              </li>
+              <article key={`${card.name}-${index}`} className="card" data-level={previewLevel}>
+                <div className="card-icon">{card.icon || '🧩'}</div>
+                <h5 className="card-title">{card.name}</h5>
+                <p className="card-desc">{card.description || 'Sem descrição cadastrada.'}</p>
+                <p className="field-hint">{card.url}</p>
+                <span className="card-badge">{card.badge || 'Abrir'}</span>
+              </article>
             ))}
-          </ul>
+            </div>
+          </section>
         )}
       </article>
     </section>

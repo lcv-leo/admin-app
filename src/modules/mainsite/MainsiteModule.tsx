@@ -551,7 +551,7 @@ export function MainsiteModule() {
       <div className="detail-header">
         <div className="detail-icon"><Globe size={22} /></div>
         <div>
-          <h3>MainSite — Conteúdo e Financeiro</h3>
+          <h3>MainSite Admin — Sistema, Auditoria e Financeiro</h3>
           <p>Consulta híbrida no shell: prioriza `bigdata_db` e recua para worker legado quando necessário.</p>
         </div>
       </div>
@@ -637,7 +637,7 @@ export function MainsiteModule() {
       <form className="form-card" onSubmit={handleSavePost}>
         <div className="result-toolbar">
           <div>
-            <h4>{editingPostId ? `Editar post #${editingPostId}` : 'Novo post do MainSite'}</h4>
+            <h4>{editingPostId ? `Editar post #${editingPostId}` : 'Novo post (NOVO)'}</h4>
             <p className="field-hint">Cria ou altera posts direto no worker legado, com reconciliação automática no `bigdata_db`.</p>
           </div>
           <div className="inline-actions">
@@ -693,7 +693,7 @@ export function MainsiteModule() {
       <article className="result-card">
         <div className="result-toolbar">
           <div>
-            <h4><Globe size={16} /> Posts operacionais</h4>
+            <h4><Globe size={16} /> Arquivo de posts operacionais</h4>
             <p className="field-hint">Lista viva do worker legado para edição, fixação e exclusão sem sair do cockpit.</p>
           </div>
           <div className="inline-actions">
@@ -753,7 +753,7 @@ export function MainsiteModule() {
       <form className="form-card" onSubmit={handleSaveSettings}>
         <div className="result-toolbar">
           <div>
-            <h4><Save size={16} /> Settings públicos do MainSite</h4>
+            <h4><Save size={16} /> Sistema — settings públicos do MainSite</h4>
             <p className="field-hint">Appearance, rotation e disclaimers são editáveis aqui. `ratelimit` continua protegido para fase posterior.</p>
           </div>
           <div className="inline-actions">
@@ -814,7 +814,7 @@ export function MainsiteModule() {
       <article className="result-card">
         <div className="result-toolbar">
           <div>
-            <h4><Save size={16} /> Painel de rate limit</h4>
+            <h4><Save size={16} /> Painel de controle de rate limit</h4>
             <p className="field-hint">Políticas por rota com atualização em tempo real e opção de restaurar padrão.</p>
             {hasUnsavedRatePolicies && (
               <span className="badge badge-planejado">Alterações não salvas</span>
@@ -823,7 +823,7 @@ export function MainsiteModule() {
           <div className="inline-actions">
             <button type="button" className="ghost-button" onClick={() => void loadRateLimit(true)} disabled={loadingRateLimit || updatingRateRoute !== null}>
               {loadingRateLimit ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-              Recarregar rate limit
+              Atualizar painel
             </button>
             <button type="button" className="ghost-button" onClick={restoreAllRatePoliciesLocal} disabled={loadingRateLimit || updatingRateRoute !== null || ratePolicies.length === 0}>
               <RefreshCw size={16} />

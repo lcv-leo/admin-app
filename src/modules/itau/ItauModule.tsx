@@ -400,7 +400,7 @@ export function ItauModule() {
       <div className="detail-header">
         <div className="detail-icon"><Database size={22} /></div>
         <div>
-          <h3>Itaú — Observabilidade e Backtest</h3>
+          <h3>Itaú Calculadora — Admin</h3>
           <p>Leitura híbrida no shell unificado: prioriza `bigdata_db` com fallback seguro para legado.</p>
         </div>
       </div>
@@ -475,7 +475,7 @@ export function ItauModule() {
 
       <article className="result-card">
         <header className="result-header">
-          <h4><Activity size={16} /> Telemetria e últimas observações</h4>
+          <h4><Activity size={16} /> Telemetria e últimas observações do backtest</h4>
           <span>fonte: {fonte}</span>
         </header>
 
@@ -503,13 +503,13 @@ export function ItauModule() {
       <form className="form-card" onSubmit={handleSaveParametros}>
         <div className="result-toolbar">
           <div>
-            <h4><Save size={16} /> Parâmetros administrativos</h4>
+            <h4><Save size={16} /> Parâmetros vigentes</h4>
             <p className="field-hint">Ajuste de IOF, spreads, calibragem e limites de MAPE com persistência no `ITAU_SOURCE_DB`.</p>
           </div>
           <div className="inline-actions">
             <button type="button" className="ghost-button" onClick={() => void loadParametros(true)} disabled={loadingParametros || savingParametros}>
               {loadingParametros ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-              Recarregar parâmetros
+              Atualizar
             </button>
           </div>
         </div>
@@ -560,7 +560,7 @@ export function ItauModule() {
       <article className="result-card">
         <div className="result-toolbar">
           <div>
-            <h4><Database size={16} /> Painel de rate limit</h4>
+            <h4><Database size={16} /> Painel de controle de rate limit</h4>
             <p className="field-hint">Políticas por rota com atualização em tempo real e opção de restaurar padrão.</p>
             {hasUnsavedRatePolicies && (
               <span className="badge badge-planejado">Alterações não salvas</span>
@@ -569,7 +569,7 @@ export function ItauModule() {
           <div className="inline-actions">
             <button type="button" className="ghost-button" onClick={() => void loadRateLimit(true)} disabled={loadingRateLimit || updatingRateRoute !== null}>
               {loadingRateLimit ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-              Recarregar rate limit
+              Atualizar painel
             </button>
             <button type="button" className="ghost-button" onClick={restoreAllRatePoliciesLocal} disabled={loadingRateLimit || updatingRateRoute !== null || ratePolicies.length === 0}>
               <RefreshCw size={16} />
