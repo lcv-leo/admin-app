@@ -205,13 +205,31 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   // Parâmetros de query opcionais
   const sourcesParam = url.searchParams.get('sources') // ex: "g1,folha,bbc"
+  const customSourcesParam = url.searchParams.get('custom_sources') // JSON array
   const maxParam = parseInt(url.searchParams.get('max') ?? '', 10)
   const maxItems = (maxParam > 0 && maxParam <= 50) ? maxParam : DEFAULT_MAX_ITEMS
 
-  // Filtrar fontes se especificado
-  const activeSources = sourcesParam
-    ? RSS_SOURCES.filter(s => sourcesParam.toLowerCase().split(',').includes(s.id))
-    : RSS_SOURCES
+  // Montar lista de fontes: builtin + custom
+  let activeSources: Array<{ id: string; name: string; url: string; category: string }> = []
+
+  // Parse de fontes customizadas (enviadas pelo frontend)
+  if (customSourcesParam) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(customSourcesParam)) as Array<{ id: string; name: string; url: string; category: string }>
+      if (Array.isArray(parsed)) {
+        activeSources = parsed.filter(s => s.id && s.name && s.url)
+      }
+    } catch {
+      // Ignorar parse inválido, cair no fallback abaixo
+    }
+  }
+
+  // Se não veio custom_sources, usar builtin filtrado por IDs
+  if (activeSources.length === 0) {
+    activeSources = sourcesParam
+      ? RSS_SOURCES.filter(s => sourcesParam.toLowerCase().split(',').includes(s.id))
+      : RSS_SOURCES
+  }
 
   // Cache key inclui query params
   const cacheKey = new Request(url.toString(), context.request)
