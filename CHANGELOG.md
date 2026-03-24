@@ -1,5 +1,26 @@
 # Changelog — Admin App
 
+## [v01.36.00] — 2026-03-24
+### Adicionado
+- Editor TipTap: extensões `ResizableImage` (width %) e `ResizableYoutube` (nocookie, 16:9).
+- Toolbar de mídia: Upload R2 (`/api/mainsite/upload`), Imagem por URL (Google Drive auto-detect), YouTube embed, Zoom ±, Legenda (inserir/editar caption blocks).
+- Snap bars: 25/50/75/100% (imagens), 480p/720p/1080p (vídeos).
+- Modal universal `PromptModal` (unificou link, imagem, YouTube, legenda em modal único).
+- Endpoint `functions/api/mainsite/upload.ts` com binding direto `MEDIA_BUCKET` (R2 `mainsite-media`).
+- `tsconfig.functions.json` com `@cloudflare/workers-types` para tipos Cloudflare nativos nas functions.
+- CSS: `.tiptap-hidden-input`, `.tiptap-snap-group`, `.snap-btn`, estilos de seleção de mídia no editor.
+
+### Alterado
+- Wrangler: bindings `ASTROLOGO_SOURCE_DB` e `ITAU_SOURCE_DB` removidos; 12 arquivos atualizados para usar exclusivamente `BIGDATA_DB`.
+- Mensagens de erro de binding atualizadas para referenciar apenas `BIGDATA_DB`.
+- Astrólogo: labels `#94a3b8` → `#bcc5d0`, conteúdo IA `#cbd5e1` → `#e2e8f0` (melhoria de contraste WCAG AA).
+- Rótulo: "Gatilho de Doação (Mercado Pago)" → "Gatilho de Doação".
+- Safari: `-webkit-backdrop-filter` adicionado em `.confirm-overlay`.
+- `ItauModule.tsx`: hint de persistência atualizado para `BIGDATA_DB`.
+
+### Dependências
+- `@tiptap/extension-image`, `@tiptap/extension-youtube`, `@cloudflare/workers-types` e 9 extensões auxiliares TipTap.
+
 ## [v01.35.01] — 2026-03-24
 ### Alterado
 - "Admin LCV" fonte restaurada para `1.1rem` (era `0.65rem`).
