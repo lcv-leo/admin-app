@@ -27,7 +27,7 @@ const resolveOperationalSource = () => 'bigdata_db' as const
 export async function onRequestPost(context: Context) {
   const trace = createResponseTrace(context.request)
   const db = resolveDb(context)
-  const source = resolveOperationalSource(context)
+  const source = resolveOperationalSource()
 
   if (!db) {
     return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/ASTROLOGO_SOURCE_DB).', ...trace }, 503)
@@ -54,7 +54,7 @@ export async function onRequestPost(context: Context) {
         dados_globais,
         analise_ia,
         created_at
-      FROM mapas_astrologicos
+      FROM astrologo_mapas
       WHERE id = ?
       LIMIT 1
     `)
