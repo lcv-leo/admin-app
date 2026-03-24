@@ -1,5 +1,15 @@
 # Changelog — Admin App
 
+## [v01.45.01] — 2026-03-24
+### Corrigido
+- **Deploy fix**: 3 referências a loadOverview substituídas por loadManagedPosts() e FormEvent corrigido para React.FormEvent em MainsiteModule.tsx.
+
+### Removido
+- **Filtro de palavras-chave (ConfigModule)**: input duplicado removido — funcionalidade agora exclusiva da barra de busca inline do NewsPanel.
+
+### Alterado
+- **Barra de busca do painel de notícias**: adicionada borda sombreada (ox-shadow), order-radius, fundo semi-transparente e efeito :focus-within para destaque visual.
+
 ## [v01.45.00] — 2026-03-24
 ### Adicionado
 - **[NEW] src/components/FloatingScrollButtons.tsx**: botões flutuantes de rolagem inteligentes (paridade mainsite-frontend). Glassmorphism, animação fadeIn, responsivo.
