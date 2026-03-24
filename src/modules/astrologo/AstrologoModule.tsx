@@ -80,7 +80,7 @@ export function AstrologoModule() {
   const [dataInicial, setDataInicial] = useState('')
   const [dataFinal, setDataFinal] = useState('')
   const [email, setEmail] = useState('')
-  const [adminActor, setAdminActor] = useState('admin@app.lcv')
+  const [adminActor] = useState('admin@app.lcv')
   const [items, setItems] = useState<MapaResumo[]>([])
   const [selectedMapa, setSelectedMapa] = useState<MapaDetalhado | null>(null)
   const [ratePolicies, setRatePolicies] = useState<RatePolicy[]>([])
@@ -489,18 +489,6 @@ export function AstrologoModule() {
 
       <form className="form-card" onSubmit={handleSubmit}>
         <div className="form-grid">
-          <div className="field-group">
-            <label htmlFor="astrologo-admin-actor">Administrador responsável</label>
-            <input
-              id="astrologo-admin-actor"
-              name="astrologoAdminActor"
-              type="text"
-              autoComplete="email"
-              placeholder="admin@lcv.app.br"
-              value={adminActor}
-              onChange={(event) => setAdminActor(event.target.value)}
-            />
-          </div>
 
           <div className="field-group">
             <label htmlFor="astrologo-filtro-nome">Nome do consulente</label>

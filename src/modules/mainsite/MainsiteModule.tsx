@@ -78,7 +78,7 @@ export function MainsiteModule() {
   const [savingSettings, setSavingSettings] = useState(false)
   const [actionPostId, setActionPostId] = useState<number | null>(null)
   const [limit, setLimit] = useState('20')
-  const [adminActor, setAdminActor] = useState('admin@app.lcv')
+  const [adminActor] = useState('admin@app.lcv')
   const [payload, setPayload] = useState<OverviewPayload>(initialPayload)
   const [managedPosts, setManagedPosts] = useState<ManagedPost[]>([])
   const [editingPostId, setEditingPostId] = useState<number | null>(null)
@@ -558,18 +558,6 @@ export function MainsiteModule() {
 
       <form className="form-card" onSubmit={handleSubmit}>
         <div className="form-grid">
-          <div className="field-group">
-            <label htmlFor="mainsite-admin-actor">Administrador responsável</label>
-            <input
-              id="mainsite-admin-actor"
-              name="mainsiteAdminActor"
-              type="text"
-              autoComplete="email"
-              placeholder="admin@lcv.app.br"
-              value={adminActor}
-              onChange={(event) => setAdminActor(event.target.value)}
-            />
-          </div>
 
           <div className="field-group">
             <label htmlFor="mainsite-filtro-limit">Quantidade de posts</label>
@@ -593,23 +581,6 @@ export function MainsiteModule() {
         </div>
       </form>
 
-      <section className="metrics-grid">
-        <article className="metric-card">
-          <div className="metric-icon"><Activity size={20} /></div>
-          <strong>{payload.resumo.totalPosts}</strong>
-          <span>Total de posts no recorte.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><Globe size={20} /></div>
-          <strong>{payload.resumo.totalPinned}</strong>
-          <span>Posts fixados.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><Activity size={20} /></div>
-          <strong>{payload.resumo.totalApprovedFinancialLogs ?? '—'}</strong>
-          <span>Pagamentos aprovados (telemetria financeira).</span>
-        </article>
-      </section>
 
       <article className="result-card">
         <header className="result-header">

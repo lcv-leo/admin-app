@@ -3,7 +3,6 @@ import type { FormEvent } from 'react'
 import { Loader2, RefreshCw, Save, Search, ShieldCheck } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { SyncStatusCard } from '../../components/SyncStatusCard'
-import { formatOperationalSourceLabel } from '../../lib/operationalSource'
 
 type MtastsPayload = {
   ok: boolean
@@ -103,7 +102,7 @@ export function MtastsModule() {
   const [orchestrating, setOrchestrating] = useState(false)
   const [domain, setDomain] = useState('')
   const [limit, setLimit] = useState('30')
-  const [adminActor, setAdminActor] = useState('admin@app.lcv')
+  const [adminActor] = useState('admin@app.lcv')
   const [payload, setPayload] = useState<MtastsPayload>(initialPayload)
   const [zones, setZones] = useState<MtastsZone[]>([])
   const [selectedDomain, setSelectedDomain] = useState('')
@@ -468,18 +467,6 @@ export function MtastsModule() {
 
       <form className="form-card" onSubmit={handleSubmit}>
         <div className="form-grid">
-          <div className="field-group">
-            <label htmlFor="mtasts-admin-actor">Administrador responsável</label>
-            <input
-              id="mtasts-admin-actor"
-              name="mtastsAdminActor"
-              type="text"
-              autoComplete="email"
-              placeholder="admin@lcv.app.br"
-              value={adminActor}
-              onChange={(event) => setAdminActor(event.target.value)}
-            />
-          </div>
 
           <div className="field-group">
             <label htmlFor="mtasts-filtro-domain">Domínio (opcional)</label>
@@ -609,23 +596,6 @@ export function MtastsModule() {
         </div>
       </form>
 
-      <section className="metrics-grid">
-        <article className="metric-card">
-          <div className="metric-icon"><ShieldCheck size={20} /></div>
-          <strong>{payload.resumo.totalHistorico}</strong>
-          <span>Total de itens de histórico.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><ShieldCheck size={20} /></div>
-          <strong>{payload.resumo.totalPolicies}</strong>
-          <span>Total de policies carregadas.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><ShieldCheck size={20} /></div>
-          <strong>{formatOperationalSourceLabel(payload.fonte)}</strong>
-          <span>Fonte atual de dados.</span>
-        </article>
-      </section>
 
       <article className="result-card">
         <header className="result-header">
