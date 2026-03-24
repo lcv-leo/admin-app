@@ -29,7 +29,7 @@ type BacktestRow = {
 
 type ItauOverviewPayload = {
   ok: boolean
-  fonte: 'bigdata_db' | 'legacy-admin'
+  fonte: 'bigdata_db'
   filtros: {
     moeda: string
     dias: number
