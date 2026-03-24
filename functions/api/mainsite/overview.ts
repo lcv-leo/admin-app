@@ -5,7 +5,6 @@ type D1PreparedStatement = {
   bind: (...values: Array<string | number | null>) => D1PreparedStatement
   first: <T>() => Promise<T | null>
   all: <T>() => Promise<{ results?: T[] }>
-  run: () => Promise<unknown>
 }
 
 type D1Database = {
@@ -14,7 +13,6 @@ type D1Database = {
 
 type Env = {
   BIGDATA_DB?: D1Database
-  MAINSITE_WORKER_API_BASE_URL?: string
 }
 
 type Context = {
@@ -29,16 +27,9 @@ type MainsitePostRow = {
   is_pinned?: number
 }
 
-type LegacyPost = {
-  id?: number
-  title?: string
-  created_at?: string
-  is_pinned?: number
-}
-
 type MainsiteOverviewResponse = {
   ok: boolean
-  fonte: 'bigdata_db' | 'legacy-worker'
+  fonte: 'bigdata_db'
   filtros: {
     limit: number
   }
@@ -57,14 +48,10 @@ type MainsiteOverviewResponse = {
   }>
 }
 
-const DEFAULT_MAINSITE_WORKER_URL = 'https://mainsite-app.lcv.rio.br'
-
 const toResponseHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
 })
-
-const normalizeBaseUrl = (value: string) => value.endsWith('/') ? value.slice(0, -1) : value
 
 const parseLimit = (rawValue: string | null) => {
   const parsed = Number.parseInt(rawValue ?? '20', 10)
@@ -74,7 +61,7 @@ const parseLimit = (rawValue: string | null) => {
   return Math.min(50, Math.max(1, parsed))
 }
 
-const mapPost = (post: MainsitePostRow | LegacyPost) => {
+const mapPost = (post: MainsitePostRow) => {
   const id = Number(post.id)
   const title = String(post.title ?? '').trim()
   const createdAt = String(post.created_at ?? '').trim()
@@ -120,104 +107,47 @@ const queryBigdata = async (db: D1Database, limit: number): Promise<MainsiteOver
   }
 }
 
-const queryLegacyWorker = async (baseUrl: string, limit: number, avisos: string[]): Promise<MainsiteOverviewResponse> => {
-  const endpoint = `${baseUrl}/api/posts`
-
-  const response = await fetch(endpoint, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    throw new Error(`Falha no worker legado: HTTP ${response.status}`)
-  }
-
-  const payload = await response.json() as LegacyPost[]
-  const posts = Array.isArray(payload) ? payload : []
-
-  const mapped = posts
-    .map((post) => mapPost(post))
-    .filter((item): item is NonNullable<ReturnType<typeof mapPost>> => item !== null)
-    .slice(0, limit)
-
-  const totalPinned = mapped.filter((post) => post.isPinned).length
-
-  avisos.push('Telemetria financeira indisponível no fallback público do worker legado.')
-
-  return {
-    ok: true,
-    fonte: 'legacy-worker',
-    filtros: { limit },
-    avisos,
-    resumo: {
-      totalPosts: mapped.length,
-      totalPinned,
-      totalFinancialLogs: null,
-      totalApprovedFinancialLogs: null,
-    },
-    ultimosPosts: mapped,
-  }
-}
-
 export async function onRequestGet(context: Context) {
   const { request, env } = context
   const trace = createResponseTrace(request)
   const url = new URL(request.url)
   const limit = parseLimit(url.searchParams.get('limit'))
-  const avisos: string[] = []
 
-  if (env.BIGDATA_DB) {
-    try {
-      const payload = await queryBigdata(env.BIGDATA_DB, limit)
-      try {
-        await logModuleOperationalEvent(env.BIGDATA_DB, {
-          module: 'mainsite',
-          source: 'bigdata_db',
-          fallbackUsed: false,
-          ok: true,
-          metadata: {
-            totalPosts: payload.resumo.totalPosts,
-            totalPinned: payload.resumo.totalPinned,
-          },
-        })
-      } catch {
-        // Não bloquear resposta por falha de telemetria.
-      }
-
-      return new Response(JSON.stringify({
-        ...payload,
-        ...trace,
-      }), {
-        headers: toResponseHeaders(),
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Falha ao consultar bigdata_db'
-      avisos.push(`Fallback para worker legado ativado: ${message}`)
-    }
+  if (!env.BIGDATA_DB) {
+    return new Response(JSON.stringify({
+      ok: false,
+      ...trace,
+      error: 'BIGDATA_DB não configurado no runtime do admin-app.',
+      filtros: { limit },
+      avisos: ['Leitura de overview do MainSite depende do BIGDATA_DB interno.'],
+      resumo: {
+        totalPosts: 0,
+        totalPinned: 0,
+        totalFinancialLogs: null,
+        totalApprovedFinancialLogs: null,
+      },
+      ultimosPosts: [],
+    }), {
+      status: 503,
+      headers: toResponseHeaders(),
+    })
   }
 
-  const legacyBaseUrl = normalizeBaseUrl(env.MAINSITE_WORKER_API_BASE_URL ?? DEFAULT_MAINSITE_WORKER_URL)
-
   try {
-    const payload = await queryLegacyWorker(legacyBaseUrl, limit, avisos)
-
-    if (env.BIGDATA_DB) {
-      try {
-        await logModuleOperationalEvent(env.BIGDATA_DB, {
-          module: 'mainsite',
-          source: 'legacy-worker',
-          fallbackUsed: true,
-          ok: true,
-          metadata: {
-            totalPosts: payload.resumo.totalPosts,
-            totalPinned: payload.resumo.totalPinned,
-          },
-        })
-      } catch {
-        // Não bloquear resposta por falha de telemetria.
-      }
+    const payload = await queryBigdata(env.BIGDATA_DB, limit)
+    try {
+      await logModuleOperationalEvent(env.BIGDATA_DB, {
+        module: 'mainsite',
+        source: 'bigdata_db',
+        fallbackUsed: false,
+        ok: true,
+        metadata: {
+          totalPosts: payload.resumo.totalPosts,
+          totalPinned: payload.resumo.totalPinned,
+        },
+      })
+    } catch {
+      // Não bloquear resposta por falha de telemetria.
     }
 
     return new Response(JSON.stringify({
@@ -229,18 +159,16 @@ export async function onRequestGet(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido no módulo MainSite'
 
-    if (env.BIGDATA_DB) {
-      try {
-        await logModuleOperationalEvent(env.BIGDATA_DB, {
-          module: 'mainsite',
-          source: 'legacy-worker',
-          fallbackUsed: true,
-          ok: false,
-          errorMessage: message,
-        })
-      } catch {
-        // Não bloquear resposta por falha de telemetria.
-      }
+    try {
+      await logModuleOperationalEvent(env.BIGDATA_DB, {
+        module: 'mainsite',
+        source: 'bigdata_db',
+        fallbackUsed: false,
+        ok: false,
+        errorMessage: message,
+      })
+    } catch {
+      // Não bloquear resposta por falha de telemetria.
     }
 
     return new Response(JSON.stringify({
@@ -248,7 +176,7 @@ export async function onRequestGet(context: Context) {
       ...trace,
       error: message,
       filtros: { limit },
-      avisos,
+      avisos: [],
       resumo: {
         totalPosts: 0,
         totalPinned: 0,
@@ -257,7 +185,7 @@ export async function onRequestGet(context: Context) {
       },
       ultimosPosts: [],
     }), {
-      status: 502,
+      status: 500,
       headers: toResponseHeaders(),
     })
   }

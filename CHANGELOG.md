@@ -1,5 +1,14 @@
 # Changelog — Admin App
 
+## [v01.31.03] — 2026-03-24
+### Corrigido
+- Removida duplicação acidental de código nos handlers de `mainsite` (`posts`, `posts-pin`, `settings`, `overview`, `sync`), restabelecendo compilação limpa sem símbolos duplicados.
+- Consolidado o módulo `MainSite` para uso interno do `BIGDATA_DB`, eliminando dependências legadas por URL pública nos endpoints auditados.
+- Reestabilizados os fluxos de CRUD de posts, pinagem, configurações públicas, overview e sincronização para operação local consistente.
+
+### Alterado
+- Versão da aplicação incrementada para `APP v01.31.03` em `src/App.tsx`.
+
 ## [v01.31.02] — 2026-03-24
 ### Corrigido
 - Paridade funcional do módulo `MTA-STS` com o `mtasts-admin`: auditoria de integridade agora segue o paradigma do admin individual (comparação por domínio entre `policy/email/id` no D1 e estado DNS), eliminando falso-positivo crítico por regra divergente.

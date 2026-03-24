@@ -8,7 +8,7 @@ import type { RateLimitPolicy } from '../../lib/rate-limit-common'
 type OverviewPayload = {
   ok: boolean
   error?: string
-  fonte: 'bigdata_db' | 'legacy-worker'
+  fonte: 'bigdata_db'
   filtros: {
     limit: number
   }
@@ -552,7 +552,7 @@ export function MainsiteModule() {
         <div className="detail-icon"><Globe size={22} /></div>
         <div>
           <h3>MainSite Admin — Sistema, Auditoria e Financeiro</h3>
-          <p>Consulta híbrida no shell: prioriza `bigdata_db` e recua para worker legado quando necessário.</p>
+          <p>Operação interna no shell unificado: leitura e escrita diretas em `bigdata_db`.</p>
         </div>
       </div>
 
@@ -638,7 +638,7 @@ export function MainsiteModule() {
         <div className="result-toolbar">
           <div>
             <h4>{editingPostId ? `Editar post #${editingPostId}` : 'Novo post (NOVO)'}</h4>
-            <p className="field-hint">Cria ou altera posts direto no worker legado, com reconciliação automática no `bigdata_db`.</p>
+            <p className="field-hint">Cria e altera posts diretamente no `bigdata_db` com persistência imediata.</p>
           </div>
           <div className="inline-actions">
             <button type="button" className="ghost-button" onClick={resetPostEditor} disabled={savingPost}>
@@ -694,7 +694,7 @@ export function MainsiteModule() {
         <div className="result-toolbar">
           <div>
             <h4><Globe size={16} /> Arquivo de posts operacionais</h4>
-            <p className="field-hint">Lista viva do worker legado para edição, fixação e exclusão sem sair do cockpit.</p>
+            <p className="field-hint">Lista operacional do `bigdata_db` para edição, fixação e exclusão sem sair do cockpit.</p>
           </div>
           <div className="inline-actions">
             <button type="button" className="ghost-button" onClick={() => void loadManagedPosts(true)} disabled={postsLoading}>
@@ -709,7 +709,7 @@ export function MainsiteModule() {
         </div>
 
         {managedPosts.length === 0 ? (
-          <p className="result-empty">Nenhum post retornado pelo worker legado.</p>
+          <p className="result-empty">Nenhum post encontrado no `bigdata_db`.</p>
         ) : (
           <ul className="result-list">
             {managedPosts.map((post) => {
@@ -754,7 +754,7 @@ export function MainsiteModule() {
         <div className="result-toolbar">
           <div>
             <h4><Save size={16} /> Sistema — settings públicos do MainSite</h4>
-            <p className="field-hint">Appearance, rotation e disclaimers são editáveis aqui. `ratelimit` continua protegido para fase posterior.</p>
+            <p className="field-hint">Appearance, rotation e disclaimers são editáveis diretamente no `bigdata_db`. `ratelimit` permanece no painel dedicado.</p>
           </div>
           <div className="inline-actions">
             <button type="button" className="ghost-button" onClick={() => void loadPublicSettings(true)} disabled={settingsLoading || savingSettings}>
@@ -918,7 +918,7 @@ export function MainsiteModule() {
         module="mainsite"
         endpoint="/api/mainsite/sync"
         title="Sync manual do MainSite"
-        description="Sincroniza posts e settings públicos do worker legado para o `bigdata_db`; configs privadas permanecem protegidas até fase posterior."
+        description="Executa validação e saneamento interno de posts/settings no `bigdata_db` com suporte a dry run."
       />
     </section>
   )

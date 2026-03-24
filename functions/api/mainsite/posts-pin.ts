@@ -1,7 +1,30 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
-import { fetchLegacyAdminJson, fetchLegacyJson, type Context, type LegacyPost, toHeaders, upsertPostsIntoBigdata } from '../_lib/mainsite-admin'
+import { type Context, toHeaders } from '../_lib/mainsite-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
 import { createResponseTrace, type ResponseTrace } from '../_lib/request-trace'
+
+type D1PreparedStatement = {
+  bind: (...values: Array<string | number | null>) => D1PreparedStatement
+  first: <T>() => Promise<T | null>
+  run: () => Promise<unknown>
+}
+
+type D1Database = {
+  prepare: (query: string) => D1PreparedStatement
+}
+
+type MainsiteEnv = Context['env'] & {
+  BIGDATA_DB?: D1Database
+}
+
+type MainsiteContext = {
+  request: Request
+  env: MainsiteEnv
+}
+
+type PinRow = {
+  is_pinned?: number
+}
 
 const parseId = (rawValue: unknown) => {
   const parsed = Number(rawValue)
@@ -20,10 +43,18 @@ const buildErrorResponse = (message: string, trace: ResponseTrace, status = 500)
   headers: toHeaders(),
 })
 
-export async function onRequestPost(context: Context) {
+const requireDb = (env: MainsiteEnv) => {
+  if (!env.BIGDATA_DB) {
+    throw new Error('BIGDATA_DB não configurado no runtime do admin-app.')
+  }
+  return env.BIGDATA_DB
+}
+
+export async function onRequestPost(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
+    const db = requireDb(context.env)
     const body = await context.request.json() as { id?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
     const id = parseId(body.id)
@@ -32,44 +63,41 @@ export async function onRequestPost(context: Context) {
       return buildErrorResponse('ID válido é obrigatório para alternar fixação do post.', trace, 400)
     }
 
-    const payload = await fetchLegacyAdminJson<{ success?: boolean; is_pinned?: number }>(
-      context.env,
-      `/api/posts/${id}/pin`,
-      'PUT',
-      'Falha ao alternar fixação do post no MainSite legado',
-      undefined,
-      adminActor,
-    )
+    const current = await db.prepare('SELECT is_pinned FROM mainsite_posts WHERE id = ? LIMIT 1')
+      .bind(id)
+      .first<PinRow>()
 
-    let syncedPosts = 0
-    if (context.env.BIGDATA_DB) {
-      const posts = await fetchLegacyJson<LegacyPost[]>(context.env, '/api/posts', 'Falha ao reconfirmar posts do MainSite legado')
-      syncedPosts = await upsertPostsIntoBigdata(context.env.BIGDATA_DB, Array.isArray(posts) ? posts : [])
+    if (!current) {
+      return buildErrorResponse('Post não encontrado para alternar fixação.', trace, 404)
+    }
 
-      try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
-          module: 'mainsite',
-          source: 'legacy-worker',
-          fallbackUsed: false,
-          ok: true,
-          metadata: {
-            action: 'pin-post',
-            adminActor,
-            id,
-            isPinned: Number(payload.is_pinned ?? 0) === 1,
-            syncedPosts,
-          },
-        })
-      } catch {
-        // Telemetria não deve bloquear a resposta.
-      }
+    const nextPinned = Number(current.is_pinned ?? 0) === 1 ? 0 : 1
+
+    await db.prepare('UPDATE mainsite_posts SET is_pinned = ? WHERE id = ?')
+      .bind(nextPinned, id)
+      .run()
+
+    try {
+      await logModuleOperationalEvent(db, {
+        module: 'mainsite',
+        source: 'bigdata_db',
+        fallbackUsed: false,
+        ok: true,
+        metadata: {
+          action: 'pin-post',
+          adminActor,
+          id,
+          isPinned: nextPinned === 1,
+        },
+      })
+    } catch {
+      // Telemetria não deve bloquear a resposta.
     }
 
     return new Response(JSON.stringify({
       ok: true,
       id,
-      isPinned: Number(payload.is_pinned ?? 0) === 1,
-      syncedPosts,
+      isPinned: nextPinned === 1,
       admin_actor: adminActor,
       ...trace,
     }), {
@@ -82,7 +110,7 @@ export async function onRequestPost(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mainsite',
-          source: 'legacy-worker',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,

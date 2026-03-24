@@ -3,7 +3,6 @@ import type { D1Database } from '../_lib/operational'
 
 type Env = {
   BIGDATA_DB?: D1Database
-  MAINSITE_WORKER_API_BASE_URL?: string
 }
 
 type Context = {
@@ -11,70 +10,61 @@ type Context = {
   env: Env
 }
 
-type LegacyPost = {
-  id?: number
-  title?: string
-  content?: string
-  is_pinned?: number | boolean
-  display_order?: number
-  created_at?: string
-}
+type CountRow = { total?: number }
 
-type LegacySettingsPayload = Record<string, unknown>
-
-type SyncPostRow = {
-  id: number
-  title: string
-  content: string
-  isPinned: number
-  displayOrder: number
-  createdAt: string
-}
-
-const DEFAULT_MAINSITE_WORKER_URL = 'https://mainsite-app.lcv.rio.br'
-
-const parseLimit = (rawValue: string | null) => {
-  const parsed = Number.parseInt(rawValue ?? '200', 10)
-  if (!Number.isFinite(parsed)) {
-    return 200
-  }
-  return Math.min(1000, Math.max(1, parsed))
+type SettingRow = {
+  id?: string
+  payload?: string
 }
 
 const parseDryRun = (rawValue: string | null) => rawValue === '1' || rawValue === 'true'
-
-const normalizeBaseUrl = (value: string) => value.endsWith('/') ? value.slice(0, -1) : value
 
 const toHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
 })
 
-const toSyncPostRow = (item: LegacyPost) => {
-  const id = Number(item.id)
-  const title = String(item.title ?? '').trim()
-  const content = String(item.content ?? '').trim()
-  const createdAt = String(item.created_at ?? '').trim()
-  const displayOrder = Number(item.display_order ?? 0)
+const DEFAULT_SETTINGS: Array<{ id: string; payload: Record<string, unknown> }> = [
+  {
+    id: 'mainsite/appearance',
+    payload: {
+      allowAutoMode: true,
+      light: { bgColor: '#ffffff', bgImage: '', fontColor: '#333333', titleColor: '#111111' },
+      dark: { bgColor: '#131314', bgImage: '', fontColor: '#E3E3E3', titleColor: '#8AB4F8' },
+      shared: { fontSize: '1.15rem', titleFontSize: '1.8rem', fontFamily: 'sans-serif' },
+    },
+  },
+  {
+    id: 'mainsite/rotation',
+    payload: { enabled: false, interval: 60, last_rotated_at: 0 },
+  },
+  {
+    id: 'mainsite/ratelimit',
+    payload: {
+      chatbot: { enabled: false, maxRequests: 5, windowMinutes: 1 },
+      email: { enabled: false, maxRequests: 3, windowMinutes: 15 },
+    },
+  },
+  {
+    id: 'mainsite/disclaimers',
+    payload: {
+      enabled: true,
+      items: [{ id: 'default', title: 'Aviso', text: 'Texto de exemplo.', buttonText: 'Concordo' }],
+    },
+  },
+]
 
-  if (!Number.isFinite(id) || !title || !content || !createdAt) {
-    return null
+const isValidJson = (raw: string | undefined) => {
+  if (!raw?.trim()) {
+    return false
   }
-
-  return {
-    id,
-    title,
-    content,
-    isPinned: Number(item.is_pinned) === 1 || item.is_pinned === true ? 1 : 0,
-    displayOrder: Number.isFinite(displayOrder) ? Math.trunc(displayOrder) : 0,
-    createdAt,
-  } satisfies SyncPostRow
+  try {
+    JSON.parse(raw)
+    return true
+  } catch {
+    return false
+  }
 }
-
-const toSyncSettingRow = (id: string, payload: LegacySettingsPayload) => ({
-  id,
-  payload: JSON.stringify(payload),
-})
 
 export async function onRequestPost(context: Context) {
   const { request, env } = context
@@ -90,88 +80,62 @@ export async function onRequestPost(context: Context) {
   }
 
   const url = new URL(request.url)
-  const limit = parseLimit(url.searchParams.get('limit'))
   const dryRun = parseDryRun(url.searchParams.get('dryRun'))
-  const baseUrl = normalizeBaseUrl(env.MAINSITE_WORKER_API_BASE_URL ?? DEFAULT_MAINSITE_WORKER_URL)
 
   const startedAt = Date.now()
   const syncRunId = await startSyncRun(env.BIGDATA_DB, {
     module: 'mainsite',
     status: 'running',
     startedAt,
-    metadata: { limit, dryRun },
+    metadata: { dryRun },
   })
 
   try {
-    const [postsResponse, appearanceResponse, rotationResponse, disclaimersResponse] = await Promise.all([
-      fetch(`${baseUrl}/api/posts`, { headers: { Accept: 'application/json' } }),
-      fetch(`${baseUrl}/api/settings`, { headers: { Accept: 'application/json' } }),
-      fetch(`${baseUrl}/api/settings/rotation`, { headers: { Accept: 'application/json' } }),
-      fetch(`${baseUrl}/api/settings/disclaimers`, { headers: { Accept: 'application/json' } }),
+    const [postsCountRow, financialCountRow, settingsRowsRaw] = await Promise.all([
+      env.BIGDATA_DB.prepare('SELECT COUNT(1) AS total FROM mainsite_posts').first<CountRow>(),
+      env.BIGDATA_DB.prepare('SELECT COUNT(1) AS total FROM mainsite_financial_logs').first<CountRow>(),
+      env.BIGDATA_DB.prepare('SELECT id, payload FROM mainsite_settings').all<SettingRow>(),
     ])
 
-    if (!postsResponse.ok) {
-      throw new Error(`Falha ao ler posts do MainSite legado: HTTP ${postsResponse.status}`)
-    }
+    const settingsRows = settingsRowsRaw.results ?? []
+    const settingsMap = new Map(settingsRows.map((row) => [String(row.id ?? ''), row]))
 
-    if (!appearanceResponse.ok || !rotationResponse.ok || !disclaimersResponse.ok) {
-      throw new Error('Falha ao ler settings públicos do MainSite legado.')
-    }
-
-    const postsPayload = await postsResponse.json() as LegacyPost[]
-    const appearancePayload = await appearanceResponse.json() as LegacySettingsPayload
-    const rotationPayload = await rotationResponse.json() as LegacySettingsPayload
-    const disclaimersPayload = await disclaimersResponse.json() as LegacySettingsPayload
-
-    const posts = (Array.isArray(postsPayload) ? postsPayload : [])
-      .map((item) => toSyncPostRow(item))
-      .filter((item): item is SyncPostRow => item !== null)
-      .slice(0, limit)
-
-    const settings = [
-      toSyncSettingRow('mainsite/appearance', appearancePayload),
-      toSyncSettingRow('mainsite/rotation', rotationPayload),
-      toSyncSettingRow('mainsite/disclaimers', disclaimersPayload),
-    ]
-
-    let postsUpserted = 0
-    let settingsUpserted = 0
+    let settingsInserted = 0
+    let settingsFixed = 0
 
     if (!dryRun) {
-      for (const post of posts) {
-        await env.BIGDATA_DB.prepare(`
-          INSERT INTO mainsite_posts (id, title, content, is_pinned, display_order, created_at)
-          VALUES (?, ?, ?, ?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            title = excluded.title,
-            content = excluded.content,
-            is_pinned = excluded.is_pinned,
-            display_order = excluded.display_order,
-            created_at = excluded.created_at
-        `)
-          .bind(post.id, post.title, post.content, post.isPinned, post.displayOrder, post.createdAt)
-          .run()
+      for (const entry of DEFAULT_SETTINGS) {
+        const current = settingsMap.get(entry.id)
 
-        postsUpserted += 1
-      }
+        if (!current) {
+          await env.BIGDATA_DB.prepare(`
+            INSERT INTO mainsite_settings (id, payload, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+          `)
+            .bind(entry.id, JSON.stringify(entry.payload))
+            .run()
+          settingsInserted += 1
+          continue
+        }
 
-      for (const setting of settings) {
-        await env.BIGDATA_DB.prepare(`
-          INSERT INTO mainsite_settings (id, payload, updated_at)
-          VALUES (?, ?, CURRENT_TIMESTAMP)
-          ON CONFLICT(id) DO UPDATE SET
-            payload = excluded.payload,
-            updated_at = CURRENT_TIMESTAMP
-        `)
-          .bind(setting.id, setting.payload)
-          .run()
-
-        settingsUpserted += 1
+        if (!isValidJson(current.payload)) {
+          await env.BIGDATA_DB.prepare(`
+            UPDATE mainsite_settings
+            SET payload = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `)
+            .bind(JSON.stringify(entry.payload), entry.id)
+            .run()
+          settingsFixed += 1
+        }
       }
     }
 
-    const recordsRead = posts.length + settings.length
-    const recordsUpserted = dryRun ? 0 : postsUpserted + settingsUpserted
+    const recordsRead = Number(postsCountRow?.total ?? 0)
+      + Number(financialCountRow?.total ?? 0)
+      + settingsRows.length
+
+    const recordsUpserted = dryRun ? 0 : (settingsInserted + settingsFixed)
 
     await finishSyncRun(env.BIGDATA_DB, {
       id: syncRunId,
@@ -188,14 +152,13 @@ export async function onRequestPost(context: Context) {
       ok: true,
       metadata: {
         action: 'sync',
-        pulledFrom: 'legacy-worker',
+        pulledFrom: 'bigdata_db',
         dryRun,
-        limit,
-        postsLidos: posts.length,
-        postsUpserted: dryRun ? 0 : postsUpserted,
-        settingsLidos: settings.length,
-        settingsUpserted: dryRun ? 0 : settingsUpserted,
-        skippedPrivateSettings: ['mainsite/ratelimit'],
+        postsLidos: Number(postsCountRow?.total ?? 0),
+        financeirosLidos: Number(financialCountRow?.total ?? 0),
+        settingsLidos: settingsRows.length,
+        settingsInseridos: dryRun ? 0 : settingsInserted,
+        settingsCorrigidos: dryRun ? 0 : settingsFixed,
       },
     })
 
@@ -206,13 +169,15 @@ export async function onRequestPost(context: Context) {
       recordsRead,
       recordsUpserted,
       posts: {
-        lidos: posts.length,
-        upserted: dryRun ? 0 : postsUpserted,
+        lidos: Number(postsCountRow?.total ?? 0),
+      },
+      financialLogs: {
+        lidos: Number(financialCountRow?.total ?? 0),
       },
       settings: {
-        lidos: settings.length,
-        upserted: dryRun ? 0 : settingsUpserted,
-        ignorados: ['mainsite/ratelimit'],
+        lidos: settingsRows.length,
+        inseridos: dryRun ? 0 : settingsInserted,
+        corrigidos: dryRun ? 0 : settingsFixed,
       },
       startedAt,
       finishedAt: Date.now(),
@@ -239,9 +204,8 @@ export async function onRequestPost(context: Context) {
       errorMessage: message,
       metadata: {
         action: 'sync',
-        pulledFrom: 'legacy-worker',
+        pulledFrom: 'bigdata_db',
         dryRun,
-        limit,
       },
     })
 

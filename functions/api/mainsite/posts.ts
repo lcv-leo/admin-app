@@ -1,7 +1,35 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
-import { deletePostFromBigdata, fetchLegacyAdminJson, fetchLegacyJson, type Context, type LegacyPost, toHeaders, upsertPostsIntoBigdata } from '../_lib/mainsite-admin'
+import { toHeaders, type Context } from '../_lib/mainsite-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
 import { createResponseTrace, type ResponseTrace } from '../_lib/request-trace'
+
+type D1PreparedStatement = {
+  bind: (...values: Array<string | number | null>) => D1PreparedStatement
+  first: <T>() => Promise<T | null>
+  all: <T>() => Promise<{ results?: T[] }>
+  run: () => Promise<unknown>
+}
+
+type D1Database = {
+  prepare: (query: string) => D1PreparedStatement
+}
+
+type MainsiteEnv = Context['env'] & {
+  BIGDATA_DB?: D1Database
+}
+
+type MainsiteContext = {
+  request: Request
+  env: MainsiteEnv
+}
+
+type PostRow = {
+  id?: number
+  title?: string
+  content?: string
+  created_at?: string
+  is_pinned?: number
+}
 
 const parseId = (rawValue: unknown) => {
   const parsed = Number(rawValue)
@@ -13,6 +41,25 @@ const parseId = (rawValue: unknown) => {
 
 const parseText = (rawValue: unknown) => String(rawValue ?? '').trim()
 
+const mapPostRow = (row: PostRow) => {
+  const id = Number(row.id)
+  const title = String(row.title ?? '').trim()
+  const content = String(row.content ?? '').trim()
+  const createdAt = String(row.created_at ?? '').trim()
+
+  if (!Number.isFinite(id) || !title || !content || !createdAt) {
+    return null
+  }
+
+  return {
+    id,
+    title,
+    content,
+    created_at: createdAt,
+    is_pinned: Number(row.is_pinned ?? 0) === 1 ? 1 : 0,
+  }
+}
+
 const buildErrorResponse = (message: string, trace: ResponseTrace, status = 500) => new Response(JSON.stringify({
   ok: false,
   error: message,
@@ -22,22 +69,53 @@ const buildErrorResponse = (message: string, trace: ResponseTrace, status = 500)
   headers: toHeaders(),
 })
 
-export async function onRequestGet(context: Context) {
+const requireDb = (env: MainsiteEnv) => {
+  if (!env.BIGDATA_DB) {
+    throw new Error('BIGDATA_DB não configurado no runtime do admin-app.')
+  }
+  return env.BIGDATA_DB
+}
+
+export async function onRequestGet(context: MainsiteContext) {
   const { request } = context
   const trace = createResponseTrace(request)
   const url = new URL(request.url)
   const id = parseId(url.searchParams.get('id'))
 
   try {
+    const db = requireDb(context.env)
+
     if (id) {
-      const payload = await fetchLegacyJson<LegacyPost>(context.env, `/api/posts/${id}`, 'Falha ao consultar post do MainSite legado')
-      return new Response(JSON.stringify({ ok: true, post: payload, ...trace }), {
+      const row = await db.prepare(`
+        SELECT id, title, content, created_at, is_pinned
+        FROM mainsite_posts
+        WHERE id = ?
+        LIMIT 1
+      `)
+        .bind(id)
+        .first<PostRow>()
+
+      const post = row ? mapPostRow(row) : null
+      if (!post) {
+        return buildErrorResponse('Post não encontrado para o ID informado.', trace, 404)
+      }
+
+      return new Response(JSON.stringify({ ok: true, post, ...trace }), {
         headers: toHeaders(),
       })
     }
 
-    const payload = await fetchLegacyJson<LegacyPost[]>(context.env, '/api/posts', 'Falha ao listar posts do MainSite legado')
-    return new Response(JSON.stringify({ ok: true, posts: Array.isArray(payload) ? payload : [], ...trace }), {
+    const rows = await db.prepare(`
+      SELECT id, title, content, created_at, is_pinned
+      FROM mainsite_posts
+      ORDER BY is_pinned DESC, display_order ASC, created_at DESC
+    `).all<PostRow>()
+
+    const posts = (rows.results ?? [])
+      .map((row) => mapPostRow(row))
+      .filter((item): item is NonNullable<ReturnType<typeof mapPostRow>> => item !== null)
+
+    return new Response(JSON.stringify({ ok: true, posts, ...trace }), {
       headers: toHeaders(),
     })
   } catch (error) {
@@ -47,7 +125,7 @@ export async function onRequestGet(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mainsite',
-          source: 'legacy-worker',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
@@ -60,14 +138,15 @@ export async function onRequestGet(context: Context) {
       }
     }
 
-    return buildErrorResponse(message, trace, 502)
+    return buildErrorResponse(message, trace, 500)
   }
 }
 
-export async function onRequestPost(context: Context) {
+export async function onRequestPost(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
+    const db = requireDb(context.env)
     const body = await context.request.json() as { title?: unknown; content?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
     const title = parseText(body.title)
@@ -77,41 +156,42 @@ export async function onRequestPost(context: Context) {
       return buildErrorResponse('Título e conteúdo são obrigatórios para criar um post.', trace, 400)
     }
 
-    await fetchLegacyAdminJson<{ success?: boolean }>(
-      context.env,
-      '/api/posts',
-      'POST',
-      'Falha ao criar post no MainSite legado',
-      { title, content },
-      adminActor,
-    )
+    await db.prepare(`
+      INSERT INTO mainsite_posts (title, content, is_pinned, display_order, created_at)
+      VALUES (?, ?, 0, 0, CURRENT_TIMESTAMP)
+    `)
+      .bind(title, content)
+      .run()
 
-    let syncedPosts = 0
-    if (context.env.BIGDATA_DB) {
-      const posts = await fetchLegacyJson<LegacyPost[]>(context.env, '/api/posts', 'Falha ao reconfirmar posts do MainSite legado')
-      syncedPosts = await upsertPostsIntoBigdata(context.env.BIGDATA_DB, Array.isArray(posts) ? posts : [])
+    const created = await db.prepare(`
+      SELECT id, title, content, created_at, is_pinned
+      FROM mainsite_posts
+      ORDER BY id DESC
+      LIMIT 1
+    `).first<PostRow>()
 
-      try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
-          module: 'mainsite',
-          source: 'legacy-worker',
-          fallbackUsed: false,
-          ok: true,
-          metadata: {
-            action: 'create-post',
-            adminActor,
-            syncedPosts,
-            titleLength: title.length,
-          },
-        })
-      } catch {
-        // Telemetria não deve bloquear a resposta.
-      }
+    const createdPost = created ? mapPostRow(created) : null
+
+    try {
+      await logModuleOperationalEvent(db, {
+        module: 'mainsite',
+        source: 'bigdata_db',
+        fallbackUsed: false,
+        ok: true,
+        metadata: {
+          action: 'create-post',
+          adminActor,
+          createdId: createdPost?.id ?? null,
+          titleLength: title.length,
+        },
+      })
+    } catch {
+      // Telemetria não deve bloquear a resposta.
     }
 
     return new Response(JSON.stringify({
       ok: true,
-      syncedPosts,
+      post: createdPost,
       admin_actor: adminActor,
       ...trace,
     }), {
@@ -125,7 +205,7 @@ export async function onRequestPost(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mainsite',
-          source: 'legacy-worker',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
@@ -142,10 +222,11 @@ export async function onRequestPost(context: Context) {
   }
 }
 
-export async function onRequestPut(context: Context) {
+export async function onRequestPut(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
+    const db = requireDb(context.env)
     const body = await context.request.json() as { id?: unknown; title?: unknown; content?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
     const id = parseId(body.id)
@@ -156,41 +237,43 @@ export async function onRequestPut(context: Context) {
       return buildErrorResponse('ID, título e conteúdo são obrigatórios para atualizar um post.', trace, 400)
     }
 
-    await fetchLegacyAdminJson<{ success?: boolean }>(
-      context.env,
-      `/api/posts/${id}`,
-      'PUT',
-      'Falha ao atualizar post no MainSite legado',
-      { title, content },
-      adminActor,
-    )
+    await db.prepare('UPDATE mainsite_posts SET title = ?, content = ? WHERE id = ?')
+      .bind(title, content, id)
+      .run()
 
-    let syncedPosts = 0
-    if (context.env.BIGDATA_DB) {
-      const post = await fetchLegacyJson<LegacyPost>(context.env, `/api/posts/${id}`, 'Falha ao recarregar post do MainSite legado')
-      syncedPosts = await upsertPostsIntoBigdata(context.env.BIGDATA_DB, [post])
+    const row = await db.prepare(`
+      SELECT id, title, content, created_at, is_pinned
+      FROM mainsite_posts
+      WHERE id = ?
+      LIMIT 1
+    `)
+      .bind(id)
+      .first<PostRow>()
 
-      try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
-          module: 'mainsite',
-          source: 'legacy-worker',
-          fallbackUsed: false,
-          ok: true,
-          metadata: {
-            action: 'update-post',
-            adminActor,
-            id,
-            syncedPosts,
-          },
-        })
-      } catch {
-        // Telemetria não deve bloquear a resposta.
-      }
+    const updatedPost = row ? mapPostRow(row) : null
+    if (!updatedPost) {
+      return buildErrorResponse('Post não encontrado para atualização.', trace, 404)
+    }
+
+    try {
+      await logModuleOperationalEvent(db, {
+        module: 'mainsite',
+        source: 'bigdata_db',
+        fallbackUsed: false,
+        ok: true,
+        metadata: {
+          action: 'update-post',
+          adminActor,
+          id,
+        },
+      })
+    } catch {
+      // Telemetria não deve bloquear a resposta.
     }
 
     return new Response(JSON.stringify({
       ok: true,
-      syncedPosts,
+      post: updatedPost,
       admin_actor: adminActor,
       ...trace,
     }), {
@@ -203,7 +286,7 @@ export async function onRequestPut(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mainsite',
-          source: 'legacy-worker',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
@@ -220,10 +303,11 @@ export async function onRequestPut(context: Context) {
   }
 }
 
-export async function onRequestDelete(context: Context) {
+export async function onRequestDelete(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
+    const db = requireDb(context.env)
     const body = await context.request.json() as { id?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
     const id = parseId(body.id)
@@ -232,33 +316,24 @@ export async function onRequestDelete(context: Context) {
       return buildErrorResponse('ID válido é obrigatório para excluir um post.', trace, 400)
     }
 
-    await fetchLegacyAdminJson<{ success?: boolean }>(
-      context.env,
-      `/api/posts/${id}`,
-      'DELETE',
-      'Falha ao excluir post no MainSite legado',
-      undefined,
-      adminActor,
-    )
+    await db.prepare('DELETE FROM mainsite_posts WHERE id = ?')
+      .bind(id)
+      .run()
 
-    if (context.env.BIGDATA_DB) {
-      await deletePostFromBigdata(context.env.BIGDATA_DB, id)
-
-      try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
-          module: 'mainsite',
-          source: 'legacy-worker',
-          fallbackUsed: false,
-          ok: true,
-          metadata: {
-            action: 'delete-post',
-            adminActor,
-            id,
-          },
-        })
-      } catch {
-        // Telemetria não deve bloquear a resposta.
-      }
+    try {
+      await logModuleOperationalEvent(db, {
+        module: 'mainsite',
+        source: 'bigdata_db',
+        fallbackUsed: false,
+        ok: true,
+        metadata: {
+          action: 'delete-post',
+          adminActor,
+          id,
+        },
+      })
+    } catch {
+      // Telemetria não deve bloquear a resposta.
     }
 
     return new Response(JSON.stringify({
@@ -276,7 +351,7 @@ export async function onRequestDelete(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'mainsite',
-          source: 'legacy-worker',
+          source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
