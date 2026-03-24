@@ -24,7 +24,7 @@ Este guia aplica as migrations do `admin-app` no banco unificado `bigdata_db`.
 ## 1) Entrar no projeto
 
 ```powershell
-cd c:\Users\leona\sites\admin-app
+cd C:\Users\leona\lcv-workspace\admin-app
 ```
 
 ## 2) Autenticar e validar acesso
@@ -76,3 +76,4 @@ Opções úteis:
 # usar ID do banco em vez do nome
 powershell -ExecutionPolicy Bypass -File .\scripts\popular-bigdata-db.ps1 -UseDatabaseId
 ```
+
