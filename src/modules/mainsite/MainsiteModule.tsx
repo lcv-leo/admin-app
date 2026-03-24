@@ -180,7 +180,7 @@ export function MainsiteModule() {
       }
 
       resetPostEditor()
-      await Promise.all([loadManagedPosts(), loadOverview()])
+      await loadManagedPosts()
       showNotification(withTrace(isEditing ? 'Post do MainSite atualizado com sucesso.' : 'Post do MainSite criado com sucesso.', nextPayload), 'success')
     } catch {
       showNotification('Não foi possível salvar o post do MainSite.', 'error')
@@ -221,7 +221,7 @@ export function MainsiteModule() {
         setSelectedPostId(null)
       }
 
-      await Promise.all([loadManagedPosts(), loadOverview()])
+      await loadManagedPosts()
       showNotification(withTrace('Post do MainSite excluído com sucesso.', nextPayload), 'success')
     } catch {
       showNotification('Não foi possível excluir o post do MainSite.', 'error')
@@ -275,7 +275,7 @@ export function MainsiteModule() {
         throw new Error(nextPayload.error ?? 'Falha ao alternar fixação do post do MainSite.')
       }
 
-      await Promise.all([loadManagedPosts(), loadOverview()])
+      await loadManagedPosts()
       showNotification(withTrace(nextPayload.isPinned ? 'Post fixado com sucesso.' : 'Post desafixado com sucesso.', nextPayload), 'success')
     } catch {
       showNotification('Não foi possível alternar a fixação do post.', 'error')
@@ -285,7 +285,7 @@ export function MainsiteModule() {
   }
 
   // Merge-save: fetch current settings to preserve appearance+rotation (managed by ConfigModule)
-  const handleSaveSettings = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSaveSettings = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSavingSettings(true)
     try {
