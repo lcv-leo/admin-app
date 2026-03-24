@@ -6,7 +6,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Normalize-CloudflareApiToken {
+function ConvertTo-CloudflareApiToken {
     param(
         [AllowNull()]
         [string]$Token
@@ -40,7 +40,7 @@ $modeArg = "--remote"
 $yesArg = "--yes"
 
 $rawCloudflareToken = if ($env:CLOUDFLARE_API_TOKEN) { $env:CLOUDFLARE_API_TOKEN } else { $env:CF_API_TOKEN }
-$normalizedCloudflareToken = Normalize-CloudflareApiToken -Token $rawCloudflareToken
+$normalizedCloudflareToken = ConvertTo-CloudflareApiToken -Token $rawCloudflareToken
 $authMode = "interactive-login"
 
 # Sempre remove variável legada para evitar que o Wrangler use cabeçalho Authorization inválido/deprecado

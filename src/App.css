@@ -485,6 +485,56 @@
   font-weight: 600;
 }
 
+.quality-banner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.quality-banner__main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quality-banner__main strong {
+  color: #0f172a;
+}
+
+.quality-banner__main span,
+.quality-banner__meta {
+  color: #475569;
+  font-size: 0.82rem;
+}
+
+.quality-banner__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.quality-banner--ok {
+  border-color: rgba(16, 185, 129, 0.42);
+  background: rgba(236, 253, 245, 0.92);
+}
+
+.quality-banner--warning {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(255, 251, 235, 0.92);
+}
+
+.quality-banner--error {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(254, 242, 242, 0.92);
+}
+
 .card-editor-item {
   padding: 14px;
   border-radius: 14px;
