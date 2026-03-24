@@ -8,11 +8,16 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
   headers: toHeaders(),
 })
 
+const resolveDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.ASTROLOGO_SOURCE_DB
+const resolveOperationalSource = (context: Context) => (context.env.BIGDATA_DB ? 'bigdata_db' : 'legacy-admin') as const
+
 export async function onRequestPost(context: Context) {
   const trace = createResponseTrace(context.request)
+  const db = resolveDb(context)
+  const source = resolveOperationalSource(context)
 
-  if (!context.env.ASTROLOGO_SOURCE_DB) {
-    return json({ ok: false, error: 'ASTROLOGO_SOURCE_DB não configurado no runtime.', ...trace }, 503)
+  if (!db) {
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/ASTROLOGO_SOURCE_DB).', ...trace }, 503)
   }
 
   try {
@@ -24,7 +29,7 @@ export async function onRequestPost(context: Context) {
       return json({ ok: false, error: 'ID inválido.', ...trace }, 400)
     }
 
-    await context.env.ASTROLOGO_SOURCE_DB.prepare('DELETE FROM mapas_astrologicos WHERE id = ?')
+    await db.prepare('DELETE FROM mapas_astrologicos WHERE id = ?')
       .bind(id)
       .run()
 
@@ -36,7 +41,7 @@ export async function onRequestPost(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'astrologo',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: true,
           metadata: {
@@ -58,7 +63,7 @@ export async function onRequestPost(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'astrologo',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: false,
           errorMessage: message,

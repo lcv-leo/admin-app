@@ -24,59 +24,27 @@ const toPositiveInt = (value: unknown, fallback: number) => {
   return parsed
 }
 
-const mirrorPoliciesToBigdata = async (context: Context) => {
-  if (!context.env.BIGDATA_DB || !context.env.ITAU_SOURCE_DB) {
-    return
-  }
-
-  const rows = await context.env.ITAU_SOURCE_DB.prepare(`
-    SELECT route_key, enabled, max_requests, window_minutes, updated_at, updated_by
-    FROM itau_rate_limit_policies
-  `).all<{ route_key?: string; enabled?: number; max_requests?: number; window_minutes?: number; updated_at?: number; updated_by?: string | null }>()
-
-  for (const item of rows.results ?? []) {
-    const routeKey = String(item.route_key ?? '').trim()
-    if (!routeKey) {
-      continue
-    }
-
-    const enabled = Number(item.enabled) === 1 ? 1 : 0
-    const maxRequests = Math.max(1, toPositiveInt(item.max_requests, 2))
-    const windowMinutes = Math.max(1, toPositiveInt(item.window_minutes, 10))
-    const updatedAt = Number.isFinite(Number(item.updated_at)) ? Number(item.updated_at) : Date.now()
-    const updatedBy = typeof item.updated_by === 'string' && item.updated_by.trim() ? item.updated_by.trim() : null
-
-    await context.env.BIGDATA_DB.prepare(`
-      INSERT INTO itau_rate_limit_policies (route_key, enabled, max_requests, window_minutes, updated_at, updated_by)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(route_key) DO UPDATE SET
-        enabled = excluded.enabled,
-        max_requests = excluded.max_requests,
-        window_minutes = excluded.window_minutes,
-        updated_at = excluded.updated_at,
-        updated_by = excluded.updated_by
-    `)
-      .bind(routeKey, enabled, maxRequests, windowMinutes, updatedAt, updatedBy)
-      .run()
-  }
-}
+const resolveRateLimitDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.ITAU_SOURCE_DB
+const resolveOperationalSource = (context: Context) => (context.env.BIGDATA_DB ? 'bigdata_db' : 'legacy-admin') as const
 
 export async function onRequestGet(context: Context) {
   const trace = createResponseTrace(context.request)
   const adminActor = resolveAdminActorFromRequest(context.request)
+  const db = resolveRateLimitDb(context)
+  const source = resolveOperationalSource(context)
 
-  if (!context.env.ITAU_SOURCE_DB) {
-    return json({ ok: false, error: 'ITAU_SOURCE_DB não configurado no runtime.', ...trace }, 503)
+  if (!db) {
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/ITAU_SOURCE_DB).', ...trace }, 503)
   }
 
   try {
-    const policies = await listPoliciesWithStats(context.env.ITAU_SOURCE_DB)
+    const policies = await listPoliciesWithStats(db)
 
     if (context.env.BIGDATA_DB) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'itau',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: true,
           metadata: {
@@ -104,7 +72,7 @@ export async function onRequestGet(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'itau',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
@@ -121,9 +89,11 @@ export async function onRequestGet(context: Context) {
 
 export async function onRequestPost(context: Context) {
   const trace = createResponseTrace(context.request)
+  const db = resolveRateLimitDb(context)
+  const source = resolveOperationalSource(context)
 
-  if (!context.env.ITAU_SOURCE_DB) {
-    return json({ ok: false, error: 'ITAU_SOURCE_DB não configurado no runtime.', ...trace }, 503)
+  if (!db) {
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/ITAU_SOURCE_DB).', ...trace }, 503)
   }
 
   try {
@@ -138,15 +108,14 @@ export async function onRequestPost(context: Context) {
     const action = String(body.action ?? 'update').trim()
 
     if (action === 'restore_default') {
-      await resetRateLimitPolicy(context.env.ITAU_SOURCE_DB, routeKey, adminActor)
-      await mirrorPoliciesToBigdata(context)
-      const policies = await listPoliciesWithStats(context.env.ITAU_SOURCE_DB)
+      await resetRateLimitPolicy(db, routeKey, adminActor)
+      const policies = await listPoliciesWithStats(db)
 
       if (context.env.BIGDATA_DB) {
         try {
           await logModuleOperationalEvent(context.env.BIGDATA_DB, {
             module: 'itau',
-            source: 'legacy-admin',
+            source,
             fallbackUsed: false,
             ok: true,
             metadata: {
@@ -171,7 +140,7 @@ export async function onRequestPost(context: Context) {
       return json({ ok: false, error: 'Parâmetros fora da faixa permitida.', ...trace }, 400)
     }
 
-    await upsertRateLimitPolicy(context.env.ITAU_SOURCE_DB, {
+    await upsertRateLimitPolicy(db, {
       routeKey,
       enabled,
       maxRequests,
@@ -179,14 +148,13 @@ export async function onRequestPost(context: Context) {
       updatedBy: adminActor,
     })
 
-    await mirrorPoliciesToBigdata(context)
-    const policies = await listPoliciesWithStats(context.env.ITAU_SOURCE_DB)
+    const policies = await listPoliciesWithStats(db)
 
     if (context.env.BIGDATA_DB) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'itau',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: true,
           metadata: {
@@ -211,7 +179,7 @@ export async function onRequestPost(context: Context) {
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'itau',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: false,
           errorMessage: message,

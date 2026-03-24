@@ -1,5 +1,16 @@
 # Changelog — Admin App
 
+## [v01.31.08] — 2026-03-24
+### Corrigido
+- Removidas emissões de telemetria com `source: legacy-admin` nos endpoints do `admin-app` auditados nesta etapa.
+- `functions/api/astrologo/ler.ts` e `functions/api/astrologo/excluir.ts` agora priorizam `BIGDATA_DB` (com fallback de compatibilidade) e registram fonte operacional coerente.
+- `functions/api/astrologo/enviar-email.ts` agora registra telemetria como `bigdata_db`.
+- `functions/api/itau/rate-limit.ts` e `functions/api/itau/parametros.ts` agora priorizam `BIGDATA_DB` e removem espelhamento legado redundante no fluxo de rate limit.
+
+### Alterado
+- Nota da telemetria na `Visão Geral` atualizada para deixar explícito que rótulos legados podem aparecer temporariamente por eventos históricos na janela de 24h.
+- Versão da aplicação incrementada para `APP v01.31.08` em `src/App.tsx`.
+
 ## [v01.31.07] — 2026-03-24
 ### Corrigido
 - `functions/api/astrologo/rate-limit.ts` passou a priorizar `BIGDATA_DB` como fonte operacional principal, removendo espelhamento legado desnecessário e reduzindo emissão de telemetria com `LEGACY-ADMIN` quando o binding interno está disponível.

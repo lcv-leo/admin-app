@@ -25,7 +25,7 @@ import { MtastsModule } from './modules/mtasts/MtastsModule'
 import { ApphubModule } from './modules/hubs/ApphubModule'
 import { AdminhubModule } from './modules/hubs/AdminhubModule'
 
-const APP_VERSION = 'APP v01.31.07'
+const APP_VERSION = 'APP v01.31.08'
 
 type OperationalModuleStatus = {
   module: string
@@ -281,7 +281,8 @@ function App() {
               {operationalOverview && operationalOverview.modules.length > 0 ? (
                 <p className="telemetry-note">
                   Observação: o badge à direita mostra a <strong>fonte do último evento</strong> de cada módulo.
-                  Quando aparecer <strong>LEGACY-ADMIN</strong> ou <strong>LEGACY-WORKER</strong>, ainda existe um trecho de compatibilidade legado no fluxo.
+                  Após a migração para `BIGDATA_DB`, ocorrências de <strong>LEGACY-ADMIN</strong> ou <strong>LEGACY-WORKER</strong>
+                  podem refletir apenas eventos históricos dentro da janela de 24h.
                 </p>
               ) : null}
             </article>
