@@ -3,7 +3,6 @@ import type { FormEvent } from 'react'
 import { ArrowDown, ArrowUp, GripVertical, Loader2, Plus, RefreshCw, Save, Trash2, Wand2 } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { suggestIcon } from '../../lib/iconSuggestion'
-import { formatOperationalSourceLabel } from '../../lib/operationalSource'
 
 type HubCard = {
   name: string
@@ -82,8 +81,7 @@ export function HubCardsModule({
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [adminActor, setAdminActor] = useState('admin@app.lcv')
-  const [payload, setPayload] = useState<HubConfigPayload | null>(null)
+  const [adminActor] = useState('admin@app.lcv')
   const [cards, setCards] = useState<HubCard[]>([])
   const [baselineCards, setBaselineCards] = useState<HubCard[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -240,7 +238,6 @@ export function HubCardsModule({
         throw new Error(nextPayload.error ?? `Falha ao carregar configuração de ${title}.`)
       }
 
-      setPayload(nextPayload)
       const nextCards = Array.isArray(nextPayload.cards) ? nextPayload.cards : []
       setCards(nextCards)
       setBaselineCards(nextCards)
@@ -515,30 +512,6 @@ export function HubCardsModule({
           </div>
         </div>
 
-        <div className="form-grid">
-          <div className="field-group">
-            <label htmlFor={adminActorFieldId}>Administrador responsável</label>
-            <input
-              id={adminActorFieldId}
-              name={adminActorFieldName}
-              type="text"
-              autoComplete="email"
-              placeholder="admin@lcv.app.br"
-              value={adminActor}
-              onChange={(event) => setAdminActor(event.target.value)}
-              disabled={disabled}
-            />
-          </div>
-          <div className="field-group">
-            <label htmlFor={`${adminActorFieldId}-fonte`}>Fonte atual</label>
-            <input
-              id={`${adminActorFieldId}-fonte`}
-              name={`${adminActorFieldName}Fonte`}
-              value={payload?.fonte ? formatOperationalSourceLabel(payload.fonte) : '—'}
-              readOnly
-            />
-          </div>
-        </div>
 
         <div className="field-group">
           <label>Cards do módulo</label>
@@ -747,23 +720,6 @@ export function HubCardsModule({
         </div>
       </form>
 
-      <section className="metrics-grid">
-        <article className="metric-card">
-          <div className="metric-icon"><Save size={20} /></div>
-          <strong>{payload?.total ?? 0}</strong>
-          <span>Total de cards ativos.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><RefreshCw size={20} /></div>
-          <strong>{payload?.fonte ? formatOperationalSourceLabel(payload.fonte) : '—'}</strong>
-          <span>Fonte dos dados carregados.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><Save size={20} /></div>
-          <strong>{payload?.avisos?.length ?? 0}</strong>
-          <span>Avisos operacionais no carregamento.</span>
-        </article>
-      </section>
 
       <article className="result-card">
         <header className="result-header">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Activity, AlertTriangle, Database, Loader2, RefreshCw, Save, Search } from 'lucide-react'
+import { Activity, Database, Loader2, RefreshCw, Save, Search } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { SyncStatusCard } from '../../components/SyncStatusCard'
 import { formatOperationalSourceLabel } from '../../lib/operationalSource'
@@ -109,7 +109,7 @@ export function CalculadoraModule() {
   const [updatingRateRoute, setUpdatingRateRoute] = useState<string | null>(null)
   const [moeda, setMoeda] = useState('')
   const [dias, setDias] = useState('7')
-  const [adminActor, setAdminActor] = useState('admin@app.lcv')
+  const [adminActor] = useState('admin@app.lcv')
   const [fonte, setFonte] = useState<'bigdata_db'>('bigdata_db')
   const [resumo, setResumo] = useState<Resumo>(initialResumo)
   const [ultimasObservacoes, setUltimasObservacoes] = useState<Observacao[]>([])
@@ -408,18 +408,6 @@ export function CalculadoraModule() {
 
       <form className="form-card" onSubmit={handleSubmit}>
         <div className="form-grid">
-          <div className="field-group">
-            <label htmlFor="calculadora-admin-actor">Administrador responsável</label>
-            <input
-              id="calculadora-admin-actor"
-              name="calculadoraAdminActor"
-              type="text"
-              autoComplete="email"
-              placeholder="admin@lcv.app.br"
-              value={adminActor}
-              onChange={(event) => setAdminActor(event.target.value)}
-            />
-          </div>
 
           <div className="field-group">
             <label htmlFor="calculadora-filtro-moeda">Moeda (opcional)</label>
@@ -456,23 +444,6 @@ export function CalculadoraModule() {
         </div>
       </form>
 
-      <section className="metrics-grid">
-        <article className="metric-card">
-          <div className="metric-icon"><Activity size={20} /></div>
-          <strong>{resumo.totalObservacoes}</strong>
-          <span>Total de observações em backtest.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><Database size={20} /></div>
-          <strong>{resumo.observacoesJanela}</strong>
-          <span>Observações na janela selecionada.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><AlertTriangle size={20} /></div>
-          <strong>{resumo.mapeJanelaPercent == null ? '—' : `${resumo.mapeJanelaPercent}%`}</strong>
-          <span>MAPE médio da janela.</span>
-        </article>
-      </section>
 
       <article className="result-card">
         <header className="result-header">

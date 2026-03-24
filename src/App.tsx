@@ -7,7 +7,6 @@ import {
   Database,
   FolderKanban,
   Globe,
-  Lock,
   PanelsTopLeft,
   ShieldCheck,
   Sparkles,
@@ -218,8 +217,6 @@ function App() {
             <h2>{activeModule === 'overview' ? 'Visão Geral da Fase 1' : selectedModule?.title}</h2>
           </div>
           <div className="status-cluster">
-            <span className="status-pill"><Lock size={14} /> Access protegido</span>
-            <span className="status-pill"><Database size={14} /> `bigdata_db` reservado</span>
             <span className="status-pill">{APP_VERSION}</span>
           </div>
         </header>

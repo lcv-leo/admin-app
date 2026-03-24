@@ -138,23 +138,7 @@ export function ConfigModule() {
         </div>
       </div>
 
-      <section className="metrics-grid">
-        <article className="metric-card">
-          <div className="metric-icon"><ShieldCheck size={20} /></div>
-          <strong>{config.strictValidationMode ? 'Estrito' : 'Padrão'}</strong>
-          <span>Modo de validação operacional.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><RefreshCw size={20} /></div>
-          <strong>{config.defaultSyncDryRun ? 'Ligado' : 'Desligado'}</strong>
-          <span>Dry run padrão para syncs manuais.</span>
-        </article>
-        <article className="metric-card">
-          <div className="metric-icon"><Save size={20} /></div>
-          <strong>{hasUnsavedChanges ? 'Pendente' : 'Sincronizado'}</strong>
-          <span>Estado das preferências locais.</span>
-        </article>
-      </section>
+
 
       <form className="form-card" onSubmit={saveConfig}>
         <div className="result-toolbar">
