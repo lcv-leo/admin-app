@@ -66,8 +66,54 @@ export function HubCardsModule({
   const [adminActor, setAdminActor] = useState('admin@app.lcv')
   const [payload, setPayload] = useState<HubConfigPayload | null>(null)
   const [cards, setCards] = useState<HubCard[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
 
   const disabled = useMemo(() => loading || saving, [loading, saving])
+
+  const cardFieldErrors = useMemo(() => cards.map((card) => {
+    const errors: Partial<Record<keyof HubCard, string>> = {}
+    const normalizedName = card.name.trim()
+    const normalizedDescription = card.description.trim()
+    const normalizedUrl = card.url.trim()
+
+    if (!normalizedName) {
+      errors.name = 'Nome é obrigatório.'
+    }
+
+    if (!normalizedDescription) {
+      errors.description = 'Descrição é obrigatória.'
+    }
+
+    if (!normalizedUrl) {
+      errors.url = 'URL é obrigatória.'
+    } else {
+      try {
+        const parsed = new URL(normalizedUrl)
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          errors.url = 'URL deve começar com http:// ou https://.'
+        }
+      } catch {
+        errors.url = 'URL inválida.'
+      }
+    }
+
+    return errors
+  }), [cards])
+
+  const filteredCardEntries = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    const entries = cards.map((card, index) => ({ card, index }))
+    if (!term) {
+      return entries
+    }
+
+    return entries.filter(({ card }) => {
+      const haystack = [card.name, card.description, card.url, card.badge, card.icon]
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(term)
+    })
+  }, [cards, searchTerm])
 
   const loadConfig = useCallback(async (shouldNotify = false) => {
     setLoading(true)
@@ -162,9 +208,9 @@ export function HubCardsModule({
       return
     }
 
-    const invalidCard = normalizedCards.find((card) => !card.name || !card.description || !card.url)
-    if (invalidCard) {
-      showNotification('Todos os cards devem ter nome, descrição e URL.', 'error')
+    const firstInvalidIndex = cardFieldErrors.findIndex((fieldErrors) => Object.keys(fieldErrors).length > 0)
+    if (firstInvalidIndex >= 0) {
+      showNotification(`Card #${firstInvalidIndex + 1} possui campos inválidos. Revise os avisos inline.`, 'error')
       return
     }
 
@@ -256,11 +302,31 @@ export function HubCardsModule({
 
         <div className="field-group">
           <label>Cards do módulo</label>
+          <div className="cards-toolbar">
+            <input
+              id={`${adminActorFieldId}-cards-search`}
+              name={`${adminActorFieldName}CardsSearch`}
+              type="search"
+              placeholder="Buscar por nome, descrição, URL, badge..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              disabled={disabled}
+            />
+            <span className="cards-toolbar__meta">
+              Exibindo {filteredCardEntries.length} de {cards.length} card(s)
+            </span>
+          </div>
+
           {cards.length === 0 ? (
             <p className="result-empty">Sem cards no formulário. Clique em “Adicionar card”.</p>
+          ) : filteredCardEntries.length === 0 ? (
+            <p className="result-empty">Nenhum card corresponde ao filtro atual.</p>
           ) : (
             <div className="cards-editor-grid">
-              {cards.map((card, index) => (
+              {filteredCardEntries.map(({ card, index }) => {
+                const errors = cardFieldErrors[index]
+
+                return (
                 <article key={`${adminActorFieldId}-card-${index}`} className="card-editor-item">
                   <header className="card-editor-header">
                     <strong>Card #{index + 1}</strong>
@@ -304,7 +370,9 @@ export function HubCardsModule({
                         value={card.name}
                         onChange={(event) => updateCardField(index, 'name', event.target.value)}
                         disabled={disabled}
+                        className={errors.name ? 'field-input-error' : undefined}
                       />
+                      {errors.name && <span className="field-error">{errors.name}</span>}
                     </div>
                     <div className="field-group">
                       <label htmlFor={`${adminActorFieldId}-url-${index}`}>URL</label>
@@ -315,7 +383,9 @@ export function HubCardsModule({
                         value={card.url}
                         onChange={(event) => updateCardField(index, 'url', event.target.value)}
                         disabled={disabled}
+                        className={errors.url ? 'field-input-error' : undefined}
                       />
+                      {errors.url && <span className="field-error">{errors.url}</span>}
                     </div>
                   </div>
 
@@ -328,7 +398,9 @@ export function HubCardsModule({
                       value={card.description}
                       onChange={(event) => updateCardField(index, 'description', event.target.value)}
                       disabled={disabled}
+                      className={errors.description ? 'field-input-error' : undefined}
                     />
+                    {errors.description && <span className="field-error">{errors.description}</span>}
                   </div>
 
                   <div className="form-grid">
@@ -356,7 +428,7 @@ export function HubCardsModule({
                     </div>
                   </div>
                 </article>
-              ))}
+              )})}
             </div>
           )}
         </div>
