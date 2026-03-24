@@ -14,7 +14,7 @@ const resolveOperationalSource = () => 'bigdata_db' as const
 export async function onRequestPost(context: Context) {
   const trace = createResponseTrace(context.request)
   const db = resolveDb(context)
-  const source = resolveOperationalSource(context)
+  const source = resolveOperationalSource()
 
   if (!db) {
     return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/ASTROLOGO_SOURCE_DB).', ...trace }, 503)
@@ -29,15 +29,11 @@ export async function onRequestPost(context: Context) {
       return json({ ok: false, error: 'ID inválido.', ...trace }, 400)
     }
 
-    await db.prepare('DELETE FROM mapas_astrologicos WHERE id = ?')
+    await db.prepare('DELETE FROM astrologo_mapas WHERE id = ?')
       .bind(id)
       .run()
 
     if (context.env.BIGDATA_DB) {
-      await context.env.BIGDATA_DB.prepare('DELETE FROM astrologo_mapas WHERE id = ?')
-        .bind(id)
-        .run()
-
       try {
         await logModuleOperationalEvent(context.env.BIGDATA_DB, {
           module: 'astrologo',

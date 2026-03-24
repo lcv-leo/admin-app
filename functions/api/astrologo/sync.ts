@@ -86,7 +86,7 @@ export async function onRequestPost(context: Context) {
   try {
     const source = await env.ASTROLOGO_SOURCE_DB.prepare(`
       SELECT id, nome, data_nascimento
-      FROM mapas_astrologicos
+      FROM astrologo_mapas
       ORDER BY created_at DESC
       LIMIT ?
     `)
