@@ -8,23 +8,28 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
   headers: toHeaders(),
 })
 
+const resolveParametrosDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.CALC_SOURCE_DB
+const resolveOperationalSource = (context: Context) => (context.env.BIGDATA_DB ? 'bigdata_db' : 'legacy-admin') as const
+
 export async function onRequestGet(context: Context) {
   const { env } = context
   const trace = createResponseTrace(context.request)
   const adminActor = resolveAdminActorFromRequest(context.request)
+  const db = resolveParametrosDb(context)
+  const source = resolveOperationalSource(context)
 
-  if (!env.CALC_SOURCE_DB) {
-    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.', ...trace }, 503)
+  if (!db) {
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/CALC_SOURCE_DB).', ...trace }, 503)
   }
 
   try {
-    const parametros = await readLatestParams(env.CALC_SOURCE_DB)
+    const parametros = await readLatestParams(db)
 
     if (env.BIGDATA_DB) {
       try {
         await logModuleOperationalEvent(env.BIGDATA_DB, {
           module: 'calculadora',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: true,
           metadata: {
@@ -63,7 +68,7 @@ export async function onRequestGet(context: Context) {
       try {
         await logModuleOperationalEvent(env.BIGDATA_DB, {
           module: 'calculadora',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
@@ -81,9 +86,11 @@ export async function onRequestGet(context: Context) {
 export async function onRequestPost(context: Context) {
   const { env } = context
   const trace = createResponseTrace(context.request)
+  const db = resolveParametrosDb(context)
+  const source = resolveOperationalSource(context)
 
-  if (!env.CALC_SOURCE_DB) {
-    return json({ ok: false, error: 'CALC_SOURCE_DB não configurado no runtime.', ...trace }, 503)
+  if (!db) {
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/CALC_SOURCE_DB).', ...trace }, 503)
   }
 
   try {
@@ -128,7 +135,7 @@ export async function onRequestPost(context: Context) {
       backtest_mape_atencao_percent: mapeAtencao,
     }
 
-    const atuais = await readLatestParams(env.CALC_SOURCE_DB)
+    const atuais = await readLatestParams(db)
 
     const mudancas = Object.entries(values)
       .filter(([chave, valorNovo]) => !Number.isFinite(atuais[chave as keyof typeof atuais]) || Number(atuais[chave as keyof typeof atuais]) !== Number(valorNovo))
@@ -139,13 +146,13 @@ export async function onRequestPost(context: Context) {
       }))
 
     for (const [chave, valor] of Object.entries(values)) {
-      await env.CALC_SOURCE_DB.prepare('INSERT INTO calc_parametros_customizados (chave, valor) VALUES (?, ?)')
+      await db.prepare('INSERT INTO calc_parametros_customizados (chave, valor) VALUES (?, ?)')
         .bind(chave, String(valor))
         .run()
     }
 
     for (const mudanca of mudancas) {
-      await env.CALC_SOURCE_DB.prepare(`
+      await db.prepare(`
         INSERT INTO calc_parametros_auditoria (created_at, admin_email, chave, valor_anterior, valor_novo, origem)
         VALUES (?, ?, ?, ?, ?, ?)
       `)
@@ -164,7 +171,7 @@ export async function onRequestPost(context: Context) {
       try {
         await logModuleOperationalEvent(env.BIGDATA_DB, {
           module: 'calculadora',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: true,
           metadata: {
@@ -195,7 +202,7 @@ export async function onRequestPost(context: Context) {
       try {
         await logModuleOperationalEvent(env.BIGDATA_DB, {
           module: 'calculadora',
-          source: 'legacy-admin',
+          source,
           fallbackUsed: false,
           ok: false,
           errorMessage: message,

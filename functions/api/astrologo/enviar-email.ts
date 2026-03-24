@@ -68,7 +68,7 @@ export async function onRequestPost(context: Context) {
         try {
           await logModuleOperationalEvent(env.BIGDATA_DB, {
             module: 'astrologo',
-            source: 'legacy-admin',
+                  source: 'bigdata_db',
             fallbackUsed: false,
             ok: false,
             errorMessage: message,
@@ -90,7 +90,7 @@ export async function onRequestPost(context: Context) {
       try {
         await logModuleOperationalEvent(env.BIGDATA_DB, {
           module: 'astrologo',
-          source: 'legacy-admin',
+                source: 'bigdata_db',
           fallbackUsed: false,
           ok: true,
           metadata: {
@@ -119,7 +119,7 @@ export async function onRequestPost(context: Context) {
       try {
         await logModuleOperationalEvent(env.BIGDATA_DB, {
           module: 'astrologo',
-          source: 'legacy-admin',
+                source: 'bigdata_db',
           fallbackUsed: false,
           ok: false,
           errorMessage: message,
