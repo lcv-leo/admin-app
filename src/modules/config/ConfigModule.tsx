@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Database, Globe, Loader2, Newspaper, RefreshCw, Save, Settings2, ShieldCheck } from 'lucide-react'
+import { Database, Globe, Loader2, Newspaper, Plus, RefreshCw, Save, Settings2, ShieldCheck, Trash2 } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { RateLimitPanel } from '../../components/RateLimitPanel'
 import { SyncStatusCard } from '../../components/SyncStatusCard'
 import {
   loadNewsSettings, saveNewsSettings, dispatchNewsSettingsChange,
-  AVAILABLE_SOURCES, type NewsSettings
+  slugify, type NewsSettings, type NewsSource
 } from '../../lib/newsSettings'
 
 type AdminRuntimeConfig = {
@@ -114,6 +114,39 @@ export function ConfigModule() {
     if (next.length === 0) return
     updateNewsSettings({ enabledSources: next })
   }, [newsSettings.enabledSources, updateNewsSettings])
+
+  // ── New source form ──
+  const [newSourceName, setNewSourceName] = useState('')
+  const [newSourceUrl, setNewSourceUrl] = useState('')
+  const [newSourceCategory, setNewSourceCategory] = useState('')
+
+  const handleAddSource = useCallback(() => {
+    const name = newSourceName.trim()
+    const url = newSourceUrl.trim()
+    const category = newSourceCategory.trim() || 'Geral'
+    if (!name || !url) return
+    const id = slugify(name)
+    if (newsSettings.sources.some(s => s.id === id)) {
+      showNotification('Já existe uma fonte com esse nome.', 'error')
+      return
+    }
+    const newSource: NewsSource = { id, name, url, category }
+    updateNewsSettings({
+      sources: [...newsSettings.sources, newSource],
+      enabledSources: [...newsSettings.enabledSources, id],
+    })
+    setNewSourceName('')
+    setNewSourceUrl('')
+    setNewSourceCategory('')
+    showNotification(`Fonte "${name}" adicionada.`, 'success')
+  }, [newSourceName, newSourceUrl, newSourceCategory, newsSettings, updateNewsSettings, showNotification])
+
+  const handleRemoveSource = useCallback((sourceId: string) => {
+    updateNewsSettings({
+      sources: newsSettings.sources.filter(s => s.id !== sourceId),
+      enabledSources: newsSettings.enabledSources.filter(id => id !== sourceId),
+    })
+  }, [newsSettings, updateNewsSettings])
 
   const hasUnsavedChanges = useMemo(() => (
     JSON.stringify(config) !== JSON.stringify(baselineConfig)
@@ -576,9 +609,9 @@ export function ConfigModule() {
 
         {/* Fontes */}
         <div className="field-group">
-          <label>Fontes de notícias ativas</label>
+          <p className="field-label"><strong>Fontes de notícias ativas ({newsSettings.sources.length})</strong></p>
           <div className="news-settings__sources">
-            {AVAILABLE_SOURCES.map(source => (
+            {newsSettings.sources.map(source => (
               <label key={source.id} className="news-settings__source-toggle">
                 <input
                   type="checkbox"
@@ -587,8 +620,59 @@ export function ConfigModule() {
                 />
                 <span>{source.name}</span>
                 <span className="news-settings__source-cat">{source.category}</span>
+                <button
+                  type="button"
+                  className="news-settings__source-remove"
+                  onClick={(e) => { e.preventDefault(); handleRemoveSource(source.id) }}
+                  title={`Remover ${source.name}`}
+                >
+                  <Trash2 size={12} />
+                </button>
               </label>
             ))}
+          </div>
+        </div>
+
+        {/* Adicionar nova fonte */}
+        <div className="field-group">
+          <p className="field-label"><strong>Adicionar nova fonte RSS</strong></p>
+          <p className="field-hint">Informe o nome, a URL do feed RSS e uma categoria. Use feeds no formato RSS 2.0 ou Atom.</p>
+          <div className="news-settings__add-source">
+            <input
+              id="news-new-source-name"
+              name="newsNewSourceName"
+              type="text"
+              placeholder="Nome (ex.: CNN Brasil)"
+              value={newSourceName}
+              onChange={e => setNewSourceName(e.target.value)}
+              autoComplete="off"
+            />
+            <input
+              id="news-new-source-url"
+              name="newsNewSourceUrl"
+              type="url"
+              placeholder="URL do feed RSS (ex.: https://...)"
+              value={newSourceUrl}
+              onChange={e => setNewSourceUrl(e.target.value)}
+              autoComplete="off"
+            />
+            <input
+              id="news-new-source-category"
+              name="newsNewSourceCategory"
+              type="text"
+              placeholder="Categoria (ex.: Economia)"
+              value={newSourceCategory}
+              onChange={e => setNewSourceCategory(e.target.value)}
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              className="primary-button"
+              disabled={!newSourceName.trim() || !newSourceUrl.trim()}
+              onClick={handleAddSource}
+            >
+              <Plus size={14} /> Adicionar
+            </button>
           </div>
         </div>
 

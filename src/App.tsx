@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import './styles/variables.css'
 import './App.css'
+import { FloatingScrollButtons } from './components/FloatingScrollButtons'
 
 /* Lazy-loaded modules — cada módulo vira um chunk separado */
 const AstrologoModule = lazy(() => import('./modules/astrologo/AstrologoModule').then(m => ({ default: m.AstrologoModule })))
@@ -136,6 +137,7 @@ function App() {
           <TelemetriaModule />
         ) : null}
         </Suspense>
+        <FloatingScrollButtons />
       </main>
     </div>
   )
