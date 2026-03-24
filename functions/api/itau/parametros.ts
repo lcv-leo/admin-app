@@ -9,7 +9,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 })
 
 const resolveParametrosDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.CALC_SOURCE_DB
-const resolveOperationalSource = (context: Context) => (context.env.BIGDATA_DB ? 'bigdata_db' : 'legacy-admin') as const
+const resolveOperationalSource = () => 'bigdata_db' as const
 
 export async function onRequestGet(context: Context) {
   const { env } = context

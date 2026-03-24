@@ -25,7 +25,7 @@ const toPositiveInt = (value: unknown, fallback: number) => {
 }
 
 const resolveRateLimitDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.CALC_SOURCE_DB
-const resolveOperationalSource = (context: Context) => (context.env.BIGDATA_DB ? 'bigdata_db' : 'legacy-admin') as const
+const resolveOperationalSource = () => 'bigdata_db' as const
 
 export async function onRequestGet(context: Context) {
   const trace = createResponseTrace(context.request)

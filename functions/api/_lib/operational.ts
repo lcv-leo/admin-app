@@ -11,7 +11,7 @@ export type D1Database = {
 
 type ModuleEventInput = {
   module: 'astrologo' | 'calculadora' | 'mainsite' | 'mtasts' | 'apphub' | 'adminhub'
-  source: 'bigdata_db' | 'legacy-admin' | 'legacy-worker'
+  source: 'bigdata_db' | 'bootstrap-default'
   fallbackUsed: boolean
   ok: boolean
   errorMessage?: string | null

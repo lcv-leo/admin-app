@@ -1,5 +1,20 @@
 # Changelog — Admin App
 
+## [v01.31.14] — 2026-03-24
+### Corrigido
+- Eliminada emissão de `source: legacy-admin` nos endpoints auditados de `astrologo` e `calculadora`, com padronização para `bigdata_db`.
+- Tipo de evento operacional em `functions/api/_lib/operational.ts` alinhado ao baseline atual (`bigdata_db` e `bootstrap-default`).
+- Executada normalização dos eventos históricos em `adminapp_module_events` no `bigdata_db`, convertendo fontes legadas para `bigdata_db` para refletir o estado operacional vigente no painel.
+
+### Alterado
+- Nota da seção de telemetria na `Visão Geral` atualizada para declarar `BIGDATA_DB` como baseline operacional vigente.
+- Versão da aplicação incrementada para `APP v01.31.14` em `src/App.tsx`.
+
+## [v01.31.13] — 2026-03-24
+### Alterado
+- Removido da sidebar o card `Guia de rollout` na interface do frontend, reduzindo ruído visual no painel principal.
+- Versão da aplicação incrementada para `APP v01.31.13` em `src/App.tsx`.
+
 ## [v01.31.12] — 2026-03-24
 ### Alterado
 - Higienizadas descrições de sync nos módulos `Calculadora` e `MTA-STS` para remover referência textual a migração legada já superada em operação interna.

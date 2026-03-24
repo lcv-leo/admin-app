@@ -9,7 +9,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 })
 
 const resolveDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.ASTROLOGO_SOURCE_DB
-const resolveOperationalSource = (context: Context) => (context.env.BIGDATA_DB ? 'bigdata_db' : 'legacy-admin') as const
+const resolveOperationalSource = () => 'bigdata_db' as const
 
 export async function onRequestPost(context: Context) {
   const trace = createResponseTrace(context.request)
