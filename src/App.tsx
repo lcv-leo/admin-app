@@ -26,7 +26,7 @@ import { ApphubModule } from './modules/hubs/ApphubModule'
 import { AdminhubModule } from './modules/hubs/AdminhubModule'
 import { formatOperationalSourceLabel, isLegacyOperationalSource } from './lib/operationalSource'
 
-const APP_VERSION = 'APP v01.31.12'
+const APP_VERSION = 'APP v01.31.14'
 
 type OperationalModuleStatus = {
   module: string
@@ -209,15 +209,6 @@ function App() {
           ))}
         </nav>
 
-        <div className="sidebar-card">
-          <p className="sidebar-title">Guia de rollout</p>
-          <ul>
-            <li>Novo shell entra em produção sem desligar os admins legados.</li>
-            <li>Segredos reais ficam apenas em runtime server-side.</li>
-            <li>`bigdata_db` entra na fase seguinte, com migração controlada e prefixação por contexto.</li>
-            <li>Diretriz vigente: `adminhub` e `apphub` em consolidação como módulos internos com persistência em D1.</li>
-          </ul>
-        </div>
       </aside>
 
       <main className="content">
@@ -267,8 +258,7 @@ function App() {
               {operationalOverview && operationalOverview.modules.length > 0 ? (
                 <p className="telemetry-note">
                   Observação: o badge à direita mostra a <strong>fonte do último evento</strong> de cada módulo.
-                  Após a migração para `BIGDATA_DB`, ocorrências de <strong>LEGACY-ADMIN</strong> ou <strong>LEGACY-WORKER</strong>
-                  podem refletir apenas eventos históricos dentro da janela de 24h.
+                  O baseline operacional vigente é <strong>BIGDATA_DB</strong> para todos os módulos do cockpit.
                 </p>
               ) : null}
             </article>
