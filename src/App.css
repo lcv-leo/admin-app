@@ -307,6 +307,7 @@
   border-radius: 20px;
   border: 1px solid var(--module-accent-border);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.84));
+  justify-content: space-between;
 }
 
 .module-shell .detail-icon,
@@ -510,6 +511,132 @@
 
 .result-empty {
   color: #64748b;
+}
+
+.inline-loading-message {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ops-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(248, 250, 252, 0.95);
+  color: #475569;
+}
+
+.ops-status-chip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.ops-status-chip--ok {
+  background: rgba(236, 253, 245, 0.95);
+  border-color: rgba(16, 185, 129, 0.34);
+  color: #047857;
+}
+
+.ops-status-chip--warning {
+  background: rgba(255, 251, 235, 0.96);
+  border-color: rgba(245, 158, 11, 0.34);
+  color: #b45309;
+}
+
+.ops-status-chip--warning .ops-status-chip__dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+.ops-status-chip--error {
+  background: rgba(254, 242, 242, 0.95);
+  border-color: rgba(239, 68, 68, 0.34);
+  color: #b91c1c;
+}
+
+.ops-status-chip--idle {
+  background: rgba(241, 245, 249, 0.96);
+  border-color: rgba(148, 163, 184, 0.34);
+  color: #64748b;
+}
+
+.legacy-hub-preview {
+  margin-top: 8px;
+}
+
+.legacy-hub-preview__title {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.legacy-hub-preview__section-heading {
+  margin: 0 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-size: 0.78rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92);
+  animation: hub-status-pulse 1.8s ease-in-out infinite;
+}
+
+.status-dot.open {
+  background: linear-gradient(135deg, #10b981, #34d399);
+}
+
+.status-dot.restricted {
+  background: linear-gradient(135deg, #f43f5e, #fb7185);
+}
+
+.status-dot.open {
+  --status-pulse-color: rgba(16, 185, 129, 0.34);
+}
+
+.status-dot.restricted {
+  --status-pulse-color: rgba(244, 63, 94, 0.34);
+}
+
+.legacy-hub-preview .card {
+  min-height: 210px;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.legacy-hub-preview .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.14);
+  border-color: rgba(37, 99, 235, 0.24);
+}
+
+.legacy-hub-preview .card-badge {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+
+.legacy-hub-preview .card[data-level="restricted"] .card-badge {
+  background: rgba(244, 63, 94, 0.14);
+  color: #be123c;
 }
 
 .result-list {
@@ -758,8 +885,41 @@
   background: rgba(254, 242, 242, 0.92);
 }
 
+.module-shell-mtasts .form-card {
+  padding: 18px;
+}
+
+.module-shell-mtasts .field-group label {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .spin {
   animation: spin 1s linear infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.16);
+  }
+}
+
+@keyframes hub-status-pulse {
+  0% {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 0 0 0 var(--status-pulse-color, rgba(37, 99, 235, 0.3));
+  }
+
+  100% {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 0 0 9px rgba(255, 255, 255, 0);
+  }
 }
 
 @keyframes spin {

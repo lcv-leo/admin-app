@@ -482,8 +482,8 @@ export function AstrologoModule() {
       <div className="detail-header">
         <div className="detail-icon"><Sparkles size={22} /></div>
         <div>
-          <h3>Astrólogo — Operação Inicial</h3>
-          <p>Primeira integração funcional do shell unificado, mantendo o admin legado ativo.</p>
+          <h3>Câmara do Mestre — Astrólogo</h3>
+          <p>Arquivo Akáshico, leitura operacional e governança no shell unificado.</p>
         </div>
       </div>
 
@@ -554,14 +554,14 @@ export function AstrologoModule() {
         <div className="form-actions">
           <button type="submit" className="primary-button" disabled={disabled}>
             {loading ? <Loader2 size={18} className="spin" /> : <Search size={18} />}
-            Buscar registros
+            Atualizar arquivo
           </button>
         </div>
       </form>
 
       <article className="result-card">
         <header className="result-header">
-          <h4><Telescope size={16} /> Resultado da consulta</h4>
+          <h4><Telescope size={16} /> Arquivo Akáshico</h4>
           <span>{items.length} item(ns)</span>
         </header>
 
@@ -612,7 +612,7 @@ export function AstrologoModule() {
 
       <article className="result-card">
         <header className="result-header">
-          <h4><Eye size={16} /> Detalhes do mapa selecionado</h4>
+          <h4><Eye size={16} /> Ficha Oculta</h4>
           <span>{selectedMapa ? selectedMapa.id : 'nenhum mapa selecionado'}</span>
         </header>
 
@@ -732,7 +732,7 @@ export function AstrologoModule() {
       <article className="result-card">
         <div className="result-toolbar">
           <div>
-            <h4><Save size={16} /> Painel de rate limit</h4>
+            <h4><Save size={16} /> Segurança e Custos (Limitação de API)</h4>
             <p className="field-hint">Políticas por rota com atualização em tempo real e opção de restaurar padrão.</p>
             {hasUnsavedRatePolicies && (
               <span className="badge badge-planejado">Alterações não salvas</span>
@@ -741,7 +741,7 @@ export function AstrologoModule() {
           <div className="inline-actions">
             <button type="button" className="ghost-button" onClick={() => void loadRateLimit(true)} disabled={loadingRateLimit || updatingRateRoute !== null}>
               {loadingRateLimit ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-              Recarregar rate limit
+              Atualizar painel
             </button>
             <button type="button" className="ghost-button" onClick={restoreAllRatePoliciesLocal} disabled={loadingRateLimit || updatingRateRoute !== null || ratePolicies.length === 0}>
               <RefreshCw size={16} />
