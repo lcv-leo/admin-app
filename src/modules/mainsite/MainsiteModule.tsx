@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   Activity, AlertTriangle, AlignCenter, AlignJustify, AlignLeft, AlignRight,
@@ -10,6 +10,7 @@ import {
   Link as LinkIcon, Unlink,
   Subscript as SubIcon, Superscript as SuperIcon,
   Table as TableIcon,
+  Upload, Image as ImageIcon, Youtube, ZoomIn, ZoomOut, MessageSquare,
 } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -32,10 +33,55 @@ import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
 import { Typography } from '@tiptap/extension-typography'
 import { Dropcursor } from '@tiptap/extension-dropcursor'
+import Image from '@tiptap/extension-image'
+import YoutubeExtension from '@tiptap/extension-youtube'
 import { Markdown } from 'tiptap-markdown'
 import { useNotification } from '../../components/Notification'
 import { SyncStatusCard } from '../../components/SyncStatusCard'
 import type { RateLimitPolicy } from '../../lib/rate-limit-common'
+
+// ── Media utilities (ported from mainsite-admin EditorPanel.jsx) ──
+
+/** Detects Google Drive share links and converts to direct embed URL */
+const formatImageUrl = (url: string): string => {
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/)
+  if (driveMatch) return `https://lh3.googleusercontent.com/d/${driveMatch[1]}`
+  return url
+}
+
+/** Clamp a numeric value between min and max */
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value))
+
+/** Predefined snap widths for images (percentage) */
+const IMAGE_SNAPS = [
+  { label: '25%', value: 25 },
+  { label: '50%', value: 50 },
+  { label: '75%', value: 75 },
+  { label: '100%', value: 100 },
+]
+
+/** Predefined snap sizes for YouTube embeds (width px) */
+const VIDEO_SNAPS = [
+  { label: '480p', width: 640, height: 360 },
+  { label: '720p', width: 840, height: 472 },
+  { label: '1080p', width: 1200, height: 675 },
+]
+
+/** TipTap Image extension with width attribute for resizing */
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: { default: '100%', parseHTML: (el) => el.getAttribute('width') || el.style.width || '100%', renderHTML: (attrs) => ({ width: attrs.width, style: `width: ${attrs.width}` }) },
+    }
+  },
+})
+
+/** TipTap YouTube extension (already supports width/height via extension config) */
+const ResizableYoutube = YoutubeExtension.configure({
+  width: 840, height: 472, allowFullscreen: true, nocookie: true,
+})
 
 // ── TipTap extensions ─────────────────────────────────────────
 const TIPTAP_EXTENSIONS = [
@@ -56,7 +102,27 @@ const TIPTAP_EXTENSIONS = [
   CharacterCount,
   Placeholder.configure({ placeholder: 'Comece a escrever o conteúdo do post...' }),
   LinkExtension.configure({ openOnClick: false, autolink: true, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
+  ResizableImage,
+  ResizableYoutube,
 ]
+
+// ── Prompt modal state type ───────────────────────────────────
+type PromptModalState = {
+  show: boolean
+  title: string
+  placeholder: string
+  value: string
+  callback: ((url: string, text: string, caption: string) => void) | null
+  isLink: boolean
+  linkText: string
+  showCaption: boolean
+  caption: string
+}
+
+const PROMPT_MODAL_INITIAL: PromptModalState = {
+  show: false, title: '', placeholder: 'https://...', value: '',
+  callback: null, isLink: false, linkText: '', showCaption: false, caption: '',
+}
 
 type OverviewPayload = {
   ok: boolean
@@ -188,13 +254,192 @@ export function MainsiteModule() {
   const [baselineRatePolicies, setBaselineRatePolicies] = useState<RateLimitPolicy[]>([])
   const [confirmDelete, setConfirmDelete] = useState<ConfirmDeleteState>({ show: false, id: null, title: '' })
   const [draggedPostIndex, setDraggedPostIndex] = useState<number | null>(null)
-  const [linkPrompt, setLinkPrompt] = useState<{ show: boolean; url: string; text: string }>({ show: false, url: '', text: '' })
+  const [promptModal, setPromptModal] = useState<PromptModalState>(PROMPT_MODAL_INITIAL)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // TipTap editor instance
   const editor = useEditor({
     extensions: TIPTAP_EXTENSIONS,
     content: '',
   })
+
+  // ── Media handler functions (ported from reference) ─────────
+
+  /** Insert a styled caption paragraph after the current cursor position */
+  const insertCaptionBlock = useCallback((caption: string) => {
+    if (!editor) return
+    const safe = (caption || '').trim()
+    if (!safe) return
+    editor.chain().focus().insertContent({
+      type: 'paragraph',
+      attrs: { textAlign: 'center' },
+      content: [{ type: 'text', text: safe, marks: [{ type: 'italic' }] }],
+    }).run()
+  }, [editor])
+
+  /** Upload file to R2 via admin-app upload endpoint */
+  const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!editor) return
+    const file = event.target.files?.[0]
+    if (!file) return
+    setIsUploading(true)
+    showNotification('Enviando arquivo para o Cloudflare R2...', 'info')
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const res = await fetch('/api/mainsite/upload', { method: 'POST', body: formData })
+      if (!res.ok) throw new Error('Falha na consolidação do arquivo.')
+      const data = await res.json() as { url: string }
+      editor.chain().focus().setImage({ src: data.url }).run()
+      // Apply width attribute after insertion
+      editor.chain().focus().updateAttributes('image', { width: '100%' }).run()
+      showNotification('Upload concluído com sucesso.', 'success')
+      setPromptModal({
+        ...PROMPT_MODAL_INITIAL,
+        show: true,
+        title: 'Legenda da imagem (opcional):',
+        placeholder: 'Ex.: Foto tirada em março de 2026',
+        callback: (captionText) => insertCaptionBlock(captionText),
+      })
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Erro no upload.', 'error')
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }, [editor, showNotification, insertCaptionBlock])
+
+  /** Insert image from URL (supports Google Drive auto-detect) */
+  const addImageUrl = useCallback(() => {
+    if (!editor) return
+    setPromptModal({
+      ...PROMPT_MODAL_INITIAL,
+      show: true,
+      title: 'URL da Imagem (Drive/Externa):',
+      showCaption: true,
+      callback: (url, _text, caption) => {
+        if (!url) return
+        editor.chain().focus().setImage({ src: formatImageUrl(url) }).run()
+        editor.chain().focus().updateAttributes('image', { width: '100%' }).run()
+        insertCaptionBlock(caption)
+      },
+    })
+  }, [editor, insertCaptionBlock])
+
+  /** Insert YouTube video */
+  const addYoutube = useCallback(() => {
+    if (!editor) return
+    setPromptModal({
+      ...PROMPT_MODAL_INITIAL,
+      show: true,
+      title: 'URL do vídeo (YouTube):',
+      showCaption: true,
+      callback: (url, _text, caption) => {
+        if (!url) return
+        editor.chain().focus().setYoutubeVideo({ src: url, width: 840, height: 472 }).run()
+        insertCaptionBlock(caption)
+      },
+    })
+  }, [editor, insertCaptionBlock])
+
+  /** Insert hyperlink */
+  const addLink = useCallback(() => {
+    if (!editor) return
+    const prev = editor.getAttributes('link').href || ''
+    setPromptModal({
+      ...PROMPT_MODAL_INITIAL,
+      show: true,
+      title: 'Inserir Link de Hipertexto:',
+      value: prev as string,
+      isLink: true,
+      callback: (url, text) => {
+        if (url === '') { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return }
+        if (editor.state.selection.empty && text) {
+          editor.chain().focus().insertContent(`<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`).run()
+        } else {
+          editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+        }
+      },
+    })
+  }, [editor])
+
+  /** Adjust media size (image ±10%, video ±80px width maintaining 16:9) */
+  const adjustSelectedMediaSize = useCallback((direction: 1 | -1) => {
+    if (!editor) return
+    if (editor.isActive('image')) {
+      const attrs = editor.getAttributes('image')
+      const current = Number(String(attrs.width || '100').replace('%', '')) || 100
+      const next = clamp(current + (direction * 10), 20, 100)
+      editor.chain().focus().updateAttributes('image', { width: `${next}%` }).run()
+      showNotification(`Imagem redimensionada para ${next}%`, 'success')
+      return
+    }
+    if (editor.isActive('youtube')) {
+      const attrs = editor.getAttributes('youtube')
+      const currentW = Number(attrs.width) || 840
+      const nextW = clamp(currentW + (direction * 80), 320, 1200)
+      const nextH = Math.round((nextW * 9) / 16)
+      editor.chain().focus().updateAttributes('youtube', { width: nextW, height: nextH }).run()
+      showNotification(`Vídeo redimensionado para ${nextW}x${nextH}`, 'success')
+      return
+    }
+    showNotification('Selecione uma imagem ou vídeo para redimensionar.', 'info')
+  }, [editor, showNotification])
+
+  /** Add or edit caption on media */
+  const editCaption = useCallback(() => {
+    if (!editor) return
+    const isImg = editor.isActive('image')
+    const isVid = editor.isActive('youtube')
+    if (!isImg && !isVid) {
+      showNotification('Selecione uma imagem ou vídeo para adicionar/editar a legenda.', 'info')
+      return
+    }
+    const { selection, doc } = editor.state
+    const nodeSize = (selection as unknown as { node?: { nodeSize: number } }).node?.nodeSize || 1
+    const nodeEnd = selection.from + nodeSize
+    // Detect existing caption immediately after media
+    let existingCaption = ''
+    let captionFrom: number | null = null
+    let captionTo: number | null = null
+    const nextNode = doc.nodeAt(nodeEnd)
+    if (nextNode && nextNode.type.name === 'paragraph' && nextNode.attrs?.textAlign === 'center' && nextNode.textContent) {
+      let hasItalic = false
+      nextNode.forEach(child => {
+        if (child.isText && child.marks.some(m => m.type.name === 'italic')) hasItalic = true
+      })
+      if (hasItalic) {
+        existingCaption = nextNode.textContent
+        captionFrom = nodeEnd
+        captionTo = nodeEnd + nextNode.nodeSize
+      }
+    }
+    setPromptModal({
+      ...PROMPT_MODAL_INITIAL,
+      show: true,
+      title: existingCaption ? 'Editar legenda da mídia:' : 'Adicionar legenda à mídia:',
+      placeholder: 'Texto da legenda...',
+      value: existingCaption,
+      callback: (text) => {
+        const trimmed = (text || '').trim()
+        if (captionFrom !== null && captionTo !== null) {
+          const tr = editor.state.tr.delete(captionFrom, captionTo)
+          editor.view.dispatch(tr)
+          if (trimmed) {
+            editor.commands.insertContentAt(captionFrom, {
+              type: 'paragraph',
+              attrs: { textAlign: 'center' },
+              content: [{ type: 'text', text: trimmed, marks: [{ type: 'italic' }] }],
+            })
+          }
+        } else if (trimmed) {
+          editor.commands.setTextSelection(nodeEnd)
+          insertCaptionBlock(trimmed)
+        }
+      },
+    })
+  }, [editor, showNotification, insertCaptionBlock])
 
   const hasUnsavedRatePolicies = useMemo(() => (
     JSON.stringify(normalizePoliciesForCompare(ratePolicies)) !== JSON.stringify(normalizePoliciesForCompare(baselineRatePolicies))
@@ -799,32 +1044,32 @@ export function MainsiteModule() {
         <div className="tiptap-container">
           {editor && (
             <div className="tiptap-toolbar">
-              {/* Link insert modal */}
-              {linkPrompt.show && (
+              {/* Universal prompt modal (link / image URL / youtube / caption) */}
+              {promptModal.show && (
                 <div className="confirm-overlay">
                   <div className="confirm-dialog">
-                    <h4>Inserir Link</h4>
+                    <h4>{promptModal.title}</h4>
                     <div className="field-group">
-                      <label htmlFor="tiptap-link-url">URL</label>
-                      <input id="tiptap-link-url" name="tiptapLinkUrl" value={linkPrompt.url} onChange={(e) => setLinkPrompt({ ...linkPrompt, url: e.target.value })} placeholder="https://..." />
+                      <label htmlFor="tiptap-prompt-url">{promptModal.isLink ? 'URL' : 'Valor'}</label>
+                      <input id="tiptap-prompt-url" name="tiptapPromptUrl" value={promptModal.value} onChange={(e) => setPromptModal({ ...promptModal, value: e.target.value })} placeholder={promptModal.placeholder} />
                     </div>
-                    {editor.state.selection.empty && (
+                    {promptModal.isLink && editor?.state.selection.empty && (
                       <div className="field-group">
-                        <label htmlFor="tiptap-link-text">Texto</label>
-                        <input id="tiptap-link-text" name="tiptapLinkText" value={linkPrompt.text} onChange={(e) => setLinkPrompt({ ...linkPrompt, text: e.target.value })} placeholder="Texto de exibição" />
+                        <label htmlFor="tiptap-prompt-text">Texto</label>
+                        <input id="tiptap-prompt-text" name="tiptapPromptText" value={promptModal.linkText} onChange={(e) => setPromptModal({ ...promptModal, linkText: e.target.value })} placeholder="Texto de exibição" />
+                      </div>
+                    )}
+                    {promptModal.showCaption && (
+                      <div className="field-group">
+                        <label htmlFor="tiptap-prompt-caption">Legenda (opcional)</label>
+                        <input id="tiptap-prompt-caption" name="tiptapPromptCaption" value={promptModal.caption} onChange={(e) => setPromptModal({ ...promptModal, caption: e.target.value })} placeholder="Ex.: Foto de março de 2026" />
                       </div>
                     )}
                     <div className="confirm-dialog__actions">
-                      <button type="button" className="ghost-button" onClick={() => setLinkPrompt({ show: false, url: '', text: '' })}>Cancelar</button>
+                      <button type="button" className="ghost-button" onClick={() => setPromptModal(PROMPT_MODAL_INITIAL)}>Cancelar</button>
                       <button type="button" className="primary-button" onClick={() => {
-                        const url = linkPrompt.url.trim()
-                        if (!url) { editor.chain().focus().extendMarkRange('link').unsetLink().run() }
-                        else if (editor.state.selection.empty && linkPrompt.text) {
-                          editor.chain().focus().insertContent(`<a href="${url}" target="_blank" rel="noopener noreferrer">${linkPrompt.text}</a>`).run()
-                        } else {
-                          editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
-                        }
-                        setLinkPrompt({ show: false, url: '', text: '' })
+                        promptModal.callback?.(promptModal.value.trim(), promptModal.linkText.trim(), promptModal.caption.trim())
+                        setPromptModal(PROMPT_MODAL_INITIAL)
                       }}>Inserir</button>
                     </div>
                   </div>
@@ -856,12 +1101,33 @@ export function MainsiteModule() {
               <button type="button" title="Tabela" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><TableIcon size={15} /></button>
               <button type="button" title="Quebra" onClick={() => editor.chain().focus().setHardBreak().run()}><WrapText size={15} /></button>
               <span className="tiptap-divider" />
-              <button type="button" title="Link" className={editor.isActive('link') ? 'active' : ''} onClick={() => {
-                const prev = editor.getAttributes('link').href || ''
-                setLinkPrompt({ show: true, url: prev as string, text: '' })
-              }}><LinkIcon size={15} /></button>
+              <button type="button" title="Link" className={editor.isActive('link') ? 'active' : ''} onClick={addLink}><LinkIcon size={15} /></button>
               <button type="button" title="Remover Link" onClick={() => editor.chain().focus().unsetLink().run()} disabled={!editor.isActive('link')} className={!editor.isActive('link') ? 'disabled' : ''}><Unlink size={15} /></button>
               <span className="tiptap-divider" />
+              {/* ── Media toolbar (ported from reference) ── */}
+              <input id="tiptap-file-upload" ref={fileInputRef} name="tiptapFileUpload" type="file" accept="image/*" title="Upload de imagem" className="tiptap-hidden-input" onChange={handleImageUpload} />
+              <button type="button" title="Upload de imagem (R2)" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>{isUploading ? <Loader2 size={15} className="spin" /> : <Upload size={15} />}</button>
+              <button type="button" title="Imagem por URL / Google Drive" onClick={addImageUrl}><ImageIcon size={15} /></button>
+              <button type="button" title="Vídeo do YouTube" onClick={addYoutube}><Youtube size={15} /></button>
+              <button type="button" title="Reduzir mídia" onClick={() => adjustSelectedMediaSize(-1)} disabled={!editor.isActive('image') && !editor.isActive('youtube')}><ZoomOut size={15} /></button>
+              <button type="button" title="Ampliar mídia" onClick={() => adjustSelectedMediaSize(1)} disabled={!editor.isActive('image') && !editor.isActive('youtube')}><ZoomIn size={15} /></button>
+              <button type="button" title="Legenda da mídia" onClick={editCaption} disabled={!editor.isActive('image') && !editor.isActive('youtube')}><MessageSquare size={15} /></button>
+              {/* Snap bars for images */}
+              {editor.isActive('image') && (
+                <div className="tiptap-snap-group">
+                  {IMAGE_SNAPS.map((snap) => (
+                    <button key={snap.label} type="button" title={snap.label} className="snap-btn" onClick={() => editor.chain().focus().updateAttributes('image', { width: `${snap.value}%` }).run()}>{snap.label}</button>
+                  ))}
+                </div>
+              )}
+              {/* Snap bars for YouTube */}
+              {editor.isActive('youtube') && (
+                <div className="tiptap-snap-group">
+                  {VIDEO_SNAPS.map((snap) => (
+                    <button key={snap.label} type="button" title={snap.label} className="snap-btn" onClick={() => editor.chain().focus().updateAttributes('youtube', { width: snap.width, height: snap.height }).run()}>{snap.label}</button>
+                  ))}
+                </div>
+              )}
               <div className="tiptap-color-group">
                 <Palette size={14} />
                 <input id="tiptap-text-color" name="tiptapTextColor" type="color" title="Cor do texto" onInput={(e) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()} value={(editor.getAttributes('textStyle').color as string) || '#000000'} />
@@ -1100,7 +1366,7 @@ export function MainsiteModule() {
                     <input id={`disc-trigger-${idx}`} name={`discTrigger_${idx}`} type="checkbox" checked={item.isDonationTrigger} onChange={(e) => {
                       const next = [...disclaimers.items]; next[idx] = { ...next[idx], isDonationTrigger: e.target.checked }; setDisclaimers({ ...disclaimers, items: next })
                     }} />
-                    Gatilho de Doação (Mercado Pago)
+                    Gatilho de Doação
                   </label>
                 </div>
               ))}

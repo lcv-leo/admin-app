@@ -24,7 +24,7 @@ const toPositiveInt = (value: unknown, fallback: number) => {
   return parsed
 }
 
-const resolveRateLimitDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.CALC_SOURCE_DB
+const resolveRateLimitDb = (context: Context) => context.env.BIGDATA_DB
 const resolveOperationalSource = () => 'bigdata_db' as const
 
 export async function onRequestGet(context: Context) {
@@ -34,7 +34,7 @@ export async function onRequestGet(context: Context) {
   const source = resolveOperationalSource(context)
 
   if (!db) {
-    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/CALC_SOURCE_DB).', ...trace }, 503)
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503)
   }
 
   try {
@@ -93,7 +93,7 @@ export async function onRequestPost(context: Context) {
   const source = resolveOperationalSource(context)
 
   if (!db) {
-    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/CALC_SOURCE_DB).', ...trace }, 503)
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503)
   }
 
   try {

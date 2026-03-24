@@ -64,7 +64,7 @@ const buildFallbackPolicies = () => ([
   },
 ])
 
-const resolveRateLimitDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.ASTROLOGO_SOURCE_DB
+const resolveRateLimitDb = (context: Context) => context.env.BIGDATA_DB
 const resolveOperationalSource = () => 'bigdata_db' as const
 
 export async function onRequestGet(context: Context) {
@@ -73,7 +73,7 @@ export async function onRequestGet(context: Context) {
   const source = resolveOperationalSource(context)
 
   if (!db) {
-    return json({ ok: false, error: 'Nenhum binding D1 disponível (ASTROLOGO_SOURCE_DB/BIGDATA_DB).', ...trace }, 503)
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503)
   }
 
   try {

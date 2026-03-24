@@ -9,7 +9,6 @@ type LegacyMapa = {
 
 type Env = {
   BIGDATA_DB?: D1Database
-  ASTROLOGO_SOURCE_DB?: D1Database
 }
 
 type Context = {
@@ -61,15 +60,7 @@ export async function onRequestPost(context: Context) {
     })
   }
 
-  if (!env.ASTROLOGO_SOURCE_DB) {
-    return new Response(JSON.stringify({
-      ok: false,
-      error: 'ASTROLOGO_SOURCE_DB não configurado no runtime.',
-    }), {
-      status: 503,
-      headers: toHeaders(),
-    })
-  }
+
 
   const url = new URL(request.url)
   const limit = parseLimit(url.searchParams.get('limit'))
@@ -84,7 +75,7 @@ export async function onRequestPost(context: Context) {
   })
 
   try {
-    const source = await env.ASTROLOGO_SOURCE_DB.prepare(`
+    const source = await env.BIGDATA_DB!.prepare(`
       SELECT id, nome, data_nascimento
       FROM astrologo_mapas
       ORDER BY created_at DESC

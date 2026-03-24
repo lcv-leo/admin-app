@@ -24,7 +24,6 @@ type CalculadoraRateLimitSourceRow = {
 
 type Env = {
   BIGDATA_DB?: D1Database
-  CALC_SOURCE_DB?: D1Database
 }
 
 type Context = {
@@ -157,15 +156,7 @@ export async function onRequestPost(context: Context) {
     })
   }
 
-  if (!env.CALC_SOURCE_DB) {
-    return new Response(JSON.stringify({
-      ok: false,
-      error: 'CALC_SOURCE_DB não configurado no runtime.',
-    }), {
-      status: 503,
-      headers: toHeaders(),
-    })
-  }
+
 
   const url = new URL(request.url)
   const limit = parseLimit(url.searchParams.get('limit'))
@@ -181,7 +172,7 @@ export async function onRequestPost(context: Context) {
 
   try {
     const [observSource, rateLimitSource] = await Promise.all([
-      env.CALC_SOURCE_DB.prepare(`
+      env.BIGDATA_DB!.prepare(`
         SELECT created_at, status, from_cache, force_refresh, duration_ms, moeda, valor_original, preview, error_message
         FROM calc_oraculo_observabilidade
         ORDER BY created_at DESC
@@ -189,7 +180,7 @@ export async function onRequestPost(context: Context) {
       `)
         .bind(limit)
         .all<CalculadoraObservabilidadeSourceRow>(),
-      env.CALC_SOURCE_DB.prepare(`
+      env.BIGDATA_DB!.prepare(`
         SELECT route_key, enabled, max_requests, window_minutes, updated_at, updated_by
         FROM calc_rate_limit_policies
       `)
