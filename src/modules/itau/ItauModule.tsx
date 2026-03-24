@@ -113,8 +113,7 @@ export function CalculadoraModule() {
       <div className="detail-header">
         <div className="detail-icon"><Database size={22} /></div>
         <div>
-          <h3>Calculadora Financeira — Admin</h3>
-          <p>Leitura operacional interna no shell unificado via `bigdata_db`.</p>
+          <h3>Calculadora — Calculadora Administrativa</h3>
         </div>
       </div>
 
