@@ -70,14 +70,46 @@ export function HubCardsModule({
 
   const disabled = useMemo(() => loading || saving, [loading, saving])
 
+  const duplicateStats = useMemo(() => {
+    const nameCounts = new Map<string, number>()
+    const urlCounts = new Map<string, number>()
+
+    for (const card of cards) {
+      const normalizedName = card.name.trim().toLowerCase()
+      const normalizedUrl = card.url.trim().toLowerCase()
+
+      if (normalizedName) {
+        nameCounts.set(normalizedName, (nameCounts.get(normalizedName) ?? 0) + 1)
+      }
+
+      if (normalizedUrl) {
+        urlCounts.set(normalizedUrl, (urlCounts.get(normalizedUrl) ?? 0) + 1)
+      }
+    }
+
+    const duplicateNameCount = Array.from(nameCounts.values()).filter((count) => count > 1).length
+    const duplicateUrlCount = Array.from(urlCounts.values()).filter((count) => count > 1).length
+
+    return {
+      nameCounts,
+      urlCounts,
+      duplicateNameCount,
+      duplicateUrlCount,
+    }
+  }, [cards])
+
   const cardFieldErrors = useMemo(() => cards.map((card) => {
     const errors: Partial<Record<keyof HubCard, string>> = {}
     const normalizedName = card.name.trim()
     const normalizedDescription = card.description.trim()
     const normalizedUrl = card.url.trim()
+    const normalizedNameKey = normalizedName.toLowerCase()
+    const normalizedUrlKey = normalizedUrl.toLowerCase()
 
     if (!normalizedName) {
       errors.name = 'Nome é obrigatório.'
+    } else if ((duplicateStats.nameCounts.get(normalizedNameKey) ?? 0) > 1) {
+      errors.name = 'Nome duplicado no formulário.'
     }
 
     if (!normalizedDescription) {
@@ -91,6 +123,8 @@ export function HubCardsModule({
         const parsed = new URL(normalizedUrl)
         if (!['http:', 'https:'].includes(parsed.protocol)) {
           errors.url = 'URL deve começar com http:// ou https://.'
+        } else if ((duplicateStats.urlCounts.get(normalizedUrlKey) ?? 0) > 1) {
+          errors.url = 'URL duplicada no formulário.'
         }
       } catch {
         errors.url = 'URL inválida.'
@@ -98,7 +132,7 @@ export function HubCardsModule({
     }
 
     return errors
-  }), [cards])
+  }), [cards, duplicateStats.nameCounts, duplicateStats.urlCounts])
 
   const filteredCardEntries = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
@@ -114,6 +148,44 @@ export function HubCardsModule({
       return haystack.includes(term)
     })
   }, [cards, searchTerm])
+
+  const qualityMetrics = useMemo(() => {
+    const totalCards = cards.length
+    if (totalCards === 0) {
+      return {
+        score: 0,
+        invalidCards: 0,
+        status: 'warning' as const,
+        summary: 'Sem cards para avaliar qualidade.',
+      }
+    }
+
+    const invalidCards = cardFieldErrors.reduce((acc, fieldErrors) => (
+      Object.keys(fieldErrors).length > 0 ? acc + 1 : acc
+    ), 0)
+
+    const validCards = totalCards - invalidCards
+    const score = Math.round((validCards / totalCards) * 100)
+
+    const status = score >= 95
+      ? 'ok'
+      : score >= 70
+        ? 'warning'
+        : 'error'
+
+    const summary = invalidCards === 0
+      ? 'Todos os cards estão válidos para publicação.'
+      : `${invalidCards} card(s) com pendências de validação.`
+
+    return {
+      score,
+      invalidCards,
+      status,
+      summary,
+      duplicateNameCount: duplicateStats.duplicateNameCount,
+      duplicateUrlCount: duplicateStats.duplicateUrlCount,
+    }
+  }, [cardFieldErrors, cards.length, duplicateStats.duplicateNameCount, duplicateStats.duplicateUrlCount])
 
   const loadConfig = useCallback(async (shouldNotify = false) => {
     setLoading(true)
@@ -302,6 +374,19 @@ export function HubCardsModule({
 
         <div className="field-group">
           <label>Cards do módulo</label>
+          <article className={`quality-banner quality-banner--${qualityMetrics.status}`}>
+            <div className="quality-banner__main">
+              <strong>Qualidade dos cards: {qualityMetrics.score}%</strong>
+              <span>{qualityMetrics.summary}</span>
+            </div>
+            <div className="quality-banner__meta">
+              <span>Total: {cards.length}</span>
+              <span>Inválidos: {qualityMetrics.invalidCards}</span>
+              <span>Nomes duplicados: {qualityMetrics.duplicateNameCount}</span>
+              <span>URLs duplicadas: {qualityMetrics.duplicateUrlCount}</span>
+            </div>
+          </article>
+
           <div className="cards-toolbar">
             <input
               id={`${adminActorFieldId}-cards-search`}
@@ -325,6 +410,9 @@ export function HubCardsModule({
             <div className="cards-editor-grid">
               {filteredCardEntries.map(({ card, index }) => {
                 const errors = cardFieldErrors[index]
+                const nameErrorId = `${adminActorFieldId}-name-${index}-error`
+                const urlErrorId = `${adminActorFieldId}-url-${index}-error`
+                const descriptionErrorId = `${adminActorFieldId}-description-${index}-error`
 
                 return (
                 <article key={`${adminActorFieldId}-card-${index}`} className="card-editor-item">
@@ -371,8 +459,9 @@ export function HubCardsModule({
                         onChange={(event) => updateCardField(index, 'name', event.target.value)}
                         disabled={disabled}
                         className={errors.name ? 'field-input-error' : undefined}
+                        aria-describedby={errors.name ? nameErrorId : undefined}
                       />
-                      {errors.name && <span className="field-error">{errors.name}</span>}
+                      {errors.name && <span id={nameErrorId} className="field-error">{errors.name}</span>}
                     </div>
                     <div className="field-group">
                       <label htmlFor={`${adminActorFieldId}-url-${index}`}>URL</label>
@@ -384,8 +473,9 @@ export function HubCardsModule({
                         onChange={(event) => updateCardField(index, 'url', event.target.value)}
                         disabled={disabled}
                         className={errors.url ? 'field-input-error' : undefined}
+                        aria-describedby={errors.url ? urlErrorId : undefined}
                       />
-                      {errors.url && <span className="field-error">{errors.url}</span>}
+                      {errors.url && <span id={urlErrorId} className="field-error">{errors.url}</span>}
                     </div>
                   </div>
 
@@ -399,8 +489,9 @@ export function HubCardsModule({
                       onChange={(event) => updateCardField(index, 'description', event.target.value)}
                       disabled={disabled}
                       className={errors.description ? 'field-input-error' : undefined}
+                      aria-describedby={errors.description ? descriptionErrorId : undefined}
                     />
-                    {errors.description && <span className="field-error">{errors.description}</span>}
+                    {errors.description && <span id={descriptionErrorId} className="field-error">{errors.description}</span>}
                   </div>
 
                   <div className="form-grid">
