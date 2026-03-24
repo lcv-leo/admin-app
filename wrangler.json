@@ -8,21 +8,14 @@
       "binding": "BIGDATA_DB",
       "database_name": "bigdata_db",
       "database_id": "6a71b62e-8ab9-45e6-a867-c0d4e6a56269"
-    },
-    {
-      "binding": "ASTROLOGO_SOURCE_DB",
-      "database_name": "bigdata_db",
-      "database_id": "6a71b62e-8ab9-45e6-a867-c0d4e6a56269"
-    },
-    {
-      "binding": "ITAU_SOURCE_DB",
-      "database_name": "bigdata_db",
-      "database_id": "6a71b62e-8ab9-45e6-a867-c0d4e6a56269"
     }
   ],
-  "vars": {
-    "MAINSITE_WORKER_API_BASE_URL": "https://mainsite-app.lcv.rio.br"
-  },
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "mainsite-media"
+    }
+  ],
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true

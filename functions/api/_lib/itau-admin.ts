@@ -1,7 +1,6 @@
 import type { D1Database } from './operational'
 
 export type Env = {
-  ITAU_SOURCE_DB?: D1Database
   BIGDATA_DB?: D1Database
 }
 

@@ -8,7 +8,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
   headers: toHeaders(),
 })
 
-const resolveDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.ASTROLOGO_SOURCE_DB
+const resolveDb = (context: Context) => context.env.BIGDATA_DB
 const resolveOperationalSource = () => 'bigdata_db' as const
 
 export async function onRequestPost(context: Context) {
@@ -17,7 +17,7 @@ export async function onRequestPost(context: Context) {
   const source = resolveOperationalSource()
 
   if (!db) {
-    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/ASTROLOGO_SOURCE_DB).', ...trace }, 503)
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503)
   }
 
   try {

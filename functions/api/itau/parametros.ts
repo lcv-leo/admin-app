@@ -8,7 +8,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
   headers: toHeaders(),
 })
 
-const resolveParametrosDb = (context: Context) => context.env.BIGDATA_DB ?? context.env.ITAU_SOURCE_DB
+const resolveParametrosDb = (context: Context) => context.env.BIGDATA_DB
 const resolveOperationalSource = () => 'bigdata_db' as const
 
 export async function onRequestGet(context: Context) {
@@ -19,7 +19,7 @@ export async function onRequestGet(context: Context) {
   const source = resolveOperationalSource(context)
 
   if (!db) {
-    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/ITAU_SOURCE_DB).', ...trace }, 503)
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503)
   }
 
   try {
@@ -90,7 +90,7 @@ export async function onRequestPost(context: Context) {
   const source = resolveOperationalSource(context)
 
   if (!db) {
-    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB/ITAU_SOURCE_DB).', ...trace }, 503)
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503)
   }
 
   try {
