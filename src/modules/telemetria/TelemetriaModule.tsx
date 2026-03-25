@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   Activity, AlertTriangle, BarChart3, Bot, Calendar,
   Database, Loader2, MessageSquare, RefreshCw, Share2,
-  Trash2, Mail,
+  Trash2, Mail, X,
 } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 
@@ -422,16 +422,27 @@ export function TelemetriaModule() {
 
       {/* ── Confirmation dialog ── */}
       {confirmDelete.show && (
-        <div className="confirm-overlay" role="dialog" aria-modal="true" aria-label="Confirmar exclusão">
-          <div className="confirm-dialog">
-            <div className="confirm-dialog__icon"><AlertTriangle size={28} /></div>
-            <h4>Excluir registro</h4>
-            <p>Deseja apagar permanentemente &ldquo;{confirmDelete.label}&rdquo;?</p>
-            <div className="confirm-dialog__actions">
-              <button type="button" className="ghost-button" onClick={() => setConfirmDelete({ show: false, table: '', id: 0, label: '' })}>Cancelar</button>
-              <button type="button" className="primary-button danger" onClick={() => void executeDelete()} disabled={deletingId !== null}>
-                {deletingId !== null ? <Loader2 size={16} className="spin" /> : 'Apagar'}
-              </button>
+        <div className="admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Confirmar exclusão">
+          <div className="admin-modal-content">
+            <button type="button" title="Fechar diálogo" className="admin-modal-close" onClick={() => setConfirmDelete({ show: false, table: '', id: 0, label: '' })}>
+              <X size={24} />
+            </button>
+            <div className="admin-modal-header">
+              <div className="admin-modal-icon admin-modal-icon--danger">
+                <AlertTriangle size={24} />
+              </div>
+              <h2 className="admin-modal-title">Excluir registro</h2>
+              <p className="admin-modal-subtitle">Deseja apagar permanentemente &ldquo;{confirmDelete.label}&rdquo;?</p>
+            </div>
+            <div className="admin-modal-form">
+              <div className="admin-modal-actions">
+                <button type="button" className="admin-modal-btn admin-modal-btn--ghost" onClick={() => setConfirmDelete({ show: false, table: '', id: 0, label: '' })}>
+                  Cancelar
+                </button>
+                <button type="button" className="admin-modal-btn admin-modal-btn--danger" onClick={() => void executeDelete()} disabled={deletingId !== null}>
+                  {deletingId !== null ? <Loader2 size={18} className="spin" /> : 'Apagar'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
