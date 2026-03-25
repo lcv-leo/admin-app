@@ -408,6 +408,43 @@ export function HubCardsModule(props: HubCardsModuleProps) {
     showNotification('Ordem atualizada. Salve para persistir.', 'info')
   }
 
+  const moveCardToIndex = useCallback((fromIndex: number, toIndex: number) => {
+    setCards((current) => {
+      if (toIndex < 0 || toIndex >= current.length || fromIndex === toIndex) return current
+      const next = [...current]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      return next
+    })
+    setSelectedCardIndex(toIndex)
+    showNotification('Ordem atualizada. Salve para persistir.', 'info')
+  }, [showNotification])
+
+  const handleCatalogKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      moveCardToIndex(index, Math.max(0, index - 1))
+      return
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      moveCardToIndex(index, Math.min(cards.length - 1, index + 1))
+      return
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault()
+      moveCardToIndex(index, 0)
+      return
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault()
+      moveCardToIndex(index, cards.length - 1)
+    }
+  }, [cards.length, moveCardToIndex])
+
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
@@ -720,23 +757,27 @@ export function HubCardsModule(props: HubCardsModuleProps) {
         {cards.length === 0 ? (
           <p className="result-empty">Sem cards carregados para este módulo.</p>
         ) : (
-          <div className="catalog-grid">
+          <div className="catalog-grid" role="list" aria-label={`Catálogo reordenável de ${title}`}>
             {cards.map((card, index) => (
-              <div
+              <button
                 key={`preview-${card.name}-${index}`}
+                type="button"
+                role="listitem"
                 className={`catalog-row ${draggedPreviewIndex === index ? 'catalog-row--dragging' : ''}`}
                 draggable
                 onDragStart={(e) => handlePreviewDragStart(e, index)}
                 onDragEnd={handlePreviewDragEnd}
                 onDragOver={handlePreviewDragOver}
                 onDrop={(e) => handlePreviewDrop(e, index)}
+                onKeyDown={(event) => handleCatalogKeyDown(event, index)}
+                aria-label={`Card ${card.name || 'sem nome'}, posição ${index + 1} de ${cards.length}. Use seta para cima ou para baixo para reordenar.`}
               >
                 <span className="catalog-row__icon">{card.icon || '🧩'}</span>
                 <span className="catalog-row__name">{card.name || 'Sem nome'}</span>
                 <span className="catalog-row__grip" title="Arrastar para reordenar">
                   <GripVertical size={16} />
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         )}

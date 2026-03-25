@@ -12,7 +12,7 @@
  * - Sets a custom window title
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 interface PopupPortalProps {
@@ -27,6 +27,7 @@ let popupWindow: Window | null = null
 
 export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: PopupPortalProps) {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null)
 
   // Open or close the popup window
   useEffect(() => {
@@ -40,6 +41,10 @@ export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: 
 
     // Already open — skip
     if (popupWindow && !popupWindow.closed && containerEl) return
+
+    lastFocusedElementRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
 
     // Calculate smart dimensions (~90% of screen, capped)
     const screenW = window.screen.availWidth || 1920
@@ -111,6 +116,9 @@ export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: 
         box-shadow: none;
         background: transparent;
       }
+      .popup-portal__dialog {
+        outline: none;
+      }
     `
     popup.document.head.appendChild(popupBaseStyle)
 
@@ -118,9 +126,17 @@ export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: 
     const root = popup.document.getElementById('popup-root')
     if (root) {
       const div = popup.document.createElement('div')
+      div.setAttribute('role', 'dialog')
+      div.setAttribute('aria-modal', 'true')
+      div.setAttribute('aria-label', title)
+      div.className = 'popup-portal__dialog'
+      div.tabIndex = -1
       root.appendChild(div)
       // Schedule state update for next microtask to avoid sync setState in effect
-      queueMicrotask(() => setContainerEl(div))
+      queueMicrotask(() => {
+        setContainerEl(div)
+        div.focus()
+      })
     }
 
     // Monitor popup closed by OS
@@ -129,6 +145,7 @@ export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: 
         clearInterval(pollTimer)
         popupWindow = null
         queueMicrotask(() => setContainerEl(null))
+        lastFocusedElementRef.current?.focus()
         onClose()
       }
     }, 300)
@@ -140,6 +157,7 @@ export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: 
         popupWindow.close()
       }
       popupWindow = null
+      lastFocusedElementRef.current?.focus()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, title])

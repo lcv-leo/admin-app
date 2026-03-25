@@ -765,6 +765,7 @@ export function ConfigModule() {
             Motor inteligente: digite em qualquer campo para descobrir fontes automaticamente.
           </p>
           <div className="news-settings__add-source" onKeyDown={handleDiscoverKeyDown}>
+            <label htmlFor="news-new-source-name" className="sr-only">Nome da nova fonte RSS</label>
             <input
               id="news-new-source-name"
               name="newsNewSourceName"
@@ -775,6 +776,7 @@ export function ConfigModule() {
               onFocus={() => { setActiveField('name'); if (newSourceName.trim().length >= 2) triggerDiscovery(newSourceName, 'name') }}
               autoComplete="off"
             />
+            <label htmlFor="news-new-source-url" className="sr-only">URL da nova fonte RSS</label>
             <input
               id="news-new-source-url"
               name="newsNewSourceUrl"
@@ -785,6 +787,7 @@ export function ConfigModule() {
               onFocus={() => { setActiveField('url'); if (newSourceUrl.trim().length >= 2) triggerDiscovery(newSourceUrl, 'url') }}
               autoComplete="off"
             />
+            <label htmlFor="news-new-source-category" className="sr-only">Categoria da nova fonte RSS</label>
             <input
               id="news-new-source-category"
               name="newsNewSourceCategory"
@@ -804,10 +807,19 @@ export function ConfigModule() {
               <Plus size={14} /> Adicionar
             </button>
           </div>
+          <div className="sr-only" aria-live="polite">
+            {loadingSuggestions
+              ? 'Buscando sugestões de fontes RSS.'
+              : suggestions.length > 0
+                ? `${suggestions.length} sugestões de fontes RSS disponíveis.`
+                : activeField
+                  ? 'Nenhuma sugestão disponível.'
+                  : ''}
+          </div>
 
           {/* Discovery dropdown */}
           {activeField && suggestions.length > 0 && (
-            <div className="rss-discover-dropdown">
+            <div className="rss-discover-dropdown" role="listbox" aria-label="Sugestões de fontes RSS">
               <div className="rss-discover-header">
                 <Search size={12} />
                 <span>{suggestions.length} sugestões encontradas</span>
@@ -818,6 +830,8 @@ export function ConfigModule() {
                   <button
                     key={s.id}
                     type="button"
+                    role="option"
+                    aria-selected={i === highlightedIndex ? 'true' : 'false'}
                     className={`rss-discover-item${i === highlightedIndex ? ' rss-discover-item--active' : ''}`}
                     onClick={() => selectSuggestion(s)}
                     onMouseEnter={() => setHighlightedIndex(i)}

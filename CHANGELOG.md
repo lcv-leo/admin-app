@@ -1,5 +1,28 @@
 # Changelog — Admin App
 
+## [v01.46.06] — 2026-03-24
+### Corrigido
+- **Acessibilidade global — PopupPortal**: janela popup nativa agora expõe semântica de diálogo (`role="dialog"`, `aria-modal`, rótulo acessível) e restaura o foco ao elemento de origem ao fechar, melhorando conformidade com WCAG 2.1 AA / eMAG em contexto de janela secundária.
+- **Acessibilidade global — Catálogo reordenável**: o catálogo dos hubs passou a aceitar reordenação por teclado (setas/Home/End) com nome acessível por item, reduzindo dependência exclusiva de drag-and-drop por mouse.
+- **Acessibilidade global — campos de busca e sugestões**: barra de busca do painel de notícias e formulário de descoberta RSS ganharam labels explícitas para leitores de tela, além de anúncio assistivo das sugestões encontradas.
+
+## [v01.46.05] — 2026-03-24
+### Corrigido
+- **Financeiro — WCAG/eMAG (operação por teclado)**: a linha expansível de cada transação deixou de usar `div` clicável e passou a usar `button` semântico com `aria-controls` e rótulo acessível, garantindo acionamento por teclado e melhor suporte a leitores de tela.
+- **Financeiro — WCAG/eMAG (diálogo acessível)**: o modal financeiro passou a usar relacionamento semântico explícito entre título e descrição (`aria-labelledby` / `aria-describedby`), melhorando o anúncio do contexto da operação assistiva.
+- **Financeiro — limpeza de lint**: função morta removida após a troca dos badges inline por classes CSS, restabelecendo `npm run lint` e `npm run build` em verde.
+
+## [v01.46.04] — 2026-03-24
+### Corrigido
+- **Financeiro — badges sem `style` inline**: os badges de status da tabela e dos insights passaram a usar classes CSS semânticas (`fin-tone-*`) em vez de custom properties definidas inline, eliminando os avisos estáticos restantes no módulo.
+- **Financeiro — lint visual do módulo**: o `FinanceiroModule` foi ajustado para manter a mesma semântica de cores sem depender de `style={{ ... }}` nos badges de SumUp e Mercado Pago.
+
+## [v01.46.03] — 2026-03-24
+### Corrigido
+- **Financeiro — Payloads atípicos da SumUp**: registros com fluxo 3DS (`next_step`, `pre_action`, `methodRedirect`, `iframe`) agora são reconhecidos como SumUp e exibidos com detalhes estruturados do gateway, sem cair no bloco bruto de JSON.
+- **Financeiro — Payloads atípicos do Mercado Pago**: parser ampliado para cobrir campos alternativos de gateway (`message`, `error`, `code`, `type`, `cause`, `point_of_interaction.transaction_data`, `ticket_url`, `qr_code`) em vez de depender apenas do formato canônico de pagamento.
+- **Financeiro — Fallback estruturado no detalhe expandido**: payloads fora do padrão agora renderizam um resumo técnico legível com status, método, IDs, links e mensagens úteis, substituindo o fallback anterior de `Raw` sempre que possível.
+
 ## [v01.46.02] — 2026-03-24
 ### Corrigido
 - **Financeiro — Cores dos badges de status**: regras CSS `.fin-status-badge` e `.fin-insight-count-badge` corrigidas para consumir `color: var(--badge-color)` e `background: var(--badge-bg)`. Badges de aprovado, recusado, cancelado e estornado voltam a exibir cores distintas.

@@ -161,6 +161,7 @@ export function NewsPanel() {
 
       {/* Search bar — filtro instantâneo */}
       <div className="news-panel__search">
+        <label htmlFor="news-keyword-filter" className="sr-only">Filtrar notícias por palavra-chave</label>
         <Search size={14} />
         <input
           id="news-keyword-filter"

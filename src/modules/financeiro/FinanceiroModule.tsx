@@ -103,6 +103,11 @@ const parseSumupPayload = (raw: string | null) => {
   try {
     const p = JSON.parse(raw)
     const tx = p?.transactions?.[0] || p?.transaction || {}
+    const nextStep = p?.next_step || p?.nextStep || {}
+    const preAction = nextStep?.pre_action || nextStep?.preAction || {}
+    const mechanisms = Array.isArray(nextStep?.mechanism)
+      ? nextStep.mechanism.filter(Boolean).join(', ')
+      : nextStep?.mechanism || null
     return {
       checkoutStatus: p?.status || '—', checkoutRef: p?.checkout_reference || p?.checkoutReference || '—',
       transactionCode: tx?.transaction_code || tx?.transactionCode || p?.transaction_code || '—',
@@ -114,6 +119,13 @@ const parseSumupPayload = (raw: string | null) => {
       txTimestamp: tx?.timestamp || tx?.created_at || null,
       internalId: tx?.internal_id || tx?.internalId || '—',
       txStatus: tx?.status || p?.status || '—',
+      nextStepMethod: nextStep?.method || null,
+      nextStepMechanism: mechanisms,
+      nextStepUrl: nextStep?.url || null,
+      preActionMethod: preAction?.method || null,
+      preActionUrl: preAction?.url || null,
+      hasThreeDS: Boolean(nextStep?.url || preAction?.url || mechanisms),
+      gatewayMessage: p?.message || p?.error || null,
     }
   } catch { return {} }
 }
@@ -122,9 +134,19 @@ const parseMPPayload = (raw: string | null) => {
   if (!raw) return {}
   try {
     const p = JSON.parse(raw)
-    const card = p.card || {}, td = p.transaction_details || {}, fees = p.fee_details || [], payer = p.payer || {}, ident = payer.identification || {}
+    const card = p.card || {}
+    const td = p.transaction_details || {}
+    const fees = p.fee_details || []
+    const payer = p.payer || {}
+    const ident = payer.identification || {}
+    const firstCause = Array.isArray(p.cause) ? p.cause[0] || {} : {}
+    const pointOfInteraction = p.point_of_interaction || {}
+    const transactionData = pointOfInteraction.transaction_data || {}
     return {
-      statusDetail: p.status_detail, paymentMethodId: p.payment_method_id, paymentTypeId: p.payment_type_id,
+      status: p.status,
+      statusDetail: p.status_detail || p.statusDetail,
+      paymentMethodId: p.payment_method_id || p.payment_method?.id || p.payment_method,
+      paymentTypeId: p.payment_type_id || p.payment_type,
       installments: p.installments, lastFour: card.last_four_digits, firstSix: card.first_six_digits,
       cardholderName: card.cardholder?.name,
       netReceivedAmount: td.net_received_amount, totalPaidAmount: td.total_paid_amount,
@@ -134,6 +156,12 @@ const parseMPPayload = (raw: string | null) => {
       processingMode: p.processing_mode, netAmount: p.net_amount,
       payerName: [payer.first_name, payer.last_name].filter(Boolean).join(' ') || null,
       payerDoc: ident.number ? `${ident.type}: ${ident.number}` : null,
+      gatewayMessage: p.message || p.error || firstCause?.description || null,
+      gatewayCode: p.code || firstCause?.code || null,
+      gatewayType: p.type || firstCause?.type || null,
+      qrCode: transactionData?.qr_code || null,
+      qrCodeBase64: transactionData?.qr_code_base64 || null,
+      ticketUrl: transactionData?.ticket_url || null,
     }
   } catch { return {} }
 }
@@ -147,14 +175,117 @@ const formatDateBR = (v: string | null) => {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false })
 }
 
-const detectProvider = (raw: string | null): 'sumup' | 'mercadopago' | 'unknown' => {
+const formatDetailValue = (value: unknown): string => {
+  if (value == null || value === '') return '—'
+  if (typeof value === 'boolean') return value ? 'Sim' : 'Não'
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '—'
+  if (typeof value === 'string') return value.trim() || '—'
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((entry) => formatDetailValue(entry))
+      .filter((entry) => entry !== '—')
+    return normalized.length ? normalized.join(' • ') : '—'
+  }
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+const getNestedValue = (source: Record<string, unknown>, path: string): unknown => {
+  return path.split('.').reduce<unknown>((acc, segment) => {
+    if (!acc || typeof acc !== 'object') return undefined
+    return (acc as Record<string, unknown>)[segment]
+  }, source)
+}
+
+const buildStructuredFallbackDetails = (raw: string | null, method?: string | null): { label: string; value: string }[] => {
+  if (!raw) return []
+
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>
+  } catch {
+    return [{ label: 'Conteúdo técnico', value: raw }]
+  }
+
+  const methodLabel = String(method || '').trim().toLowerCase() === 'sumup_card'
+    ? 'SumUp'
+    : method && String(method).trim() !== ''
+      ? 'Mercado Pago'
+      : 'Registro técnico'
+
+  const candidates: Array<[string, string]> = [
+    ['Provedor inferido', methodLabel],
+    ['Status', 'status'],
+    ['Detalhe do Status', 'status_detail'],
+    ['ID principal', 'id'],
+    ['ID de pagamento', 'payment_id'],
+    ['Referência externa', 'external_reference'],
+    ['Método de pagamento', 'payment_method_id'],
+    ['Tipo de pagamento', 'payment_type_id'],
+    ['Descrição', 'description'],
+    ['Mensagem do gateway', 'message'],
+    ['Erro técnico', 'error'],
+    ['Código do gateway', 'code'],
+    ['Tipo do retorno', 'type'],
+    ['Modo de processamento', 'processing_mode'],
+    ['Link do comprovante', 'point_of_interaction.transaction_data.ticket_url'],
+    ['QR Code PIX', 'point_of_interaction.transaction_data.qr_code'],
+    ['Próxima etapa', 'next_step.url'],
+    ['Método da próxima etapa', 'next_step.method'],
+    ['Pré-ação', 'next_step.pre_action.url'],
+    ['Método da pré-ação', 'next_step.pre_action.method'],
+    ['Data de criação', 'date_created'],
+    ['Data de aprovação', 'date_approved'],
+  ]
+
+  const items: { label: string; value: string }[] = []
+  const seen = new Set<string>()
+
+  for (const [label, pathOrValue] of candidates) {
+    const rawValue = pathOrValue.includes('.') || parsed[pathOrValue] !== undefined
+      ? getNestedValue(parsed, pathOrValue)
+      : pathOrValue
+    const value = formatDetailValue(rawValue)
+    if (value === '—' || seen.has(`${label}:${value}`)) continue
+    items.push({ label, value })
+    seen.add(`${label}:${value}`)
+  }
+
+  if (items.length > 0) return items
+
+  const previewEntries = Object.entries(parsed).slice(0, 8)
+  return previewEntries.map(([label, value]) => ({
+    label: label.replace(/_/g, ' '),
+    value: formatDetailValue(value),
+  })).filter((item) => item.value !== '—')
+}
+
+const detectProvider = (raw: string | null, method?: string | null): 'sumup' | 'mercadopago' | 'unknown' => {
+  const normalizedMethod = String(method || '').trim().toLowerCase()
+  if (normalizedMethod === 'sumup_card') return 'sumup'
+  if (normalizedMethod && normalizedMethod !== 'n/a') return 'mercadopago'
   if (!raw) return 'unknown'
   try {
     const p = JSON.parse(raw)
-    if (p?.checkout_reference || p?.checkoutReference || Array.isArray(p?.transactions)) return 'sumup'
-    if (p?.payment_method_id || p?.payer || p?.transaction_details) return 'mercadopago'
+    if (p?.checkout_reference || p?.checkoutReference || Array.isArray(p?.transactions) || p?.next_step || p?.nextStep) return 'sumup'
+    if (p?.payment_method_id || p?.payer || p?.transaction_details || p?.point_of_interaction || p?.additional_info || p?.status_detail) return 'mercadopago'
     return 'unknown'
   } catch { return 'unknown' }
+}
+
+const getFinancialToneClass = (value: string): string => {
+  const normalized = String(value || '').trim().toUpperCase()
+  if (!normalized) return 'fin-tone-neutral'
+  if (['SUCCESSFUL', 'PAID', 'APPROVED'].includes(normalized)) return 'fin-tone-success'
+  if (['PENDING', 'IN_PROCESS', 'PROCESSING'].includes(normalized)) return 'fin-tone-pending'
+  if (['FAILED', 'FAILURE', 'REJECTED'].includes(normalized)) return 'fin-tone-error'
+  if (['REFUNDED', 'PARTIALLY_REFUNDED'].includes(normalized)) return 'fin-tone-refund'
+  if (['CANCELLED', 'CANCELED', 'EXPIRED'].includes(normalized)) return 'fin-tone-cancel'
+  if (normalized.includes('CHARGEBACK') || normalized.includes('CHARGE_BACK')) return 'fin-tone-error'
+  return 'fin-tone-info'
 }
 
 // ── Componente ──
@@ -318,7 +449,7 @@ export function FinanceiroModule() {
   }, [logs, showNotification])
 
   const resolveStatusConfig = (log: FinancialLog): StatusConfig => {
-    const provider = detectProvider(log.raw_payload)
+    const provider = detectProvider(log.raw_payload, log.method)
     if (provider === 'mercadopago') { const p = parseMPPayload(log.raw_payload); return getMPStatusConfig(log.status, p.statusDetail?.toString()) }
     return getSumupStatusConfig(log.status)
   }
@@ -326,7 +457,7 @@ export function FinanceiroModule() {
   // ── Render helpers ──
 
   const renderExpandedDetails = (log: FinancialLog) => {
-    const provider = detectProvider(log.raw_payload)
+    const provider = detectProvider(log.raw_payload, log.method)
     const items: { label: string; value: string }[] = []
 
     if (provider === 'sumup') {
@@ -339,10 +470,23 @@ export function FinanceiroModule() {
         { label: 'Moeda', value: p.currency ?? '—' }, { label: 'Data/Hora TX', value: p.txTimestamp ? formatDateBR(p.txTimestamp) : '—' },
         { label: 'ID Interno', value: p.internalId ?? '—' }, { label: 'Status TX', value: p.txStatus ?? '—' },
       )
+      if (p.hasThreeDS) {
+        items.push(
+          { label: 'Fluxo 3DS', value: 'Sim' },
+          { label: 'Mecanismo 3DS', value: p.nextStepMechanism ?? '—' },
+          { label: 'Método Próxima Etapa', value: p.nextStepMethod ?? '—' },
+          { label: 'URL Próxima Etapa', value: p.nextStepUrl ?? '—' },
+          { label: 'Método Pré-Ação', value: p.preActionMethod ?? '—' },
+          { label: 'URL Pré-Ação', value: p.preActionUrl ?? '—' },
+        )
+      }
+      if (p.gatewayMessage) items.push({ label: 'Mensagem Gateway', value: p.gatewayMessage })
     } else if (provider === 'mercadopago') {
       const p = parseMPPayload(log.raw_payload)
       items.push(
-        { label: 'Provedor', value: 'Mercado Pago' }, { label: 'Detalhe do Status', value: p.statusDetail ?? '—' },
+        { label: 'Provedor', value: 'Mercado Pago' },
+        { label: 'Status', value: p.status ?? log.status ?? '—' },
+        { label: 'Detalhe do Status', value: p.statusDetail ?? '—' },
         { label: 'Método de Pagamento', value: p.paymentMethodId ?? '—' }, { label: 'Tipo de Pagamento', value: p.paymentTypeId ?? '—' },
         { label: 'Parcelas', value: String(p.installments ?? '—') },
       )
@@ -358,8 +502,23 @@ export function FinanceiroModule() {
       if (p.moneyReleaseDate) items.push({ label: 'Data de Liberação', value: formatDateBR(p.moneyReleaseDate) })
       if (p.payerName) items.push({ label: 'Pagador', value: p.payerName })
       if (p.payerDoc) items.push({ label: 'Documento', value: p.payerDoc })
+      if (p.processingMode) items.push({ label: 'Modo de Processamento', value: p.processingMode })
+      if (p.gatewayCode) items.push({ label: 'Código do Gateway', value: String(p.gatewayCode) })
+      if (p.gatewayType) items.push({ label: 'Tipo do Gateway', value: String(p.gatewayType) })
+      if (p.gatewayMessage) items.push({ label: 'Mensagem Gateway', value: p.gatewayMessage })
+      if (p.ticketUrl) items.push({ label: 'Link do Comprovante', value: p.ticketUrl })
+      if (p.qrCode) items.push({ label: 'QR Code PIX', value: p.qrCode })
     } else {
-      try { items.push({ label: 'Raw', value: JSON.stringify(JSON.parse(log.raw_payload ?? '{}'), null, 2) }) } catch { items.push({ label: 'Raw', value: log.raw_payload ?? '—' }) }
+      items.push(...buildStructuredFallbackDetails(log.raw_payload, log.method))
+    }
+
+    const fallbackItems = buildStructuredFallbackDetails(log.raw_payload, log.method)
+    const existingKeys = new Set(items.map((item) => `${item.label}:${item.value}`))
+    for (const fallbackItem of fallbackItems) {
+      const key = `${fallbackItem.label}:${fallbackItem.value}`
+      if (existingKeys.has(key)) continue
+      items.push(fallbackItem)
+      existingKeys.add(key)
     }
 
     return (
@@ -378,17 +537,6 @@ export function FinanceiroModule() {
     if (insightLoading) return <p className="result-empty"><Loader2 size={16} className="spin" /> Carregando insights...</p>
     if (!insightData) return null
     if (insightData.error) return <p className="result-empty">{String(insightData.error)}</p>
-
-    // Status color mapping for insight badges
-    const statusColor = (s: string): { color: string; bg: string } => {
-      const u = s.toUpperCase()
-      if (['SUCCESSFUL', 'PAID', 'APPROVED'].includes(u)) return { color: '#10b981', bg: 'rgba(16,185,129,0.15)' }
-      if (['PENDING', 'IN_PROCESS', 'PROCESSING'].includes(u)) return { color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' }
-      if (['FAILED', 'FAILURE', 'REJECTED'].includes(u)) return { color: '#ef4444', bg: 'rgba(239,68,68,0.15)' }
-      if (['REFUNDED', 'PARTIALLY_REFUNDED'].includes(u)) return { color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' }
-      if (['CANCELLED', 'CANCELED', 'EXPIRED'].includes(u)) return { color: '#f97316', bg: 'rgba(249,115,22,0.15)' }
-      return { color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' }
-    }
 
     // Scalar metrics to render as cards
     const scalarKeys = ['scanned', 'limit', 'totalAmount', 'totalNetAmount', 'totalFee', 'count', 'totalFiltered', 'startDate', 'endDate']
@@ -410,7 +558,7 @@ export function FinanceiroModule() {
     }
 
     return (
-      <div className="fin-insight-result">
+      <div className="fin-insight-result" aria-live="polite">
         {/* Scalar metrics as cards */}
         {scalars.length > 0 && (
           <div className="fin-insight-metrics">
@@ -437,8 +585,7 @@ export function FinanceiroModule() {
                 <span className="fin-insight-group-label">{labelMap[k] || k}</span>
                 <div className="fin-insight-badges">
                   {(val as string[]).map((item, i) => {
-                    const c = statusColor(String(item))
-                    return <span key={i} className="fin-status-badge" style={{ '--badge-color': c.color, '--badge-bg': c.bg } as React.CSSProperties}>{String(item).toUpperCase()}</span>
+                    return <span key={i} className={`fin-status-badge ${getFinancialToneClass(String(item))}`}>{String(item).toUpperCase()}</span>
                   })}
                   {(val as string[]).length === 0 && <span className="field-hint">Nenhum</span>}
                 </div>
@@ -468,9 +615,8 @@ export function FinanceiroModule() {
               <span className="fin-insight-group-label">{labelMap[k] || k}</span>
               <div className="fin-insight-badges">
                 {entries.map(([label, count]) => {
-                  const c = statusColor(label)
                   return (
-                    <span key={label} className="fin-insight-count-badge" style={{ '--badge-color': c.color, '--badge-bg': c.bg } as React.CSSProperties}>
+                    <span key={label} className={`fin-insight-count-badge ${getFinancialToneClass(label)}`}>
                       {label.toUpperCase()} <strong>{count}</strong>
                     </span>
                   )
@@ -632,12 +778,21 @@ export function FinanceiroModule() {
               {logs.map(log => {
                 const cfg = resolveStatusConfig(log)
                 const isExp = expandedRow === log.id
-                const provider = detectProvider(log.raw_payload)
+                const provider = detectProvider(log.raw_payload, log.method)
+                const expandedSectionId = `fin-expanded-${log.id}`
+                const toggleLabel = isExp ? `Ocultar detalhes da transação ${log.id}` : `Mostrar detalhes da transação ${log.id}`
                 return (
                   <li key={log.id} className="post-row">
-                    <div className="post-row-main fin-row-clickable" onClick={() => setExpandedRow(isExp ? null : log.id)}>
+                    <button
+                      type="button"
+                      className="post-row-main fin-row-clickable fin-row-toggle"
+                      onClick={() => setExpandedRow(isExp ? null : log.id)}
+                      aria-expanded={isExp ? 'true' : 'false'}
+                      aria-controls={expandedSectionId}
+                      aria-label={toggleLabel}
+                    >
                       <div className="fin-row-header">
-                        <span className="fin-status-badge" style={{ '--badge-color': cfg.color, '--badge-bg': cfg.bg } as React.CSSProperties}>{cfg.label}</span>
+                        <span className={`fin-status-badge ${getFinancialToneClass(cfg.label)}`}>{cfg.label}</span>
                         <strong className="fin-amount">{formatBRL(log.amount)}</strong>
                         <span className="fin-method">{log.method ?? '—'}</span>
                         <span className="fin-date">{formatDateBR(log.created_at)}</span>
@@ -645,12 +800,12 @@ export function FinanceiroModule() {
                       </div>
                       <div className="post-row-meta">
                         <span>ID: {log.id}</span>
-                        {log.payment_id && <span>Payment: {log.payment_id}</span>}
-                        {log.payer_email && <span>Payer: {log.payer_email}</span>}
+                        {log.payment_id && <span>Pagamento: {log.payment_id}</span>}
+                        {log.payer_email && <span>Pagador: {log.payer_email}</span>}
                       </div>
-                    </div>
+                    </button>
                     {isExp && (
-                      <div className="fin-expanded-section">
+                      <div id={expandedSectionId} className="fin-expanded-section">
                         {renderExpandedDetails(log)}
                         <div className="fin-expanded-actions">
                           {provider === 'mercadopago' && cfg.canRefund && (
@@ -681,13 +836,13 @@ export function FinanceiroModule() {
 
       {/* ── Modal de confirmação ── */}
       {modal && (
-        <div className="fin-modal-overlay" role="dialog" aria-modal="true" aria-label="Confirmar operação financeira" onClick={() => { if (!actionBusy) setModal(null) }}>
+        <div className="fin-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="fin-modal-title" aria-describedby="fin-modal-description" onClick={() => { if (!actionBusy) setModal(null) }}>
           <div className="fin-modal-content" onClick={e => e.stopPropagation()}>
             <AlertCircle size={40} color={modal.type === 'delete' ? 'var(--semantic-error)' : modal.type === 'cancel' ? 'var(--semantic-warning, #f59e0b)' : '#8b5cf6'} />
-            <h3 className="fin-modal-title">
+            <h3 id="fin-modal-title" className="fin-modal-title">
               {modal.type === 'delete' ? 'Excluir registro' : modal.type === 'cancel' ? 'Cancelar pagamento' : 'Estornar pagamento'}
             </h3>
-            <p className="fin-modal-text">
+            <p id="fin-modal-description" className="fin-modal-text">
               {modal.type === 'delete' ? `Tem certeza de que deseja EXCLUIR permanentemente o registro #${modal.log.id}?`
                 : modal.type === 'cancel' ? `Tem certeza de que deseja CANCELAR o pagamento ${modal.log.payment_id} no Mercado Pago?`
                 : `Estorno do pagamento ${modal.log.payment_id} (${formatBRL(modal.log.amount)}) no Mercado Pago.`}
