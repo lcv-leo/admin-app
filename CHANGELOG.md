@@ -1,5 +1,14 @@
 # Changelog — Admin App
 
+## [v01.46.13] — 2026-03-25
+### Corrigido
+- **Cloudflare Access + lazy chunks**: adicionado mecanismo de recuperação no `App.tsx` para falhas de `import()` dinâmico (ex.: `401 Unauthorized` em chunks lazy após expiração de sessão), com reload único automático para renegociar autenticação e evitar crash persistente (`Failed to fetch dynamically imported module`).
+- **CSP Report-Only — ruído de console**: removido `upgrade-insecure-requests` do `Content-Security-Policy-Report-Only` em `public/_headers`, eliminando o aviso recorrente de diretiva ignorada no navegador.
+
+## [v01.46.12] — 2026-03-25
+### Adicionado
+- **README — referência operacional de CSP**: documentação principal do `admin-app` agora inclui atalho explícito para `docs/csp-report-only-edge-checklist.md`, facilitando triagem rápida de incidentes `Content-Security-Policy-Report-Only` no edge.
+
 ## [v01.46.11] — 2026-03-25
 ### Adicionado
 - **Runbook operacional de CSP no edge**: novo guia `docs/csp-report-only-edge-checklist.md` com passo a passo click-by-click no Cloudflare para identificar/remover injeção indevida de `Content-Security-Policy-Report-Only` com `script-src/connect-src 'none'`.
