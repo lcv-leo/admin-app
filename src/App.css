@@ -1297,10 +1297,13 @@ input[type="color"]:focus-visible {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
+  width: 100%;
   border-radius: 8px;
   background: #f8fafc;
   border: 1px solid transparent;
   cursor: grab;
+  text-align: left;
+  appearance: none;
   transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
@@ -2616,8 +2619,8 @@ input[type="color"]:focus-visible {
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.03em;
-  color: var(--badge-color, #6b7280);
-  background: var(--badge-bg, rgba(107, 114, 128, 0.15));
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.15);
 }
 
 .fin-insight-count-badge strong {
@@ -2693,6 +2696,14 @@ input[type="color"]:focus-visible {
   transition: background 0.15s;
 }
 
+.fin-row-toggle {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
 .fin-row-clickable:hover {
   background: rgba(100, 116, 139, 0.06);
 }
@@ -2711,8 +2722,43 @@ input[type="color"]:focus-visible {
   font-weight: 700;
   letter-spacing: 0.04em;
   white-space: nowrap;
-  color: var(--badge-color, #6b7280);
-  background: var(--badge-bg, rgba(107, 114, 128, 0.15));
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.15);
+}
+
+.fin-tone-success {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.fin-tone-pending {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.fin-tone-error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.fin-tone-refund {
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.fin-tone-cancel {
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.15);
+}
+
+.fin-tone-info {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.fin-tone-neutral {
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.15);
 }
 
 .fin-amount {
@@ -2859,12 +2905,6 @@ input[type="color"]:focus-visible {
 /* ═══════════════════════════════════════════════════════════════
    Utility classes — inline style replacements
    ═══════════════════════════════════════════════════════════════ */
-
-/* Dynamic badge colors via CSS custom properties (Financeiro) */
-.fin-insight-count-badge {
-  color: var(--badge-color);
-  background: var(--badge-bg);
-}
 
 /* Field-group fixed-width variant (MainSite post form) */
 .field-group--fixed-120 {
