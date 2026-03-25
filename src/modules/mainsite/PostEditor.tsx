@@ -410,31 +410,46 @@ export default function PostEditor({
           <div className="tiptap-toolbar">
             {/* Universal prompt modal (link / image URL / youtube / caption) */}
             {promptModal.show && (
-              <div className="confirm-overlay" role="dialog" aria-modal="true" aria-label="Entrada de dados">
-                <div className="confirm-dialog">
-                  <h4>{promptModal.title}</h4>
-                  <div className="field-group">
-                    <label htmlFor="tiptap-prompt-url">{promptModal.isLink ? 'URL' : 'Valor'}</label>
-                    <input id="tiptap-prompt-url" name="tiptapPromptUrl" value={promptModal.value} onChange={(e) => setPromptModal({ ...promptModal, value: e.target.value })} placeholder={promptModal.placeholder} />
+              <div className="itau-modal-overlay" role="dialog" aria-modal="true" aria-label="Entrada de dados">
+                <div className="itau-modal-content">
+                  <button type="button" title="Fechar diálogo" className="itau-modal-close" onClick={() => setPromptModal(PROMPT_MODAL_INITIAL)}>
+                    <X size={24} />
+                  </button>
+                  <div className="itau-modal-header">
+                    <div className="itau-modal-icon">
+                      {promptModal.isLink ? <LinkIcon size={24} /> : promptModal.showCaption ? <ImageIcon size={24} /> : <Type size={24} />}
+                    </div>
+                    <h2 className="itau-modal-title">{promptModal.title}</h2>
+                    <p className="itau-modal-subtitle">Insira as informações necessárias abaixo</p>
                   </div>
-                  {promptModal.isLink && editor?.state.selection.empty && (
-                    <div className="field-group">
-                      <label htmlFor="tiptap-prompt-text">Texto</label>
-                      <input id="tiptap-prompt-text" name="tiptapPromptText" value={promptModal.linkText} onChange={(e) => setPromptModal({ ...promptModal, linkText: e.target.value })} placeholder="Texto de exibição" />
+                  <div className="itau-modal-form">
+                    <div className="itau-modal-input-group">
+                      <label className="itau-modal-label" htmlFor="tiptap-prompt-url">{promptModal.isLink ? 'URL' : 'Valor'}</label>
+                      <input className="itau-modal-input" id="tiptap-prompt-url" name="tiptapPromptUrl" value={promptModal.value} onChange={(e) => setPromptModal({ ...promptModal, value: e.target.value })} placeholder={promptModal.placeholder} autoFocus />
                     </div>
-                  )}
-                  {promptModal.showCaption && (
-                    <div className="field-group">
-                      <label htmlFor="tiptap-prompt-caption">Legenda (opcional)</label>
-                      <input id="tiptap-prompt-caption" name="tiptapPromptCaption" value={promptModal.caption} onChange={(e) => setPromptModal({ ...promptModal, caption: e.target.value })} placeholder="Ex.: Foto de março de 2026" />
+                    {promptModal.isLink && editor?.state.selection.empty && (
+                      <div className="itau-modal-input-group">
+                        <label className="itau-modal-label" htmlFor="tiptap-prompt-text">Texto</label>
+                        <input className="itau-modal-input" id="tiptap-prompt-text" name="tiptapPromptText" value={promptModal.linkText} onChange={(e) => setPromptModal({ ...promptModal, linkText: e.target.value })} placeholder="Texto de exibição" />
+                      </div>
+                    )}
+                    {promptModal.showCaption && (
+                      <div className="itau-modal-input-group">
+                        <label className="itau-modal-label" htmlFor="tiptap-prompt-caption">Legenda (opcional)</label>
+                        <input className="itau-modal-input" id="tiptap-prompt-caption" name="tiptapPromptCaption" value={promptModal.caption} onChange={(e) => setPromptModal({ ...promptModal, caption: e.target.value })} placeholder="Ex.: Foto de março de 2026" />
+                      </div>
+                    )}
+                    <div className="itau-modal-actions">
+                      <button type="button" className="itau-modal-btn itau-modal-btn--ghost" onClick={() => setPromptModal(PROMPT_MODAL_INITIAL)}>
+                        Cancelar
+                      </button>
+                      <button type="button" className="itau-modal-btn" onClick={() => {
+                        promptModal.callback?.(promptModal.value.trim(), promptModal.linkText.trim(), promptModal.caption.trim())
+                        setPromptModal(PROMPT_MODAL_INITIAL)
+                      }}>
+                        Inserir
+                      </button>
                     </div>
-                  )}
-                  <div className="confirm-dialog__actions">
-                    <button type="button" className="ghost-button" onClick={() => setPromptModal(PROMPT_MODAL_INITIAL)}>Cancelar</button>
-                    <button type="button" className="primary-button" onClick={() => {
-                      promptModal.callback?.(promptModal.value.trim(), promptModal.linkText.trim(), promptModal.caption.trim())
-                      setPromptModal(PROMPT_MODAL_INITIAL)
-                    }}>Inserir</button>
                   </div>
                 </div>
               </div>
