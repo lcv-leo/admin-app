@@ -48,6 +48,7 @@ Shell administrativo unificado da LCV em `admin.lcv.app.br`, desenvolvido com Re
 - CSP hardening em produção: o build foi ajustado para não injetar polyfill inline de `modulepreload` (Vite), reduzindo violações de `script-src` em ambientes com política estrita.
 - Para operações DNS/auditoria do MTA-STS, configurar no runtime um dos tokens: `CLOUDFLARE_API_TOKEN` (preferencial) ou `CLOUDFLARE_DNS`.
 - Variáveis client-side públicas: prefixo `VITE_`.
+- Runbook operacional de CSP no edge (Cloudflare): `docs/csp-report-only-edge-checklist.md`.
 - Migração D1 futura para `bigdata_db`:
   - **Prefixação obrigatória por contexto** em tabelas, índices e políticas.
   - Objetivo: evitar colisão de nomes entre domínios (`astrologo_*`, `calculadora_*`, `mainsite_*`, `mtasts_*`, etc.).

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useState, type ComponentType } from 'react'
 import {
   BarChart3,
   Database,
@@ -19,17 +19,53 @@ import './App.css'
 import { FloatingScrollButtons } from './components/FloatingScrollButtons'
 
 /* Lazy-loaded modules — cada módulo vira um chunk separado */
-const AstrologoModule = lazy(() => import('./modules/astrologo/AstrologoModule').then(m => ({ default: m.AstrologoModule })))
-const ConfigModule = lazy(() => import('./modules/config/ConfigModule').then(m => ({ default: m.ConfigModule })))
-const CalculadoraModule = lazy(() => import('./modules/calculadora/CalculadoraModule').then(m => ({ default: m.CalculadoraModule })))
-const MainsiteModule = lazy(() => import('./modules/mainsite/MainsiteModule').then(m => ({ default: m.MainsiteModule })))
-const MtastsModule = lazy(() => import('./modules/mtasts/MtastsModule').then(m => ({ default: m.MtastsModule })))
-const CardHubModule = lazy(() => import('./modules/hubs/CardHubModule').then(m => ({ default: m.CardHubModule })))
-const TelemetriaModule = lazy(() => import('./modules/telemetria/TelemetriaModule').then(m => ({ default: m.TelemetriaModule })))
-const FinanceiroModule = lazy(() => import('./modules/financeiro/FinanceiroModule').then(m => ({ default: m.FinanceiroModule })))
-const NewsPanel = lazy(() => import('./modules/news/NewsPanel').then(m => ({ default: m.NewsPanel })))
+const LAZY_IMPORT_RELOAD_KEY = 'admin-app:lazy-import-reload-once'
 
-const APP_VERSION = 'APP v01.46.11'
+function lazyWithAccessRecovery<T extends ComponentType<unknown>>(
+  importer: () => Promise<{ default: T }>,
+) {
+  return lazy(async () => {
+    try {
+      const loadedModule = await importer()
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(LAZY_IMPORT_RELOAD_KEY)
+      }
+      return loadedModule
+    } catch (error) {
+      if (typeof window !== 'undefined') {
+        const message = error instanceof Error ? error.message : String(error)
+        const isChunkFetchFailure = /Failed to fetch dynamically imported module|Importing a module script failed|Loading chunk\s+\d+\s+failed/i.test(message)
+
+        // Em cenários de expiração do Cloudflare Access, chunks lazy podem retornar 401.
+        // Damos um único reload forçado para renegociar sessão e evitar crash permanente do módulo.
+        if (isChunkFetchFailure) {
+          const alreadyReloaded = window.sessionStorage.getItem(LAZY_IMPORT_RELOAD_KEY) === '1'
+          if (!alreadyReloaded) {
+            window.sessionStorage.setItem(LAZY_IMPORT_RELOAD_KEY, '1')
+            window.location.reload()
+            return new Promise<never>(() => {
+              // segura a resolução até o reload efetivo da página
+            })
+          }
+        }
+      }
+
+      throw error
+    }
+  })
+}
+
+const AstrologoModule = lazyWithAccessRecovery(() => import('./modules/astrologo/AstrologoModule').then(m => ({ default: m.AstrologoModule })))
+const ConfigModule = lazyWithAccessRecovery(() => import('./modules/config/ConfigModule').then(m => ({ default: m.ConfigModule })))
+const CalculadoraModule = lazyWithAccessRecovery(() => import('./modules/calculadora/CalculadoraModule').then(m => ({ default: m.CalculadoraModule })))
+const MainsiteModule = lazyWithAccessRecovery(() => import('./modules/mainsite/MainsiteModule').then(m => ({ default: m.MainsiteModule })))
+const MtastsModule = lazyWithAccessRecovery(() => import('./modules/mtasts/MtastsModule').then(m => ({ default: m.MtastsModule })))
+const CardHubModule = lazyWithAccessRecovery(() => import('./modules/hubs/CardHubModule').then(m => ({ default: m.CardHubModule })))
+const TelemetriaModule = lazyWithAccessRecovery(() => import('./modules/telemetria/TelemetriaModule').then(m => ({ default: m.TelemetriaModule })))
+const FinanceiroModule = lazyWithAccessRecovery(() => import('./modules/financeiro/FinanceiroModule').then(m => ({ default: m.FinanceiroModule })))
+const NewsPanel = lazyWithAccessRecovery(() => import('./modules/news/NewsPanel').then(m => ({ default: m.NewsPanel })))
+
+const APP_VERSION = 'APP v01.46.13'
 
 
 
