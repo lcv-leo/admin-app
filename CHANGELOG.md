@@ -1,5 +1,10 @@
 # Changelog — Admin App
 
+## [v01.46.20] — 2026-03-25
+### Corrigido
+- **PostEditor — Replicada Arquitetura Nativa (Inserção de Mídia vs Legenda)**: Código original do protótipo (`mainsite-admin`) restaurado na íntegra. Em vez de comandos hacky de manipulação de cursores para corrigir colisão com legendas, a resolução voltou à base: injetar a imagem com o atributo `width` pré-formatado diretamente na função `setImage`. O cursor agora descansa suavemente pós-imagem sem desativar/substituir o bloco primário, viabilizando o parágrafo da legenda.
+- **Workspace — Tipagem Estrita (Zero Errors / Zero Warnings)**: Foram corrigidos mais de 15 erros na IDE causados por atribuições `Implicit Any`. Em `PostEditor.tsx`, importou-se a interface `NodeViewProps` da bilbioteca `@tiptap/react`. No `functions/api/mainsite/ai/transform.ts`, uma interface estrita modular (`GeminiResponse`) com rastreio da `usageMetadata` foi arquitetada para certificar confiabilidade aos objetos trafegados. Adicionalmente, injetou-se a regra do CSS `pointer-events: none/auto` baseada em classes condionais (`.is-selected`) para contornar lints estáticos acusando abuso de in-line styling no iframe do Youtube.
+
 ## [v01.46.19] — 2026-03-25
 ### Corrigido
 - **PostEditor — Inserção de Mídia vs Legenda**: Resolvido falha de sobrescrita. Ao inserir uma imagem ou vídeo diretamente por URL ou Upload sem informar uma legenda, o Tiptap perdia o nó selecionado. A instrução `setTextSelection` com o ponteiro do node garante a transição segura antes de invocar `insertContent()`, mantendo a imagem e a legenda a salvo de formatações acidentais simultâneas.
