@@ -241,6 +241,71 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         return Response.json({ error: err instanceof Error ? err.message : 'Falha no resumo MP.' }, { status: 500 })
       }
     }
+
+    // MP: Transactions Advanced (gêmeo do SumUp transactions-advanced)
+    if (type === 'transactions-advanced') {
+      try {
+        const limitRaw = Number(url.searchParams.get('limit'))
+        const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 50
+        const offsetRaw = Number(url.searchParams.get('offset'))
+        const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0
+        const begin_date = getStartIsoWithCutoff(url.searchParams.get('begin_date') || url.searchParams.get('start_date'))
+        const end_date = url.searchParams.get('end_date') ? new Date(url.searchParams.get('end_date')!).toISOString() : new Date().toISOString()
+        const statuses = url.searchParams.get('statuses') || ''
+        const types = url.searchParams.get('types') || ''
+
+        const searchUrl = new URL('https://api.mercadopago.com/v1/payments/search')
+        searchUrl.searchParams.set('sort', 'date_created')
+        searchUrl.searchParams.set('criteria', 'desc')
+        searchUrl.searchParams.set('range', 'date_created')
+        searchUrl.searchParams.set('begin_date', begin_date)
+        searchUrl.searchParams.set('end_date', end_date)
+        searchUrl.searchParams.set('limit', String(limit))
+        searchUrl.searchParams.set('offset', String(offset))
+        if (statuses) searchUrl.searchParams.set('status', statuses)
+        if (types) searchUrl.searchParams.set('payment_type_id', types)
+
+        const res = await fetch(searchUrl.toString(), { headers: mpHeaders })
+        if (!res.ok) {
+          const errMsg = await readMpError(res, res.statusText)
+          return Response.json({ error: errMsg }, { status: res.status })
+        }
+        const payload = (await res.json()) as AnyRecord
+
+        const results: AnyRecord[] = Array.isArray(payload?.results) ? payload.results : []
+        const items = results.map((tx) => ({
+          id: tx?.id || null,
+          transactionCode: tx?.id ? String(tx.id) : null,
+          amount: Number(tx?.transaction_amount || 0),
+          currency: tx?.currency_id || 'BRL',
+          status: tx?.status || 'unknown',
+          type: tx?.payment_type_id || 'unknown',
+          paymentType: tx?.payment_method_id || 'unknown',
+          cardType: tx?.card?.last_four_digits ? `****${tx.card.last_four_digits}` : null,
+          timestamp: tx?.date_created || null,
+          user: tx?.payer?.email || null,
+          refundedAmount: Number(tx?.transaction_amount_refunded || 0),
+        }))
+
+        const paging = payload?.paging || { total: 0, limit, offset: 0 }
+        const currentOffset = Number(paging.offset || 0)
+        const currentLimit = Number(paging.limit || limit)
+        const total = Number(paging.total || 0)
+
+        return Response.json({
+          success: true, total: items.length, items,
+          paging: {
+            total, limit: currentLimit, offset: currentOffset,
+            hasNext: (currentOffset + currentLimit) < total,
+            hasPrev: currentOffset > 0,
+            nextOffset: currentOffset + currentLimit,
+            prevOffset: Math.max(0, currentOffset - currentLimit),
+          },
+        })
+      } catch (err) {
+        return Response.json({ error: err instanceof Error ? err.message : 'Falha em transações avançadas MP.' }, { status: 500 })
+      }
+    }
   }
 
   return Response.json({ error: 'Parâmetros inválidos: provider e type são obrigatórios.' }, { status: 400 })
