@@ -1,5 +1,11 @@
 # Changelog — Admin App
 
+## [v01.53.00] — 2026-03-26
+### Adicionado
+- **OraculoModule Redesign**: módulo completamente redesenhado com 3 abas (LCI/LCA, Tesouro IPCA+, Configurações).
+- **Aba Configurações**: status do cache D1 em tempo real (taxa indicativa, data de referência, fonte), tabela expandível de vencimentos NTN-B, URL do CSV editável, schedule do cron, modelos de IA (Vision/Análise), e informações do sistema (worker, database, regime fiscal).
+- **Trigger Manual CSV**: botão "Disparar Agora" com spinner de loading, tempo de execução e resultado (sucesso/erro) com cores visuais.
+
 ## [v01.52.01] — 2026-03-26
 ### Corrigido
 - **Oráculo D1 500 Error**: corrigido nome da tabela em `listar.ts` e `excluir.ts` de `oraculo_lci_cdb` para o nome correto e prefixado `oraculo_lci_cdb_registros`.
