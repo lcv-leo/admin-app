@@ -207,7 +207,7 @@ const ResizableImageNodeView = ({ node, updateAttributes, selected, editor, getP
     >
       <MediaSnapBar onSnap={(size) => updateAttributes({ width: size })} />
       <SelectMediaButton onSelect={selectCurrentNode} />
-      <img ref={imageRef} crossOrigin="anonymous" src={node.attrs.src} alt={node.attrs.alt || ''} title={node.attrs.title || ''} draggable="false" />
+      <img ref={imageRef} src={node.attrs.src} alt={node.attrs.alt || ''} title={node.attrs.title || ''} draggable="false" />
       <ResizableMediaHandle onStartResize={onStartResize} tone={localTone} />
     </NodeViewWrapper>
   )

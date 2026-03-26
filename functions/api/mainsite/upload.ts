@@ -24,8 +24,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       httpMetadata: { contentType: file.type },
     })
 
-    // URL pública servida pelo mainsite-worker (rota /api/uploads/:filename)
-    const publicUrl = `https://mainsite-app.lcv.rio.br/api/uploads/${uniqueName}`
+    // URL relativa servida pelo próprio admin-app (binding direto R2, sem URL externa)
+    const publicUrl = `/api/mainsite/media/${uniqueName}`
 
     return Response.json({ success: true, url: publicUrl }, { status: 201 })
   } catch (err: unknown) {
