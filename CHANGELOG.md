@@ -1,5 +1,10 @@
 # Changelog — Admin App
 
+## [v01.46.22] — 2026-03-25
+### Corrigido
+- **PostEditor — Integração Interna R2 (Diretiva Cloudflare)**: Eliminada dependência de URL externa (`mainsite-app.lcv.rio.br/api/uploads/...`) no upload de imagens. O admin-app agora serve mídia diretamente do próprio binding R2 (`MEDIA_BUCKET`) via rota interna `GET /api/mainsite/media/:filename`. O `upload.ts` retorna URL relativa (`/api/mainsite/media/{uuid}`) em vez de URL pública de outro app.
+- **PostEditor — Renderização de Mídia**: Removido atributo `crossOrigin="anonymous"` da tag `<img>`, que causava bloqueio silencioso de carregamento por CORS quando a imagem era servida de outra origem. A análise de tom (`analyzeTone`) faz fallback gracioso para `'neutral'` via try/catch existente.
+
 ## [v01.46.21] — 2026-03-25
 ### Corrigido
 - **PostEditor — Renderização Fatal de Mídia (Tiptap Schema)**: O node customizado `CustomResizableImage` estava renderizando como 0x0/transparente após inserção porque faltava a marcação `inline: false` em sua configuração. A falta dessa diretriz de escopo bloco destruía a árvore DOM do editor, pois media nodes interativos geram React Views complexas que não podem coabitar propriedades _inline_ padrão. Tanto a imagem quanto o Youtube foram selados como `inline: false`.
