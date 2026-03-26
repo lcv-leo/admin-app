@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.46.24] — 2026-03-25
+### Corrigido
+- **PostEditor — YouTube iframe bloqueado (X-Frame-Options)**: O `ReactNodeViewRenderer` customizado do YouTube bypassa o `renderHTML` do TipTap, que normalmente converte URLs `watch?v=` para `embed/`. A conversão foi implementada explicitamente no `ResizableYoutubeNodeView` usando `getEmbedUrlFromYoutubeUrl` importado do `@tiptap/extension-youtube`, com `nocookie: true`.
+
+### Melhorado
+- **PostEditor — Input inteligente de YouTube**: O diálogo de inserção de vídeo agora aceita tanto o **código do vídeo** (`dQw4w9WgXcQ`) quanto a **URL completa** (`https://youtube.com/watch?v=...`). Códigos puros são convertidos automaticamente para URL antes da inserção.
+
 ## [v01.46.23] — 2026-03-25
 ### Corrigido
 - **PostEditor — Inserção Simultânea de Imagem + Legenda**: `insertCaptionBlock` substituía o nó de imagem selecionado em vez de inserir a legenda após ele. Corrigido de `insertContent` para `insertContentAt(to, ...)`, calculando a posição imediatamente após o nó de mídia selecionado.
