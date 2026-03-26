@@ -323,19 +323,16 @@ input[type="color"]:focus-visible {
 
 /* ── Floating scroll buttons (paridade mainsite-frontend) ── */
 .floating-scroll-btns {
-  position: sticky;
+  position: fixed;
   bottom: 24px;
+  right: 24px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 10px;
-  pointer-events: none;
   z-index: 100;
-  margin-top: -60px;
 }
 
 .floating-scroll-btn {
-  pointer-events: auto;
   width: 40px;
   height: 40px;
   border-radius: 50%;

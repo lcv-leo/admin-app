@@ -1,5 +1,9 @@
 # Changelog — Admin App
 
+## [v01.49.02] — 2026-03-26
+### Corrigido
+- **FloatingScrollButtons — posicionamento**: CSS de `.floating-scroll-btns` corrigido de `position: sticky` (não funciona dentro de container com `overflow-y: auto`) para `position: fixed`. Botões agora aparecem corretamente em bottom-right. Removido `margin-top: -60px` hack e `pointer-events: none` do container.
+
 ## [v01.49.01] — 2026-03-26
 ### Removido
 - **PostEditor — Indicador "Modo atual"**: removido campo read-only que exibia "Criando novo post" / "Editando #ID". Sem utilidade funcional, ocupava espaço no popup do editor.
