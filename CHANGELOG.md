@@ -1,5 +1,16 @@
 # Changelog — Admin App
 
+## [v01.46.23] — 2026-03-25
+### Corrigido
+- **PostEditor — Inserção Simultânea de Imagem + Legenda**: `insertCaptionBlock` substituía o nó de imagem selecionado em vez de inserir a legenda após ele. Corrigido de `insertContent` para `insertContentAt(to, ...)`, calculando a posição imediatamente após o nó de mídia selecionado.
+
+### Adicionado
+- **[NEW] `functions/api/mainsite/media/[filename].ts`**: Rota interna para servir objetos do R2 (`MEDIA_BUCKET`) diretamente pelo admin-app. Cache público imutável de 1 ano.
+- **[NEW] `functions/api/mainsite/migrate-media-urls.ts`**: Endpoint de migração que substitui URLs externas (`mainsite-app.lcv.rio.br/api/uploads/...`) por relativas (`/api/mainsite/media/...`) no conteúdo HTML de posts existentes. Suporta `?dryRun=1`.
+
+### Auditoria
+- **Auditoria completa de URLs externas no admin-app**: Verificados todos os arquivos `.ts`/`.tsx` em `src/` e `functions/`. Código morto identificado em `_lib/mainsite-admin.ts` (`fetchLegacyJson`, `fetchLegacyAdminJson`, `readLegacyPublicSettings`) e `_lib/mtasts-admin.ts` (`fetchLegacyJson`, `postLegacyJson`) — zero chamadores fora de `_lib/`. Usos legítimos confirmados: RSS feeds, Cloudflare API, Gemini API, links de navegação HubCards.
+
 ## [v01.46.22] — 2026-03-25
 ### Corrigido
 - **PostEditor — Integração Interna R2 (Diretiva Cloudflare)**: Eliminada dependência de URL externa (`mainsite-app.lcv.rio.br/api/uploads/...`) no upload de imagens. O admin-app agora serve mídia diretamente do próprio binding R2 (`MEDIA_BUCKET`) via rota interna `GET /api/mainsite/media/:filename`. O `upload.ts` retorna URL relativa (`/api/mainsite/media/{uuid}`) em vez de URL pública de outro app.

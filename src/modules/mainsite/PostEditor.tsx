@@ -459,8 +459,11 @@ export default function PostEditor({
 
   const insertCaptionBlock = useCallback((caption: string) => {
     const safeCaption = (caption || '').trim()
-    if (!safeCaption) return
-    editor!.chain().focus().insertContent({
+    if (!safeCaption || !editor) return
+    // Resolve a posição imediatamente após o nó selecionado (imagem/vídeo)
+    // para evitar que insertContent substitua o nó selecionado
+    const { to } = editor.state.selection
+    editor.chain().focus().insertContentAt(to, {
       type: 'paragraph',
       attrs: { textAlign: 'center' },
       content: [{ type: 'text', text: safeCaption, marks: [{ type: 'italic' }] }],
