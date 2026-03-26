@@ -26,7 +26,8 @@ export type MainsitePublicSettings = {
   disclaimers: Record<string, unknown>
 }
 
-const DEFAULT_MAINSITE_WORKER_URL = 'https://mainsite-app.lcv.rio.br'
+// ATENÇÃO: código legado sem chamadores ativos. Se reativado, configurar MAINSITE_WORKER_API_BASE_URL via env.
+const DEFAULT_MAINSITE_WORKER_URL = ''
 
 export const toHeaders = () => ({
   'Content-Type': 'application/json',
