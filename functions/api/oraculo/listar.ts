@@ -23,7 +23,8 @@ export const onRequestGet = async ({ env, request }: Context) => {
 
   try {
     if (tipo === 'lci-lca') {
-      const stmt = db.prepare('SELECT * FROM oraculo_lci_cdb_registros ORDER BY criado_em DESC LIMIT ? OFFSET ?')
+      // Colunas reais D1: id, created_at, prazo_dias, taxa_cdi, aporte, rendimento_bruto
+      const stmt = db.prepare('SELECT * FROM oraculo_lci_cdb_registros ORDER BY created_at DESC LIMIT ? OFFSET ?')
       const countStmt = db.prepare('SELECT COUNT(*) as c FROM oraculo_lci_cdb_registros')
       
       const [res, countRes] = await db.batch([
@@ -33,16 +34,20 @@ export const onRequestGet = async ({ env, request }: Context) => {
 
       const total = (countRes.results?.[0] as any)?.c || 0
       
-      // Mapeamento snake_case para camelCase estruturado como no front-end original
-      const items = (res.results ?? []).map((row: any) => ({
-        id: row.id,
-        criadoEm: row.criado_em,
-        prazoDias: row.prazo_dias,
-        taxaLciLca: row.taxa_lci_lca,
-        aporte: row.aporte,
-        aliquotaIr: row.aliquota_ir,
-        cdbEquivalente: row.cdb_equivalente
-      }))
+      // Mapeamento snake_case → camelCase (alinhado ao schema da migration 009)
+      const items = (res.results ?? []).map((row: any) => {
+        const prazoDias = row.prazo_dias ?? 0
+        const aliquotaIr = prazoDias <= 180 ? 22.5 : prazoDias <= 360 ? 20 : prazoDias <= 720 ? 17.5 : 15
+        return {
+          id: row.id,
+          criadoEm: row.created_at,
+          prazoDias,
+          taxaLciLca: row.taxa_cdi,
+          aporte: row.aporte,
+          aliquotaIr,
+          cdbEquivalente: row.rendimento_bruto
+        }
+      })
 
       return new Response(JSON.stringify({ ok: true, total, items }), {
         status: 200,
@@ -62,7 +67,7 @@ export const onRequestGet = async ({ env, request }: Context) => {
       
       const items = (res.results ?? []).map((row: any) => ({
         id: row.id,
-        criadoEm: row.criado_em,
+        criadoEm: row.created_at,
         dataCompra: row.data_compra,
         valorInvestido: row.valor_investido,
         taxaContratada: row.taxa_contratada
