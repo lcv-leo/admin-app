@@ -36,7 +36,7 @@ import { Superscript } from '@tiptap/extension-superscript'
 import { Typography } from '@tiptap/extension-typography'
 import { Dropcursor } from '@tiptap/extension-dropcursor'
 import Image from '@tiptap/extension-image'
-import YoutubeExtension from '@tiptap/extension-youtube'
+import YoutubeExtension, { getEmbedUrlFromYoutubeUrl } from '@tiptap/extension-youtube'
 import { Markdown } from 'tiptap-markdown'
 
 // ── Media utilities ──────────────────────────────────────────
@@ -255,13 +255,21 @@ const ResizableYoutubeNodeView = ({ node, updateAttributes, selected, editor, ge
     editor.commands.focus()
   }
 
+  // Converte watch URL para embed URL (ReactNodeViewRenderer bypassa renderHTML do TipTap)
+  const embedSrc = getEmbedUrlFromYoutubeUrl({
+    url: node.attrs.src,
+    allowFullscreen: true,
+    autoplay: false,
+    nocookie: true,
+  }) || node.attrs.src
+
   return (
     <NodeViewWrapper className={`resizable-media media-youtube ${selected ? 'is-selected' : ''}`} contentEditable={false} style={{ width: `${currentW}px`, maxWidth: '100%' }}>
       <YoutubeSnapBar onSnap={(w, h) => updateAttributes({ width: w, height: h })} />
       <SelectMediaButton onSelect={selectCurrentNode} />
       <div data-youtube-video>
         <iframe
-          src={node.attrs.src}
+          src={embedSrc}
           width={currentW}
           height={currentH}
           title="YouTube video"
@@ -522,11 +530,15 @@ export default function PostEditor({
     setPromptModal({
       ...PROMPT_MODAL_INITIAL,
       show: true,
-      title: 'URL do vídeo (YouTube):',
+      title: 'Código ou URL do vídeo (YouTube):',
+      placeholder: 'Ex.: dQw4w9WgXcQ ou https://youtube.com/watch?v=...',
       showCaption: true,
-      callback: (url, _text, caption) => {
-        if (!url) return
-        editor!.chain().focus().setYoutubeVideo({ src: url, width: 840, height: 472 }).run()
+      callback: (input, _text, caption) => {
+        if (!input) return
+        // Aceita código puro (sem barras nem protocolo) e converte para URL completa
+        const isPlainCode = /^[\w-]+$/.test(input.trim())
+        const src = isPlainCode ? `https://www.youtube.com/watch?v=${input.trim()}` : input.trim()
+        editor!.chain().focus().setYoutubeVideo({ src, width: 840, height: 472 }).run()
         insertCaptionBlock(caption)
       },
     })
