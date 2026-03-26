@@ -1,5 +1,15 @@
 # Changelog — Admin App
 
+## [v01.54.00] — 2026-03-26
+### Adicionado
+- **OraculoModule Redesign v3**: reescrita completa alinhada ao design do MainsiteModule (`detail-panel`, `result-card`, `result-toolbar`, `ghost-button`, `post-row`, `admin-modal`).
+- **Cron UX amigável**: selects de hora/minuto BRT com conversão automática UTC-3 e exibição da expressão cron gerada. Substituiu input de texto cru.
+- **Dropdown Gemini dinâmico**: endpoint `/api/oraculo/gemini-models` consulta APIs v1+v1beta, filtra Flash/Pro, popula selects com fallback para input manual.
+- **Endpoint D1 `taxa-cache.ts`**: lê/atualiza cache de taxas IPCA+ via binding interno BIGDATA_DB. Suporta `?force=true`.
+- **Endpoint `gemini-models.ts`**: lista modelos Gemini disponíveis (Flash+Pro, estáveis+preview).
+### Removido
+- **Card "Informações do Sistema"**: removido por não agregar valor ao usuário final.
+
 ## [v01.53.00] — 2026-03-26
 ### Adicionado
 - **OraculoModule Redesign**: módulo completamente redesenhado com 3 abas (LCI/LCA, Tesouro IPCA+, Configurações).
