@@ -23,8 +23,8 @@ export const onRequestGet = async ({ env, request }: Context) => {
 
   try {
     if (tipo === 'lci-lca') {
-      const stmt = db.prepare('SELECT * FROM oraculo_lci_cdb ORDER BY criado_em DESC LIMIT ? OFFSET ?')
-      const countStmt = db.prepare('SELECT COUNT(*) as c FROM oraculo_lci_cdb')
+      const stmt = db.prepare('SELECT * FROM oraculo_lci_cdb_registros ORDER BY criado_em DESC LIMIT ? OFFSET ?')
+      const countStmt = db.prepare('SELECT COUNT(*) as c FROM oraculo_lci_cdb_registros')
       
       const [res, countRes] = await db.batch([
         stmt.bind(limit, offset),

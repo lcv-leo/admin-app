@@ -1,5 +1,9 @@
 # Changelog — Admin App
 
+## [v01.52.01] — 2026-03-26
+### Corrigido
+- **Oráculo D1 500 Error**: corrigido nome da tabela em `listar.ts` e `excluir.ts` de `oraculo_lci_cdb` para o nome correto e prefixado `oraculo_lci_cdb_registros`.
+
 ## [v01.52.00] — 2026-03-26
 ### Adicionado
 - **Módulo Oráculo Financeiro**: criação de um módulo nativo no painel administrativo (`OraculoModule.tsx`) para gestão dos registros (Visualização LCI/Tesouro e Deleção Permanente), com integração de iconografia (`BrainCircuit`) no App Shell.
