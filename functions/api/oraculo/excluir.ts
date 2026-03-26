@@ -39,7 +39,7 @@ export const onRequestPost = async ({ env, request }: Context) => {
   }
 
   try {
-    const table = tipo === 'lci-lca' ? 'oraculo_lci_cdb' : 'oraculo_tesouro_ipca_lotes'
+    const table = tipo === 'lci-lca' ? 'oraculo_lci_cdb_registros' : 'oraculo_tesouro_ipca_lotes'
     const result = await db.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(id).run()
 
     if (result.meta?.changes === 0) {
