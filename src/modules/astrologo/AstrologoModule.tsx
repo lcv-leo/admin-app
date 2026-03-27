@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Loader2, Mail, Search, Send, Sparkles, Telescope, Trash2, X } from 'lucide-react'
+import { Loader2, Mail, Search, Send, Sparkles, Telescope, Trash2, X, RefreshCw } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { generateAstrologicalReport } from '../../lib/astrological-report'
 import DOMPurify from 'dompurify'
@@ -58,7 +58,19 @@ const formatarData = (dataStr: string): string => {
 }
 
 
+
 export function AstrologoModule() {
+  const [activeTab, setActiveTab] = useState<'registros' | 'usuarios'>('registros')
+  
+  interface UserDataRow {
+    id: string; email: string; dadosJson: string
+    criadoEm: string; atualizadoEm: string
+  }
+  const [userData, setUserData] = useState<UserDataRow[]>([])
+  const [userDataLoading, setUserDataLoading] = useState(false)
+  const [userDataTotal, setUserDataTotal] = useState(0)
+  const [selectedUser, setSelectedUser] = useState<UserDataRow | null>(null)
+
   const { showNotification } = useNotification()
   const withTrace = (message: string, payload?: { request_id?: string }) => (
     payload?.request_id ? `${message} (req ${payload.request_id})` : message
@@ -138,6 +150,21 @@ export function AstrologoModule() {
     }
   }
 
+  const carregarUserData = async (notify = false) => {
+    setUserDataLoading(true)
+    try {
+      const res = await fetch('/api/astrologo/userdata?limit=200')
+      const data = await res.json() as { ok: boolean; data: UserDataRow[]; total: number }
+      if (data.ok) {
+        setUserData(data.data)
+        setUserDataTotal(data.total)
+        if (notify) showNotification('Dados de usuários atualizados.', 'success')
+      }
+    } catch {
+      showNotification('Falha ao carregar dados de usuários.', 'error')
+    } finally { setUserDataLoading(false) }
+  }
+
   /** Open email modal for a specific mapa (loads its data first if not already selected) */
   const handleOpenEmailModal = async (id: string, nome: string) => {
     // If this record isn't already loaded, load it first
@@ -196,25 +223,38 @@ export function AstrologoModule() {
     setConfirmDelete(null)
     setDeletingMapaId(id)
     try {
-      const response = await fetch('/api/astrologo/excluir', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Actor': adminActor,
-        },
-        body: JSON.stringify({ id, adminActor }),
-      })
 
-      const payload = await response.json() as { ok: boolean; error?: string; request_id?: string }
-      if (!response.ok || !payload.ok) {
-        throw new Error(payload.error ?? 'Falha ao excluir mapa do Astrólogo.')
+      if (activeTab === 'usuarios') {
+        const res = await fetch(`/api/astrologo/userdata?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+        const data = await res.json() as { ok: boolean; error?: string }
+        if (!res.ok || !data.ok) throw new Error(data.error)
+        
+        setUserData(p => p.filter(r => r.id !== id))
+        setUserDataTotal(n => Math.max(0, n - 1))
+        setItems([])
+        setSelectedUser(null)
+      } else {
+        const response = await fetch('/api/astrologo/excluir', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Actor': adminActor,
+          },
+          body: JSON.stringify({ id, adminActor }),
+        })
+
+        const payload = await response.json() as { ok: boolean; error?: string; request_id?: string }
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error ?? 'Falha ao excluir mapa do Astrólogo.')
+        }
+
+        setItems((current) => current.filter((item) => item.id !== id))
+        setSelectedMapa((current) => (current?.id === id ? null : current))
       }
-
-      setItems((current) => current.filter((item) => item.id !== id))
-      setSelectedMapa((current) => (current?.id === id ? null : current))
-      showNotification(withTrace('Mapa excluído com sucesso.', payload), 'success')
+      
+      showNotification('Excluído com sucesso.', 'success')
     } catch {
-      showNotification('Não foi possível excluir o mapa selecionado.', 'error')
+      showNotification('Não foi possível excluir.', 'error')
     } finally {
       setDeletingMapaId(null)
     }
@@ -293,7 +333,19 @@ export function AstrologoModule() {
         </div>
       )}
 
-      <form className="form-card" onSubmit={handleSubmit}>
+      {/* ── Tabs ── */}
+      <div className="inline-actions" style={{ marginBottom: '1rem' }}>
+        <button type="button" className={activeTab === 'registros' ? 'primary-button' : 'ghost-button'} onClick={() => setActiveTab('registros')}>
+          <Search size={14} /> Consultas Registradas
+        </button>
+        <button type="button" className={activeTab === 'usuarios' ? 'primary-button' : 'ghost-button'} onClick={() => { setActiveTab('usuarios'); void carregarUserData(); }}>
+          <Mail size={14} /> Dados de Usuários
+        </button>
+      </div>
+
+      {activeTab === 'registros' && (
+        <>
+          <form className="form-card" onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="field-group">
             <label htmlFor="astrologo-filtro-nome">Nome do consulente</label>
@@ -517,9 +569,106 @@ export function AstrologoModule() {
           )}
 
         </article>
-
-
         </>
+      )}
+
+      </>
+      )}
+
+      {/* ═══════════════════════ TAB: Dados de Usuários ═══════════════════════ */}
+      {activeTab === 'usuarios' && (
+        <article className="result-card">
+          <div className="result-toolbar">
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Mail size={16} /> 
+                <h4 style={{ margin: 0 }}>Dados Salvos por Usuários</h4>
+              </div>
+              <p className="field-hint" style={{ margin: '4px 0 0' }}>Mapas salvos via autenticação por e-mail no frontend do Astrólogo.</p>
+            </div>
+            <div className="inline-actions">
+              <button type="button" className="ghost-button" onClick={() => void carregarUserData(true)} disabled={userDataLoading}>
+                {userDataLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+                Recarregar
+              </button>
+            </div>
+          </div>
+
+          {selectedUser ? (() => {
+            let parsed: unknown = []
+            try { 
+              const d = JSON.parse(selectedUser.dadosJson) 
+              parsed = d
+            } catch { /* */ }
+
+            return (
+              <div style={{ padding: '1rem 0' }}>
+                <div className="inline-actions" style={{ marginBottom: '1rem' }}>
+                  <button type="button" className="ghost-button" onClick={() => setSelectedUser(null)}>← Voltar à lista</button>
+                  <span className="badge badge-em-implantacao">{selectedUser.email}</span>
+                  <span className="field-hint">Atualizado em {new Date(selectedUser.atualizadoEm).toLocaleString('pt-BR')}</span>
+                  <button type="button" className="ghost-button danger" onClick={() => void executeDeleteMapa(selectedUser.id)} disabled={deletingMapaId === selectedUser.id} style={{ marginLeft: 'auto', color: 'var(--danger)' }}>
+                    {deletingMapaId === selectedUser.id ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />} Excluir Dados
+                  </button>
+                </div>
+
+                <div className="astro-section">
+                  <h5 className="astro-section__title">Conteúdo Salvo</h5>
+                  <pre style={{ background: '#f5f4f4', padding: '1rem', borderRadius: 8, fontSize: 13, overflow: 'auto' }}>
+                    {JSON.stringify(parsed, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )
+          })() : (
+            <>
+              {userDataLoading && userData.length === 0 ? (
+                <div className="result-empty" style={{ textAlign: 'center', padding: '3rem 0' }}>
+                  <Loader2 size={28} className="spin" style={{ marginBottom: '0.5rem' }} />
+                  <p>Carregando…</p>
+                </div>
+              ) : userData.length === 0 ? (
+                <p className="result-empty">Nenhum usuário salvou dados ainda.</p>
+              ) : (
+                <ul className="result-list astro-akashico-scroll">
+                  {userData.map((row) => {
+                    const dt = new Date(row.atualizadoEm).toLocaleString('pt-BR')
+                    let preview = ''
+                    try {
+                      const d = JSON.parse(row.dadosJson)
+                      if (Array.isArray(d)) preview = `${d.length} mapa(s) salvo(s)`
+                      else preview = 'Dados de perfil salvos'
+                    } catch { preview = 'Dados inválidos' }
+                    return (
+                      <li key={row.id} className="post-row">
+                        <div className="post-row-main" style={{ cursor: 'pointer' }} onClick={() => setSelectedUser(row)}>
+                          <div className="flex-row-center">
+                            <Mail size={14} style={{ marginRight: '0.4rem', color: 'var(--fg-dim, #888)' }} />
+                            <strong>{row.email}</strong>
+                          </div>
+                          <div className="post-row-meta">
+                            <span>{dt}</span>
+                            <span className="badge badge-em-implantacao">{preview}</span>
+                          </div>
+                        </div>
+                        <div className="post-row-actions">
+                          <button type="button" className="ghost-button danger" onClick={() => void executeDeleteMapa(row.id)} disabled={deletingMapaId === row.id}>
+                            {deletingMapaId === row.id ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
+                            Excluir
+                          </button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </>
+          )}
+          
+          <p className="field-hint" style={{ textAlign: 'right', paddingTop: '0.5rem' }}>
+            Total: {userDataTotal} usuário(s)
+          </p>
+        </article>
       )}
 
     </section>
