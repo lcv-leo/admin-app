@@ -397,6 +397,15 @@ export function OraculoModule() {
             try { parsed = JSON.parse(selectedUser.dadosJson) } catch { /* */ }
             const tRegs = (parsed.tesouroRegistros ?? []) as Array<Record<string, unknown>>
             const lRegs = (parsed.lciRegistros ?? []) as Array<Record<string, unknown>>
+            const paramCdi = Number(parsed.cdiAtual ?? 0)
+            const paramIpca = Number(parsed.ipcaProjetado ?? 0)
+            const paramDuration = Number(parsed.durationAnos ?? 0)
+            const paramTaxaAtual = Number(parsed.taxaAtualTesouro ?? 0)
+            const paramPrazoDias = Number(parsed.prazoDias ?? 0)
+            const paramTaxaLci = Number(parsed.taxaLciLca ?? 0)
+            const paramAporte = Number(parsed.aporte ?? 0)
+            const hasParams = paramCdi > 0 || paramIpca > 0 || paramDuration > 0
+
             return (
               <div style={{ padding: '1rem 0' }}>
                 <div className="inline-actions" style={{ marginBottom: '1rem' }}>
@@ -405,39 +414,85 @@ export function OraculoModule() {
                   <span className="field-hint">Atualizado em {new Date(selectedUser.atualizadoEm).toLocaleString('pt-BR')}</span>
                 </div>
 
-                {tRegs.length > 0 && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <h5 style={{ margin: '0 0 0.5rem' }}><Globe size={14} /> Tesouro IPCA+ ({tRegs.length} lotes)</h5>
-                    <ul className="result-list" style={{ maxHeight: '300px', overflow: 'auto' }}>
-                      {tRegs.map((r, i) => (
-                        <li key={i} className="post-row">
-                          <div className="post-row-main">
-                            <strong>R$ {Number(r.valorInvestido ?? 0).toLocaleString('pt-BR')}</strong>
-                            <div className="post-row-meta">
-                              <span>{String(r.dataCompra ?? '').split('-').reverse().join('/')}</span>
-                              <span className="badge badge-em-implantacao">{Number(r.taxaContratada ?? 0).toFixed(2)}% a.a.</span>
-                              {r.vencimento ? <span className="badge badge-planejado">Venc: {String(r.vencimento)}</span> : null}
-                              <span className={`badge ${r.sinal === 'vender' ? 'badge-danger' : 'badge-em-implantacao'}`}>{String(r.sinal ?? '').toUpperCase()}</span>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                {/* ── Parâmetros de Simulação ── */}
+                {hasParams && (
+                  <div style={{ background: '#f9f9f8', borderRadius: 14, padding: '16px 20px', marginBottom: '1rem', border: '1px solid rgba(0,0,0,0.04)' }}>
+                    <h5 style={{ margin: '0 0 12px', fontSize: 13, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Parâmetros de Simulação</h5>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                      {paramCdi > 0 && <span className="badge badge-em-implantacao">CDI: {paramCdi}% a.a.</span>}
+                      {paramIpca > 0 && <span className="badge badge-em-implantacao">IPCA: {paramIpca}% a.a.</span>}
+                      {paramDuration > 0 && <span className="badge badge-planejado">Duration: {paramDuration} anos</span>}
+                      {paramTaxaAtual > 0 && <span className="badge badge-em-implantacao">Taxa IPCA+ atual: {paramTaxaAtual.toFixed(2)}%</span>}
+                      {paramPrazoDias > 0 && <span className="badge badge-planejado">Prazo LCI: {paramPrazoDias}d</span>}
+                      {paramTaxaLci > 0 && <span className="badge badge-em-implantacao">LCI/LCA: {paramTaxaLci.toFixed(2)}% CDI</span>}
+                      {paramAporte > 0 && <span className="badge badge-em-implantacao">Aporte: R$ {paramAporte.toLocaleString('pt-BR')}</span>}
+                    </div>
                   </div>
                 )}
 
+                {/* ── Tesouro IPCA+ ── */}
+                {tRegs.length > 0 && (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <h5 style={{ margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Globe size={14} /> Tesouro IPCA+ ({tRegs.length} lotes)
+                    </h5>
+                    <ul className="result-list" style={{ maxHeight: '400px', overflow: 'auto' }}>
+                      {tRegs.map((r, i) => {
+                        const sinal = String(r.sinal ?? '').toLowerCase()
+                        const isSell = sinal === 'vender'
+                        return (
+                          <li key={i} className="post-row" style={{ borderLeft: `3px solid ${isSell ? '#dc2626' : '#16a34a'}` }}>
+                            <div className="post-row-main">
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <strong>R$ {Number(r.valorInvestido ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                                <span className={`badge ${isSell ? 'badge-danger' : 'badge-em-implantacao'}`} style={{ fontWeight: 700 }}>{sinal.toUpperCase()}</span>
+                              </div>
+                              <div className="post-row-meta">
+                                <span>Compra: {String(r.dataCompra ?? '').split('-').reverse().join('/')}</span>
+                                <span className="badge badge-em-implantacao">{Number(r.taxaContratada ?? 0).toFixed(2)}% a.a.</span>
+                                {r.vencimento ? <span className="badge badge-planejado">Venc: {String(r.vencimento)}</span> : null}
+                              </div>
+                              {String(r.analise ?? '') && (
+                                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#888', fontStyle: 'italic' }}>{String(r.analise)}</p>
+                              )}
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                    {tRegs.length > 1 && (() => {
+                      const totalInvestido = tRegs.reduce((s, r) => s + Number(r.valorInvestido ?? 0), 0)
+                      const taxaMedia = totalInvestido > 0
+                        ? tRegs.reduce((s, r) => s + Number(r.taxaContratada ?? 0) * Number(r.valorInvestido ?? 0), 0) / totalInvestido
+                        : 0
+                      return (
+                        <div style={{ marginTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <span className="badge badge-em-implantacao">Total: R$ {totalInvestido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="badge badge-planejado">Taxa média: {taxaMedia.toFixed(2)}% a.a.</span>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+
+                {/* ── LCI/LCA ── */}
                 {lRegs.length > 0 && (
                   <div>
-                    <h5 style={{ margin: '0 0 0.5rem' }}><Database size={14} /> LCI/LCA ({lRegs.length} registros)</h5>
+                    <h5 style={{ margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Database size={14} /> LCI/LCA ({lRegs.length} registros)
+                    </h5>
                     <ul className="result-list" style={{ maxHeight: '300px', overflow: 'auto' }}>
                       {lRegs.map((r, i) => (
                         <li key={i} className="post-row">
                           <div className="post-row-main">
-                            <strong>R$ {Number(r.aporte ?? 0).toLocaleString('pt-BR')}</strong>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <strong>R$ {Number(r.aporte ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                            </div>
                             <div className="post-row-meta">
                               <span>{Number(r.prazoDias ?? 0)} dias</span>
                               <span className="badge badge-em-implantacao">{Number(r.taxaLciLca ?? 0).toFixed(2)}% CDI</span>
                               <span className="badge badge-planejado">≈ CDB {Number(r.cdbEquivalente ?? 0).toFixed(2)}%</span>
+                              <span className="badge badge-em-implantacao">IR: {Number(r.aliquotaIr ?? 0).toFixed(1)}%</span>
                             </div>
                           </div>
                         </li>
