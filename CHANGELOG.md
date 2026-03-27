@@ -1,5 +1,11 @@
 # Changelog — Admin App
 
+## [v01.58.00] — 2026-03-27
+### Adicionado
+- **Astrólogo**: Nova aba "Dados de Usuários" adicionada no módulo Astrólogo.
+- **Astrólogo**: Visualização de metadados e blocos JSON de usuários salvos pelo Frontend do Astrólogo.
+- **Astrólogo**: Funcionalidade de exclusão de dados e mapas astrológicos em cascata associada ao e-mail do usuário em paridade com o Oráculo Financeiro.
+
 ## [v01.57.00] — 2026-03-27\r
 ### Adicionado\r
 - **Cascata de exclusão completa**: `DELETE /api/oraculo/userdata` agora apaga registros de todas as tabelas — `oraculo_user_data`, `oraculo_tesouro_ipca_lotes`, `oraculo_lci_cdb_registros`, `oraculo_auth_tokens` — por IDs do JSON + email (safety net). Observabilidade com contadores de registros deletados.\r
