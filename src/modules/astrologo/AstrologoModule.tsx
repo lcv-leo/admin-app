@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import type { FormEvent } from 'react'
-import { Loader2, Mail, Search, Send, Sparkles, Telescope, Trash2, X, RefreshCw } from 'lucide-react'
+import { BrainCircuit, Loader2, Mail, Search, Send, Sparkles, Telescope, Trash2, X, RefreshCw } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { generateAstrologicalReport } from '../../lib/astrological-report'
 import DOMPurify from 'dompurify'
@@ -59,8 +59,24 @@ const formatarData = (dataStr: string): string => {
 
 
 
+// Configs
+export interface AstroConfig {
+  modeloSintese?: string
+}
+const DEFAULT_CONFIG: AstroConfig = { modeloSintese: '' }
+function loadConfig(): AstroConfig {
+  try {
+    const s = localStorage.getItem('astrologo-config')
+    return s ? { ...DEFAULT_CONFIG, ...JSON.parse(s) } : DEFAULT_CONFIG
+  } catch { return DEFAULT_CONFIG }
+}
+export interface GeminiModelItem { id: string; displayName: string; api: string; vision: boolean }
+
 export function AstrologoModule() {
-  const [activeTab, setActiveTab] = useState<'registros' | 'usuarios'>('registros')
+  const [activeTab, setActiveTab] = useState<'registros' | 'usuarios' | 'configuracoes'>('registros')
+  const [config, setConfig] = useState<AstroConfig>(loadConfig)
+  const [geminiModels, setGeminiModels] = useState<GeminiModelItem[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
   
   interface UserDataRow {
     id: string; email: string; dadosJson: string
@@ -260,10 +276,44 @@ export function AstrologoModule() {
     }
   }
 
+  const carregarModelos = useCallback(async () => {
+    setModelsLoading(true)
+    try {
+      const res = await fetch('/api/astrologo/modelos')
+      const data = await res.json() as { ok: boolean; models?: GeminiModelItem[] }
+      if (data.ok && data.models) setGeminiModels(data.models)
+    } catch { /* ignorar */ }
+    finally { setModelsLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'configuracoes') {
+      void carregarModelos()
+    }
+  }, [activeTab, carregarModelos])
+
+  const saveConfig = (patch: Partial<AstroConfig>) => {
+    const next = { ...config, ...patch }
+    setConfig(next)
+    localStorage.setItem('astrologo-config', JSON.stringify(next))
+    showNotification('Configuração salva.', 'success')
+  }
+
+  const renderModelSelect = (label: string, id: string, value: string | undefined, onChange: (v: string) => void) => (
+    <div className="field-group">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} value={value || ''} onChange={e => onChange(e.target.value)}>
+        {!value && <option value="">(Padrão do Sistema)</option>}
+        {geminiModels.map(m => (
+          <option key={m.id} value={m.id}>{m.displayName} ({m.api}) {m.vision ? '👁️' : ''}</option>
+        ))}
+        {geminiModels.length === 0 && value && <option value={value}>{value}</option>}
+      </select>
+    </div>
+  )
+
   const [sendingEmail, setSendingEmail] = useState(false)
-
-
-
+  
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
@@ -340,6 +390,9 @@ export function AstrologoModule() {
         </button>
         <button type="button" className={activeTab === 'usuarios' ? 'primary-button' : 'ghost-button'} onClick={() => { setActiveTab('usuarios'); void carregarUserData(); }}>
           <Mail size={14} /> Dados de Usuários
+        </button>
+        <button type="button" className={activeTab === 'configuracoes' ? 'primary-button' : 'ghost-button'} onClick={() => setActiveTab('configuracoes')}>
+          <BrainCircuit size={14} /> Configurações
         </button>
       </div>
 
@@ -669,6 +722,38 @@ export function AstrologoModule() {
             Total: {userDataTotal} usuário(s)
           </p>
         </article>
+      )}
+
+      {/* ═══════════════════════ TAB: Configurações ═══════════════════════ */}
+      {activeTab === 'configuracoes' && (
+        <form className="form-card" onSubmit={e => e.preventDefault()}>
+          <div className="result-toolbar">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BrainCircuit size={16} />
+                <h4 style={{ margin: 0 }}>Modelos de IA (Gemini)</h4>
+              </div>
+              <p className="field-hint" style={{ margin: '4px 0 0' }}>Modelo de rede neural ativo na síntese astrológica.</p>
+            </div>
+            <div className="inline-actions">
+              <button type="button" className="ghost-button" onClick={() => void carregarModelos()} disabled={modelsLoading}>
+                {modelsLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />} 
+                Recarregar Modelos
+              </button>
+            </div>
+          </div>
+          <fieldset className="settings-fieldset" style={{ marginTop: '1rem' }}>
+            <legend>Seleção de Parâmetros</legend>
+            <div className="form-grid">
+              {renderModelSelect(
+                'Modelo de Síntese Astrológica',
+                'model-sintese',
+                config.modeloSintese,
+                v => { setConfig(c => ({ ...c, modeloSintese: v })); saveConfig({ modeloSintese: v }) }
+              )}
+            </div>
+          </fieldset>
+        </form>
       )}
 
     </section>

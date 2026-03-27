@@ -1,5 +1,10 @@
 # Changelog — Admin App
 
+## [v01.59.00] — 2026-03-27
+### Adicionado
+- **Astrólogo**: Implementada aba de "Configurações" no módulo `AstrologoModule`.
+- **Astrólogo**: Adicionado select de modelo de inteligência artificial (Gemini) para a síntese astrológica com persistência no `localStorage`. Sincronizado dinamicamente via `/api/astrologo/modelos`. Paridade visual e funcional com a aba de Configurações do `OraculoModule`.
+
 ## [v01.58.00] — 2026-03-27
 ### Adicionado
 - **Astrólogo**: Nova aba "Dados de Usuários" adicionada no módulo Astrólogo.
