@@ -362,7 +362,7 @@ const parseCaaDraft = (flagsRaw: string, tagRaw: string, valueRaw: string): CaaV
   return { issues, hints }
 }
 
-const parseCommonRecordDraft = (typeRaw: string, nameRaw: string, contentRaw: string, priorityRaw: string): CommonRecordValidation => {
+const parseCommonRecordDraft = (typeRaw: string, nameRaw: string, contentRaw: string, priorityRaw: string, proxied: boolean = false): CommonRecordValidation => {
   const issues: string[] = []
   const hints: string[] = []
   const type = typeRaw.trim().toUpperCase()
@@ -373,6 +373,11 @@ const parseCommonRecordDraft = (typeRaw: string, nameRaw: string, contentRaw: st
     issues.push('Nome do registro é obrigatório.')
   } else if (!HOSTNAME_REGEX.test(name) && name !== '@') {
     issues.push('Nome do registro parece inválido para DNS.')
+  }
+
+  // Registros proxied são gerenciados pela Cloudflare, validação dispensada
+  if (proxied) {
+    return { issues, hints }
   }
 
   if (!content) {
@@ -534,8 +539,8 @@ export function CfDnsModule() {
     if (isSrvDraft || isCaaDraft || isUriDraft || isHttpsDraft) {
       return { issues: [], hints: [] } satisfies CommonRecordValidation
     }
-    return parseCommonRecordDraft(draft.type, draft.name, draft.content, draft.priority)
-  }, [draft.type, draft.name, draft.content, draft.priority, isSrvDraft, isCaaDraft, isUriDraft, isHttpsDraft])
+    return parseCommonRecordDraft(draft.type, draft.name, draft.content, draft.priority, draft.proxied)
+  }, [draft.type, draft.name, draft.content, draft.priority, draft.proxied, isSrvDraft, isCaaDraft, isUriDraft, isHttpsDraft])
 
   const zoneContextLabel = useMemo(() => {
     const zoneName = selectedZoneName.trim()
