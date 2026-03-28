@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Database, Globe, Loader2, Newspaper, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, Trash2, Zap } from 'lucide-react'
+import { Database, Globe, Loader2, Newspaper, Plus, RefreshCw, Save, Search, Settings2, ShieldCheck, Trash2, Zap, Upload } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { RateLimitPanel } from '../../components/RateLimitPanel'
 import { SyncStatusCard } from '../../components/SyncStatusCard'
@@ -100,6 +100,44 @@ export function ConfigModule() {
   const [msSettingsLoading, setMsSettingsLoading] = useState(false)
   const [msSavingSettings, setMsSavingSettings] = useState(false)
   const [adminActor] = useState('admin@app.lcv')
+
+  // ── Upload state (R2 Backgrounds) ──
+  const [isUploadingBg, setIsUploadingBg] = useState(false)
+  const [uploadTarget, setUploadTarget] = useState<'dark' | 'light' | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const formatImageUrl = (url: string): string => {
+    if (!url) return ''
+    const driveRegex = /(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/
+    const match = url.match(driveRegex)
+    if (match && match[1]) return `https://drive.google.com/uc?export=view&id=${match[1]}`
+    return url
+  }
+
+  const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !uploadTarget) return
+    setIsUploadingBg(true)
+    showNotification(`Enviando fundo para a paleta ${uploadTarget}...`, 'info')
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const res = await fetch('/api/mainsite/upload', { method: 'POST', body: formData })
+      if (!res.ok) throw new Error('Falha no upload do backgroud.')
+      const data = await res.json() as { url: string }
+      setMsAppearance(prev => ({
+        ...prev,
+        [uploadTarget]: { ...prev[uploadTarget as 'dark' | 'light'], bgImage: data.url }
+      }))
+      showNotification(`Upload do fundo (${uploadTarget}) concluído.`, 'success')
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Erro no upload.', 'error')
+    } finally {
+      setIsUploadingBg(false)
+      setUploadTarget(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   // ── News panel settings ──
   const [newsSettings, setNewsSettings] = useState<NewsSettings>(loadNewsSettings)
@@ -407,7 +445,13 @@ export function ConfigModule() {
         </div>
       </div>
 
-
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        style={{ display: 'none' }} 
+        accept="image/*" 
+        onChange={handleBgUpload} 
+      />
 
       <form className="form-card" onSubmit={saveConfig}>
         <div className="result-toolbar">
@@ -645,8 +689,27 @@ export function ConfigModule() {
             <label className="color-label">Cor dos Títulos <input id="cfg-dark-title-color" name="cfgDarkTitleColor" type="color" value={msAppearance.dark.titleColor} onChange={(e) => setMsAppearance({ ...msAppearance, dark: { ...msAppearance.dark, titleColor: e.target.value } })} /></label>
           </div>
           <div className="field-group">
-            <label htmlFor="cfg-dark-bg-image">Imagem de Fundo (URL)</label>
-            <input id="cfg-dark-bg-image" name="cfgDarkBgImage" value={msAppearance.dark.bgImage} onChange={(e) => setMsAppearance({ ...msAppearance, dark: { ...msAppearance.dark, bgImage: e.target.value } })} placeholder="https://..." />
+            <label htmlFor="cfg-dark-bg-image">Imagem de Fundo (URL ou R2)</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input 
+                id="cfg-dark-bg-image" 
+                name="cfgDarkBgImage" 
+                value={msAppearance.dark.bgImage} 
+                onChange={(e) => setMsAppearance({ ...msAppearance, dark: { ...msAppearance.dark, bgImage: formatImageUrl(e.target.value) } })} 
+                placeholder="https://..." 
+                style={{ flex: 1 }}
+              />
+              <button 
+                type="button" 
+                className="toolbar-btn"
+                style={{ height: '42px', width: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', cursor: 'pointer', flexShrink: 0 }}
+                onClick={() => { setUploadTarget('dark'); fileInputRef.current?.click(); }} 
+                disabled={isUploadingBg} 
+                title="Fazer upload para o Storage R2"
+              >
+                {isUploadingBg && uploadTarget === 'dark' ? <Loader2 size={16} className="spin" /> : <Upload size={16} />}
+              </button>
+            </div>
           </div>
         </fieldset>
 
@@ -659,8 +722,27 @@ export function ConfigModule() {
             <label className="color-label">Cor dos Títulos <input id="cfg-light-title-color" name="cfgLightTitleColor" type="color" value={msAppearance.light.titleColor} onChange={(e) => setMsAppearance({ ...msAppearance, light: { ...msAppearance.light, titleColor: e.target.value } })} /></label>
           </div>
           <div className="field-group">
-            <label htmlFor="cfg-light-bg-image">Imagem de Fundo (URL)</label>
-            <input id="cfg-light-bg-image" name="cfgLightBgImage" value={msAppearance.light.bgImage} onChange={(e) => setMsAppearance({ ...msAppearance, light: { ...msAppearance.light, bgImage: e.target.value } })} placeholder="https://..." />
+            <label htmlFor="cfg-light-bg-image">Imagem de Fundo (URL ou R2)</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input 
+                id="cfg-light-bg-image" 
+                name="cfgLightBgImage" 
+                value={msAppearance.light.bgImage} 
+                onChange={(e) => setMsAppearance({ ...msAppearance, light: { ...msAppearance.light, bgImage: formatImageUrl(e.target.value) } })} 
+                placeholder="https://..." 
+                style={{ flex: 1 }}
+              />
+              <button 
+                type="button" 
+                className="toolbar-btn"
+                style={{ height: '42px', width: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', cursor: 'pointer', flexShrink: 0 }}
+                onClick={() => { setUploadTarget('light'); fileInputRef.current?.click(); }} 
+                disabled={isUploadingBg} 
+                title="Fazer upload para o Storage R2"
+              >
+                {isUploadingBg && uploadTarget === 'light' ? <Loader2 size={16} className="spin" /> : <Upload size={16} />}
+              </button>
+            </div>
           </div>
         </fieldset>
       </form>
