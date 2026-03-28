@@ -14,6 +14,19 @@ type CancelContext = {
   env: Env
 }
 
+const updateSumupLogStatus = async (
+  db: D1Database,
+  checkoutId: string,
+  transactionId: string,
+  status: string,
+  rawPayload?: string,
+) => {
+  const payload = rawPayload ?? null
+  await db.prepare(
+    "UPDATE mainsite_financial_logs SET payment_id = ?, status = ?, raw_payload = COALESCE(?, raw_payload) WHERE method = 'sumup_card' AND (payment_id = ? OR payment_id = ?)"
+  ).bind(checkoutId, status, payload, checkoutId, transactionId).run()
+}
+
 export const onRequestPost = async (context: CancelContext) => {
   const db = context.env.BIGDATA_DB
   const url = new URL(context.request.url)
@@ -26,6 +39,7 @@ export const onRequestPost = async (context: CancelContext) => {
 
   try {
     const client = new SumUp({ apiKey: token })
+    let transactionId = id
 
     try {
       await client.checkouts.deactivate(id)
@@ -58,17 +72,16 @@ export const onRequestPost = async (context: CancelContext) => {
           if (checkRes.ok) {
             const checkoutData = await checkRes.json() as {
               status?: string
-              transactions?: Array<{ status?: string }>
+              transactions?: Array<{ id?: string; status?: string }>
             }
 
+            transactionId = checkoutData.transactions?.[0]?.id || transactionId
             const txStatus = checkoutData.transactions?.[0]?.status
             const rawStatus = String(txStatus || checkoutData.status || 'UNKNOWN').toUpperCase()
             const realStatus = rawStatus === 'PAID' ? 'SUCCESSFUL' : rawStatus
 
             if (checkoutData.status === 'PAID' || realStatus === 'SUCCESSFUL') {
-              await db.prepare(
-                "UPDATE mainsite_financial_logs SET status = ?, raw_payload = ? WHERE payment_id = ? AND method = 'sumup_card'"
-              ).bind('SUCCESSFUL', JSON.stringify(checkoutData), id).run()
+              await updateSumupLogStatus(db, id, transactionId, 'SUCCESSFUL', JSON.stringify(checkoutData))
 
               return Response.json(
                 {
@@ -87,9 +100,7 @@ export const onRequestPost = async (context: CancelContext) => {
       }
     }
 
-    await db.prepare(
-      "UPDATE mainsite_financial_logs SET status = 'CANCELLED' WHERE payment_id = ? AND method = 'sumup_card'"
-    ).bind(id).run()
+    await updateSumupLogStatus(db, id, transactionId, 'CANCELLED')
 
     return Response.json({ success: true })
   } catch (err) {

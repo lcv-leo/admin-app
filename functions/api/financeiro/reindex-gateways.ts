@@ -23,6 +23,20 @@ const normalizeSumupStatus = (status: string): string => {
   return map[s] || s
 }
 
+const resolveSumupStatusFromSources = (rowStatus: string, payloadStatus: string | null): string => {
+  const row = normalizeSumupStatus(rowStatus || 'UNKNOWN')
+  const payload = normalizeSumupStatus(payloadStatus || 'UNKNOWN')
+  const terminalPriority = ['PARTIALLY_REFUNDED', 'REFUNDED', 'CANCELLED', 'CHARGE_BACK', 'FAILED', 'EXPIRED']
+
+  for (const status of terminalPriority) {
+    if (row === status || payload === status) return status
+  }
+
+  if (row === 'SUCCESSFUL' || payload === 'SUCCESSFUL') return 'SUCCESSFUL'
+  if (row === 'PENDING' || payload === 'PENDING') return 'PENDING'
+  return row !== 'UNKNOWN' ? row : payload
+}
+
 // Normalização Mercado Pago → status canônico REST API v1
 const normalizeMPStatus = (status: string, statusDetail?: string): string => {
   const s = String(status || '').trim().toLowerCase()
@@ -72,7 +86,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           payloadStatus = null
         }
 
-        const nextStatus = normalizeSumupStatus(payloadStatus || row.status || 'UNKNOWN')
+        const nextStatus = resolveSumupStatusFromSources(row.status || 'UNKNOWN', payloadStatus)
         if (nextStatus !== row.status) {
           await db.prepare(
             "UPDATE mainsite_financial_logs SET status = ? WHERE id = ? AND method = 'sumup_card'"

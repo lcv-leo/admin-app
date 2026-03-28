@@ -14,6 +14,17 @@ type RefundContext = {
   env: Env
 }
 
+const updateSumupLogStatus = async (
+  db: D1Database,
+  checkoutId: string,
+  transactionId: string,
+  status: string,
+) => {
+  await db.prepare(
+    "UPDATE mainsite_financial_logs SET payment_id = ?, status = ? WHERE method = 'sumup_card' AND (payment_id = ? OR payment_id = ?)"
+  ).bind(checkoutId, status, checkoutId, transactionId).run()
+}
+
 export const onRequestPost = async (context: RefundContext) => {
   const db = context.env.BIGDATA_DB
   const url = new URL(context.request.url)
@@ -35,7 +46,8 @@ export const onRequestPost = async (context: RefundContext) => {
 
     const client = new SumUp({ apiKey: token })
 
-    let txnId = id
+  const checkoutId = id
+  let txnId = id
 
     try {
       const record = await db.prepare(
@@ -83,9 +95,7 @@ export const onRequestPost = async (context: RefundContext) => {
     }
 
     const newStatus = amount ? 'PARTIALLY_REFUNDED' : 'REFUNDED'
-    await db.prepare(
-      "UPDATE mainsite_financial_logs SET status = ? WHERE payment_id = ? AND method = 'sumup_card'"
-    ).bind(newStatus, id).run()
+    await updateSumupLogStatus(db, checkoutId, txnId, newStatus)
 
     return Response.json({ success: true, status: newStatus })
   } catch (err) {

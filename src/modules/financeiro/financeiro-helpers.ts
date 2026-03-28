@@ -200,6 +200,25 @@ export const parseSumupPayload = (raw: string | null) => {
   } catch { return {} as Record<string, unknown> }
 }
 
+export const resolveEffectiveSumupStatus = (
+  dbStatus: string | null | undefined,
+  raw: { txStatus?: unknown; checkoutStatus?: unknown } | null | undefined,
+): string => {
+  const normalize = (value: unknown) => String(value ?? '').trim().toUpperCase()
+  const row = normalize(dbStatus)
+  const tx = normalize(raw?.txStatus)
+  const checkout = normalize(raw?.checkoutStatus)
+
+  const terminalPriority = ['PARTIALLY_REFUNDED', 'REFUNDED', 'CANCELLED', 'CHARGE_BACK', 'FAILED', 'EXPIRED']
+  for (const st of terminalPriority) {
+    if (row === st || tx === st || checkout === st) return st
+  }
+
+  if (tx) return tx
+  if (checkout) return checkout
+  return row || 'UNKNOWN'
+}
+
 export const parseMPPayload = (raw: string | null) => {
   if (!raw) return {} as Record<string, unknown>
   try {
@@ -249,9 +268,7 @@ export const resolveStatusConfig = (log: FinancialLog): StatusConfig => {
     return getMPStatusConfig(log.status, String(p.statusDetail ?? ''))
   }
   const info = parseSumupPayload(log.raw_payload)
-  const effective = [info.txStatus, info.checkoutStatus, log.status]
-    .map(v => String(v ?? '').trim())
-    .find(v => v !== '' && v !== '—') || log.status
+  const effective = resolveEffectiveSumupStatus(log.status, info as { txStatus?: unknown; checkoutStatus?: unknown })
   return getSumupStatusConfig(String(effective))
 }
 

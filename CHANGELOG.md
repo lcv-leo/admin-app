@@ -1,5 +1,10 @@
 # Changelog — Admin App
 
+## [v01.59.02] — 2026-03-28
+### Corrigido
+- **Financeiro/SumUp — chave canônica do registro**: sincronização, estorno e cancelamento passaram a reconciliar `mainsite_financial_logs` pelo `checkout.id` canônico, cobrindo também registros legados salvos com `transaction.id`.
+- **Financeiro/SumUp — status terminal persistente**: listagem, reindexação e helpers do painel agora preservam estados terminais (`PARTIALLY_REFUNDED`, `REFUNDED`, `CANCELLED`) sem regressão para `SUCCESSFUL` após sync posterior.
+
 ## [v01.59.01] — 2026-03-28
 ### Adicionado
 - **Financeiro/SumUp**: criados endpoints locais `POST /api/financeiro/sumup-refund` e `POST /api/financeiro/sumup-cancel` para suportar estorno/cancelamento diretamente no `admin-app`, em paridade com o fluxo operacional do worker.
