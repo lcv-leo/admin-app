@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.65.01] — 2026-03-28
+### Corrigido
+- **CF DNS — Validação de registros proxied**: registros DNS com status `proxied = true` são agora considerados válidos automaticamente. Conteúdo vazio ou inválido é aceito para registros proxied, pois o gerenciamento do IP é feito pela Cloudflare. Resolve alertas falsos `CFDNS-A-INVALID` e `CFDNS-AAAA-INVALID` para registros em proxy laranja.
+
+### Controle de versão
+- `admin-app`: APP v01.65.00 → APP v01.65.01
+
 ## [v01.65.00] — 2026-03-28
 ### Adicionado
 - **CF P&W — Criação operacional de recursos**: novas ações avançadas para criação de Worker por template (`create-worker-from-template`) e criação de projeto Pages (`create-page-project`) diretamente do módulo unificado.
