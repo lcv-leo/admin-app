@@ -12,7 +12,7 @@ export type Context = {
 type D1Row = Record<string, unknown>
 
 export type AstrologoRateLimitPolicy = {
-  route: 'calcular' | 'analisar' | 'enviar-email'
+  route: 'calcular' | 'analisar' | 'enviar-email' | 'contato'
   label: string
   enabled: boolean
   max_requests: number
@@ -51,9 +51,16 @@ const DEFAULT_POLICIES = {
     max_requests: 4,
     window_minutes: 60,
   },
+  contato: {
+    route: 'contato',
+    label: 'Formulário de Contato',
+    enabled: 1,
+    max_requests: 5,
+    window_minutes: 30,
+  },
 } as const
 
-export const SUPPORTED_ROUTES = ['calcular', 'analisar', 'enviar-email'] as const
+export const SUPPORTED_ROUTES = ['calcular', 'analisar', 'enviar-email', 'contato'] as const
 
 const toDbRoute = (route: string) => route.startsWith('astrologo/') ? route : `astrologo/${route}`
 

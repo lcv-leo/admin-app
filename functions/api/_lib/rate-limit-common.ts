@@ -67,7 +67,7 @@ export type RateLimitRoutes = 'astrologo' | 'itau' | 'mainsite' | 'mtasts'
 export const RATE_LIMIT_ROUTES: Record<string, string[]> = {
   astrologo: ['calcular', 'analisar', 'enviar-email', 'gerar-relatorio'],
   itau: ['calcular', 'buscar-taxa', 'enviar-email', 'gerar-relatorio'],
-  mainsite: ['chatbot', 'email', 'newsletter'],
+  mainsite: ['chatbot', 'email', 'newsletter', 'contato'],
   mtasts: ['generate', 'regenerate', 'update-policy'],
 }
 

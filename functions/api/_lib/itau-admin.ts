@@ -12,7 +12,7 @@ export type Context = {
 type D1Row = Record<string, unknown>
 
 export type ItauRateLimitPolicy = {
-  route_key: 'oraculo_ia' | 'enviar_email'
+  route_key: 'oraculo_ia' | 'enviar_email' | 'contato'
   label: string
   enabled: boolean
   max_requests: number
@@ -56,9 +56,16 @@ const DEFAULT_POLICIES = {
     max_requests: 2,
     window_minutes: 10,
   },
+  contato: {
+    route_key: 'contato',
+    label: 'Formulário de Contato',
+    enabled: 1,
+    max_requests: 5,
+    window_minutes: 30,
+  },
 } as const
 
-export const SUPPORTED_ROUTES = ['oraculo_ia', 'enviar_email'] as const
+export const SUPPORTED_ROUTES = ['oraculo_ia', 'enviar_email', 'contato'] as const
 
 export const toHeaders = () => ({
   'Content-Type': 'application/json',

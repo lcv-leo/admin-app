@@ -3,7 +3,7 @@ import { toHeaders, type Context } from '../_lib/mainsite-admin'
 import { resolveAdminActorFromRequest } from '../_lib/admin-actor'
 import { createResponseTrace } from '../_lib/request-trace'
 
-type PolicyRoute = 'chatbot' | 'email'
+type PolicyRoute = 'chatbot' | 'email' | 'contato'
 
 type LegacyRateLimitBucket = {
   enabled?: unknown
@@ -14,6 +14,7 @@ type LegacyRateLimitBucket = {
 type LegacyRateLimitConfig = {
   chatbot?: LegacyRateLimitBucket
   email?: LegacyRateLimitBucket
+  contato?: LegacyRateLimitBucket
 }
 
 type MainsiteSettingsRow = {
@@ -60,6 +61,14 @@ const POLICY_META: Record<PolicyRoute, { label: string; defaults: { enabled: boo
       window_minutes: 15,
     },
   },
+  contato: {
+    label: 'Formulário de Contato',
+    defaults: {
+      enabled: true,
+      max_requests: 5,
+      window_minutes: 30,
+    },
+  },
 }
 
 const ROUTES = Object.keys(POLICY_META) as PolicyRoute[]
@@ -95,6 +104,7 @@ const normalizeBucket = (raw: LegacyRateLimitBucket | undefined, route: PolicyRo
 const normalizeConfig = (raw: LegacyRateLimitConfig | null | undefined) => ({
   chatbot: normalizeBucket(raw?.chatbot, 'chatbot'),
   email: normalizeBucket(raw?.email, 'email'),
+  contato: normalizeBucket(raw?.contato, 'contato'),
 })
 
 const toClientPolicies = (config: ReturnType<typeof normalizeConfig>): ModuleRateLimitPolicy[] => ROUTES.map((route) => {
@@ -163,6 +173,11 @@ const saveLegacyRateLimit = async (
       maxRequests: config.email.maxRequests,
       windowMinutes: config.email.windowMinutes,
     },
+    contato: {
+      enabled: config.contato.enabled,
+      maxRequests: config.contato.maxRequests,
+      windowMinutes: config.contato.windowMinutes,
+    },
   })
 
   await db.prepare(`
@@ -178,7 +193,7 @@ const saveLegacyRateLimit = async (
 
 const normalizeRoute = (value: unknown): PolicyRoute | null => {
   const route = String(value ?? '').trim()
-  if (route === 'chatbot' || route === 'email') {
+  if (route === 'chatbot' || route === 'email' || route === 'contato') {
     return route
   }
   return null
