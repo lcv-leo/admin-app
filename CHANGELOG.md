@@ -1,5 +1,13 @@
 # Changelog — Admin App
 
+## [v01.67.01] — 2026-03-28
+### Adicionado
+- **Rate Limit — Paridade `contato`**: rota `contato` (Formulário de Contato) adicionada aos módulos **Astrólogo**, **Calculadora** e **MainSite**, equiparando ao Oráculo que já possuía essa rota. Default: 5 req / 30 min, habilitado.
+- **Astrólogo**: `astrologo-admin.ts` — `SUPPORTED_ROUTES`, `DEFAULT_POLICIES` e tipo `AstrologoRateLimitPolicy` expandidos.
+- **Calculadora**: `calculadora-admin.ts` — `SUPPORTED_ROUTES`, `DEFAULT_POLICIES` e tipo `CalculadoraRateLimitPolicy` expandidos.
+- **MainSite**: `mainsite/rate-limit.ts` — `PolicyRoute`, `POLICY_META`, `normalizeConfig`, `saveLegacyRateLimit`, `normalizeRoute` expandidos.
+- **Common**: `rate-limit-common.ts` — array `mainsite` em `RATE_LIMIT_ROUTES` expandido.
+
 ## [v01.67.00] — 2026-03-28
 ### Adicionado
 - **Governança de Deployments — Cloudflare Pages**: nova seção em Configurações que replica a funcionalidade do script PowerShell `Clean-CloudflarePagesDeployments.ps1` via APIs nativas Cloudflare.
