@@ -17,6 +17,42 @@ interface FinancialLog {
   created_at: string
 }
 
+const normalizeSumupStatus = (status: string): string => {
+  const s = String(status || '').trim().toUpperCase()
+  if (!s) return 'UNKNOWN'
+  const map: Record<string, string> = {
+    PAID: 'SUCCESSFUL', APPROVED: 'SUCCESSFUL', SUCCESSFUL: 'SUCCESSFUL',
+    PENDING: 'PENDING', IN_PROCESS: 'PENDING', PROCESSING: 'PENDING',
+    FAILED: 'FAILED', FAILURE: 'FAILED',
+    EXPIRED: 'EXPIRED',
+    REFUNDED: 'REFUNDED',
+    PARTIALLY_REFUNDED: 'PARTIALLY_REFUNDED',
+    CANCELED: 'CANCELLED', CANCEL: 'CANCELLED', CANCELLED: 'CANCELLED',
+    CHARGEBACK: 'CHARGE_BACK', CHARGE_BACK: 'CHARGE_BACK',
+  }
+  return map[s] || s
+}
+
+const resolveSumupStatusFromSources = (rowStatus: string, rawPayload: string | null): string => {
+  let payloadStatus: string | null = null
+  try {
+    const payload = rawPayload ? JSON.parse(rawPayload) : null
+    payloadStatus = payload?.transactions?.[0]?.status || payload?.transaction?.status || payload?.status || null
+  } catch {
+    payloadStatus = null
+  }
+
+  const row = normalizeSumupStatus(rowStatus || 'UNKNOWN')
+  const payload = normalizeSumupStatus(payloadStatus || 'UNKNOWN')
+  const terminalPriority = ['PARTIALLY_REFUNDED', 'REFUNDED', 'CANCELLED', 'CHARGE_BACK', 'FAILED', 'EXPIRED']
+  for (const st of terminalPriority) {
+    if (row === st || payload === st) return st
+  }
+  if (row === 'SUCCESSFUL' || payload === 'SUCCESSFUL') return 'SUCCESSFUL'
+  if (row === 'PENDING' || payload === 'PENDING') return 'PENDING'
+  return row !== 'UNKNOWN' ? row : payload
+}
+
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const db = context.env.BIGDATA_DB
   const url = new URL(context.request.url)
@@ -77,9 +113,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       ).all<{ method: string }>(),
     ])
 
+    const normalizedLogs = (logsResult.results ?? []).map((log) => {
+      if (String(log.method || '').trim().toLowerCase() !== 'sumup_card') return log
+      return {
+        ...log,
+        status: resolveSumupStatusFromSources(log.status, log.raw_payload),
+      }
+    })
+
     return Response.json({
       ok: true,
-      logs: logsResult.results ?? [],
+      logs: normalizedLogs,
       totals: {
         count: Number(totalRow?.total ?? 0),
         approved: Number(approvedRow?.total ?? 0),

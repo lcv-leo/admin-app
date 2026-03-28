@@ -37,6 +37,20 @@ const normalizeSumupStatus = (status: string): string => {
   return map[s] || s
 }
 
+const resolveSumupStatusFromSources = (rowStatus: string, payloadStatus: string | null): string => {
+  const row = normalizeSumupStatus(rowStatus || 'UNKNOWN')
+  const payload = normalizeSumupStatus(payloadStatus || 'UNKNOWN')
+  const terminalPriority = ['PARTIALLY_REFUNDED', 'REFUNDED', 'CANCELLED', 'CHARGE_BACK', 'FAILED', 'EXPIRED']
+
+  for (const status of terminalPriority) {
+    if (row === status || payload === status) return status
+  }
+
+  if (row === 'SUCCESSFUL' || payload === 'SUCCESSFUL') return 'SUCCESSFUL'
+  if (row === 'PENDING' || payload === 'PENDING') return 'PENDING'
+  return row !== 'UNKNOWN' ? row : payload
+}
+
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const db = context.env.BIGDATA_DB
   const token = context.env.SUMUP_API_KEY_PRIVATE
@@ -53,24 +67,27 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const sourceTimestamp = tx?.timestamp || checkout?.timestamp || checkout?.date || checkout?.created_at || null
       if (sourceTimestamp && !isOnOrAfterCutoff(sourceTimestamp)) continue
 
-      const paymentId = tx?.id || checkout.id
-      const status = normalizeSumupStatus(tx?.status || checkout.status || 'UNKNOWN')
+      const checkoutId = checkout.id
+      const transactionId = tx?.id || checkout.id
+      const payloadStatus = tx?.status || checkout.status || 'UNKNOWN'
       const amount = Number(checkout.amount || 0)
       const raw = JSON.stringify(checkout)
 
       const existing = await db.prepare(
-        "SELECT id FROM mainsite_financial_logs WHERE payment_id = ? AND method = 'sumup_card' LIMIT 1"
-      ).bind(paymentId).first()
+        "SELECT id, status FROM mainsite_financial_logs WHERE method = 'sumup_card' AND (payment_id = ? OR payment_id = ?) LIMIT 1"
+      ).bind(checkoutId, transactionId).first<{ id: number; status: string }>()
+
+      const status = resolveSumupStatusFromSources(existing?.status || 'UNKNOWN', payloadStatus)
 
       if (existing) {
         await db.prepare(
-          "UPDATE mainsite_financial_logs SET status = ?, raw_payload = ? WHERE payment_id = ? AND method = 'sumup_card'"
-        ).bind(status, raw, paymentId).run()
+          "UPDATE mainsite_financial_logs SET payment_id = ?, status = ?, raw_payload = ? WHERE method = 'sumup_card' AND (payment_id = ? OR payment_id = ?)"
+        ).bind(checkoutId, status, raw, checkoutId, transactionId).run()
         updated++
       } else {
         await db.prepare(
           'INSERT INTO mainsite_financial_logs (payment_id, status, amount, method, payer_email, raw_payload) VALUES (?, ?, ?, ?, ?, ?)'
-        ).bind(paymentId, status, amount, 'sumup_card', 'N/A', raw).run()
+        ).bind(checkoutId, status, amount, 'sumup_card', 'N/A', raw).run()
         inserted++
       }
     }
