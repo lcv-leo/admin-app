@@ -19,6 +19,7 @@ type ManagedPost = {
   title: string
   content: string
   created_at: string
+  updated_at?: string
   is_pinned: number | boolean
   display_order?: number
 }
@@ -429,7 +430,25 @@ export function MainsiteModule() {
 
                     <div className="post-row-meta">
                       <span>ID #{post.id}</span>
-                      <span>{new Date(post.created_at).toLocaleString('pt-BR')}</span>
+                      <span>
+                        {(() => {
+                          const fmtDate = (raw?: string) => {
+                            if (!raw) return null
+                            const d = new Date(raw.replace(' ', 'T') + (raw.includes('Z') || raw.includes('+') ? '' : 'Z'))
+                            if (isNaN(d.getTime())) return null
+                            return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                          }
+                          const criado = fmtDate(post.created_at)
+                          const atualizado = fmtDate(post.updated_at)
+                          const showUpdated = atualizado && atualizado !== criado
+                          return (
+                            <>
+                              Publicado em {criado || '—'}
+                              {showUpdated && <> | Atualizado em {atualizado}</>}
+                            </>
+                          )
+                        })()}
+                      </span>
                       <span className={`badge ${isPinned ? 'badge-em-implantacao' : 'badge-planejado'}`}>
                         {isPinned ? 'fixado' : 'normal'}
                       </span>
