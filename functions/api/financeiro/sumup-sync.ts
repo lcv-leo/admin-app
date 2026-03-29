@@ -67,9 +67,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       const checkoutId = checkout.id
       const transactionId = tx?.id || checkout.id
-      const payloadStatus = tx?.status || checkout.status || 'UNKNOWN'
       const amount = Number(checkout.amount || 0)
       const raw = JSON.stringify(checkout)
+
+      // Detectar status real analisando TODAS as transações do checkout.
+      // Refunds aparecem como transações adicionais com type=REFUND.
+      let payloadStatus = tx?.status || checkout.status || 'UNKNOWN'
+      const allTxns = checkout.transactions || []
+      const refundTxns = allTxns.filter((t: any) =>
+        String(t.type || '').toUpperCase() === 'REFUND' &&
+        String(t.status || '').toUpperCase() === 'SUCCESSFUL'
+      )
+      if (refundTxns.length > 0) {
+        const totalRefunded = refundTxns.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
+        payloadStatus = totalRefunded >= amount ? 'REFUNDED' : 'PARTIALLY_REFUNDED'
+      }
 
       const existing = await db.prepare(
         "SELECT id, status FROM mainsite_financial_logs WHERE method = 'sumup_card' AND (payment_id = ? OR payment_id = ?) LIMIT 1"
