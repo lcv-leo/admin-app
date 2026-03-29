@@ -143,19 +143,21 @@ export const onRequestGet = async ({ env }: Ctx) => {
     const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     // Métricas relevantes para generativelanguage.googleapis.com
-    const metrics = [
-      'serviceruntime.googleapis.com/api/request_count',
-      'serviceruntime.googleapis.com/api/request_latencies',
-      'serviceruntime.googleapis.com/quota/allocation/usage',
-      'serviceruntime.googleapis.com/quota/limit',
+    // request_count e request_latencies usam resource.type="consumed_api"
+    // quota/allocation/usage e quota/limit usam resource.type="consumer_quota"
+    const metricDefs = [
+      { metric: 'serviceruntime.googleapis.com/api/request_count', resourceType: 'consumed_api' },
+      { metric: 'serviceruntime.googleapis.com/api/request_latencies', resourceType: 'consumed_api' },
+      { metric: 'serviceruntime.googleapis.com/quota/allocation/usage', resourceType: 'consumer_quota' },
+      { metric: 'serviceruntime.googleapis.com/quota/limit', resourceType: 'consumer_quota' },
     ]
 
     const results: Record<string, TimeSeries[]> = {}
 
     // Buscar cada métrica em paralelo
-    const fetches = metrics.map(async (metric) => {
+    const fetches = metricDefs.map(async ({ metric, resourceType }) => {
       const filter = encodeURIComponent(
-        `metric.type="${metric}" AND resource.type="consumed_api" AND resource.labels.service="generativelanguage.googleapis.com"`
+        `metric.type="${metric}" AND resource.type="${resourceType}" AND resource.labels.service="generativelanguage.googleapis.com"`
       )
       const url = `https://monitoring.googleapis.com/v3/projects/${projectId}/timeSeries?filter=${filter}&interval.startTime=${startTime}&interval.endTime=${endTime}&aggregation.alignmentPeriod=3600s&aggregation.perSeriesAligner=ALIGN_SUM`
 
