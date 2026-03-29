@@ -772,6 +772,70 @@ function GcpTab() {
 
   useEffect(() => { void fetchGcp() }, [fetchGcp])
 
+  /* ── Tipagem para timeSeries do GCP ── */
+  type TsPoint = {
+    interval: { startTime: string; endTime: string }
+    value: { int64Value?: string; doubleValue?: number; distributionValue?: { mean: number; count: string } }
+  }
+  type TsSeries = {
+    metric: { type: string; labels?: Record<string, string> }
+    resource: { type: string; labels?: Record<string, string> }
+    points: TsPoint[]
+  }
+  const ts = useMemo(() => (data?.timeSeries || {}) as Record<string, TsSeries[]>, [data?.timeSeries])
+
+  /* ── ALL useMemo hooks BEFORE any early return (React rules of hooks) ── */
+
+  // Request Count — agrupar por hora
+  const hourlyRequests = useMemo(() => {
+    const series = ts['serviceruntime.googleapis.com/api/request_count'] || []
+    const hourMap: Record<string, number> = {}
+    for (const s of series) {
+      for (const pt of s.points || []) {
+        const hour = pt.interval.startTime?.slice(0, 13) || 'unknown'
+        const val = parseInt(pt.value.int64Value || '0', 10) || pt.value.doubleValue || 0
+        hourMap[hour] = (hourMap[hour] || 0) + val
+      }
+    }
+    return Object.entries(hourMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([hour, count]) => ({ hour, count }))
+  }, [ts])
+
+  const totalRequests24h = useMemo(() => hourlyRequests.reduce((s, h) => s + h.count, 0), [hourlyRequests])
+
+  // Latencies — extrair métodos e médias
+  const latencyByMethod = useMemo(() => {
+    const series = ts['serviceruntime.googleapis.com/api/request_latencies'] || []
+    return series.map(s => {
+      const method = s.resource?.labels?.method || s.metric?.labels?.method || 'unknown'
+      let totalLatency = 0; let totalCount = 0
+      for (const pt of s.points || []) {
+        if (pt.value.distributionValue) {
+          const c = parseInt(pt.value.distributionValue.count || '1', 10)
+          totalLatency += pt.value.distributionValue.mean * c
+          totalCount += c
+        }
+      }
+      const avgMs = totalCount > 0 ? totalLatency / totalCount : 0
+      return { method: method.split('.').pop() || method, avgMs: Math.round(avgMs), count: totalCount }
+    }).filter(l => l.count > 0).sort((a, b) => b.count - a.count)
+  }, [ts])
+
+  // Quota limits
+  const quotaLimits = useMemo(() => {
+    const series = ts['serviceruntime.googleapis.com/quota/limit'] || []
+    return series.map(s => {
+      const quotaMetric = s.metric?.labels?.quota_metric || 'unknown'
+      const limitName = s.metric?.labels?.limit_name || ''
+      const pt = s.points?.[0]
+      const limit = parseInt(pt?.value?.int64Value || '0', 10) || pt?.value?.doubleValue || 0
+      return { quotaMetric: quotaMetric.split('/').pop() || quotaMetric, limitName, limit }
+    }).filter(q => q.limit > 0)
+  }, [ts])
+
+  /* ── Early returns (after hooks) ── */
+
   if (loading) return <div className="module-loading"><Loader2 size={24} className="spin" /></div>
 
   if (error) {
@@ -786,7 +850,7 @@ function GcpTab() {
     )
   }
 
-  // Não configurado — mostrar guia de setup detalhado
+  // Não configurado — mostrar guia de setup
   if (data && !data.configured) {
     const guide = data.setupGuide
     return (
@@ -806,7 +870,6 @@ function GcpTab() {
 
           {guide && (
             <>
-              {/* Guia de setup detalhado */}
               <div style={{
                 padding: 20, borderRadius: 16,
                 background: 'linear-gradient(135deg, rgba(26, 115, 232, 0.04), rgba(124, 58, 237, 0.04))',
@@ -830,7 +893,6 @@ function GcpTab() {
                         <li key={i} style={{ marginBottom: 6 }}>{step.replace(/^\d+\.\s*/, '')}</li>
                       ))}
                     </ol>
-
                     <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div style={{ padding: 12, borderRadius: 12, background: '#fff', border: '1px solid rgba(0,0,0,0.08)' }}>
                         <span className="eyebrow" style={{ fontSize: '0.72rem' }}>Roles obrigatórias</span>
@@ -857,7 +919,6 @@ function GcpTab() {
                         </div>
                       </div>
                     </div>
-
                     <div style={{
                       marginTop: 14, padding: 12, borderRadius: 12,
                       background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.15)',
@@ -871,8 +932,6 @@ function GcpTab() {
                   </div>
                 )}
               </div>
-
-              {/* Links rápidos */}
               <div style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <a href="https://console.cloud.google.com/iam-admin/serviceaccounts" target="_blank" rel="noopener noreferrer"
                   className="ghost-button" style={{ textDecoration: 'none', padding: '10px 16px', fontSize: '0.85rem' }}>
@@ -894,58 +953,319 @@ function GcpTab() {
     )
   }
 
-  // Configurado — exibir métricas
+  /* ═══════════════════════════════════════════════════════════════
+     CONFIGURADO — DASHBOARD HUMANIZADO PREMIUM
+     ═══════════════════════════════════════════════════════════════ */
+
+  // Helpers locais para nomes de métricas amigáveis
+  const metricLabel: Record<string, string> = {
+    request_count: 'Requests',
+    request_latencies: 'Latência',
+    usage: 'Uso de Quota',
+    limit: 'Limites',
+  }
+  const metricIcon: Record<string, typeof Activity> = {
+    request_count: Activity,
+    request_latencies: Clock,
+    usage: BarChart3,
+    limit: Zap,
+  }
+  const metricColor: Record<string, string> = {
+    request_count: '#1a73e8',
+    request_latencies: '#7c3aed',
+    usage: '#0ea5e9',
+    limit: '#059669',
+  }
+
   return (
     <div className="ai-gcp-live">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <span className="status-pill" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#059669', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-          <CheckCircle size={14} /> Projeto: {data?.projectId}
-        </span>
-        <button type="button" className="ghost-button" onClick={fetchGcp} style={{ padding: '8px 12px' }}>
-          <RefreshCw size={14} />
+      {/* ── Project header ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '16px 20px', borderRadius: 16, marginBottom: 16,
+        background: 'linear-gradient(135deg, rgba(26, 115, 232, 0.06), rgba(124, 58, 237, 0.04))',
+        border: '1px solid rgba(26, 115, 232, 0.12)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'linear-gradient(135deg, #1a73e8, #7c3aed)', color: '#fff',
+          }}>
+            <Cloud size={20} />
+          </div>
+          <div>
+            <span className="eyebrow" style={{ fontSize: '0.7rem' }}>GCP Cloud Monitoring</span>
+            <strong style={{ display: 'block', fontSize: '1rem' }}>{data?.projectId}</strong>
+          </div>
+        </div>
+        <button type="button" className="ghost-button" onClick={fetchGcp}
+          style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <RefreshCw size={14} /> Atualizar
         </button>
       </div>
 
       {data?.ok ? (
         <>
-          {/* Metric results */}
-          <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginTop: 0 }}>
-            {data.metricResults?.map(mr => (
-              <div key={mr.metric} className="metric-card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {mr.ok ? <CheckCircle size={14} style={{ color: '#059669' }} /> : <AlertTriangle size={14} style={{ color: '#dc2626' }} />}
-                  <span style={{ fontSize: '0.82rem', fontFamily: 'monospace', color: '#514b48', wordBreak: 'break-all' }}>
-                    {mr.metric.split('/').pop()}
-                  </span>
+          {/* ── Metric Health Pills ── */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+            {data.metricResults?.map(mr => {
+              const shortName = mr.metric.split('/').pop() || mr.metric
+              const label = metricLabel[shortName] || shortName
+              const Icon = metricIcon[shortName] || Server
+              const color = mr.ok ? (metricColor[shortName] || '#059669') : '#dc2626'
+              return (
+                <div key={mr.metric} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 16px', borderRadius: 100,
+                  background: mr.ok ? `${color}0a` : 'rgba(239, 68, 68, 0.06)',
+                  border: `1px solid ${mr.ok ? `${color}25` : 'rgba(239, 68, 68, 0.2)'}`,
+                  transition: 'all 0.2s ease',
+                }}>
+                  <Icon size={14} style={{ color }} />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color }}>{label}</span>
+                  {mr.ok ? (
+                    <span style={{
+                      fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: 100,
+                      background: `${color}15`, color,
+                    }}>{mr.seriesCount} séries</span>
+                  ) : (
+                    <span style={{
+                      fontSize: '0.72rem', fontWeight: 600, color: '#dc2626',
+                    }}>⚠ erro</span>
+                  )}
                 </div>
-                {mr.ok
-                  ? <span style={{ fontSize: '0.85rem', color: '#059669' }}>{mr.seriesCount} time series</span>
-                  : <span style={{ fontSize: '0.78rem', color: '#dc2626' }}>{mr.error?.slice(0, 150)}</span>
-                }
-              </div>
-            ))}
+              )
+            })}
           </div>
 
-          {/* Raw data visualization */}
-          {data.timeSeries && Object.keys(data.timeSeries).length > 0 && (
-            <details style={{ marginTop: 14 }}>
-              <summary style={{ cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: 'var(--module-accent)' }}>
-                📊 Dados brutos (Time Series)
+          {/* ── Summary KPI Cards ── */}
+          <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 16 }}>
+            {/* Requests 24h */}
+            <div className="metric-card" style={{ position: 'relative', overflow: 'hidden' }}>
+              <div style={{
+                position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%',
+                background: 'rgba(26, 115, 232, 0.06)',
+              }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'linear-gradient(135deg, rgba(26, 115, 232, 0.15), rgba(26, 115, 232, 0.05))',
+                  color: '#1a73e8',
+                }}>
+                  <Activity size={22} />
+                </div>
+                <div>
+                  <span className="eyebrow" style={{ fontSize: '0.68rem', letterSpacing: '0.08em' }}>REQUESTS (24H)</span>
+                  <strong style={{ display: 'block', fontSize: '1.6rem', lineHeight: 1.1, color: '#1a1a1a' }}>
+                    {fmtNum(totalRequests24h)}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Endpoints Ativos */}
+            <div className="metric-card" style={{ position: 'relative', overflow: 'hidden' }}>
+              <div style={{
+                position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%',
+                background: 'rgba(124, 58, 237, 0.06)',
+              }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(124, 58, 237, 0.05))',
+                  color: '#7c3aed',
+                }}>
+                  <Server size={22} />
+                </div>
+                <div>
+                  <span className="eyebrow" style={{ fontSize: '0.68rem', letterSpacing: '0.08em' }}>ENDPOINTS ATIVOS</span>
+                  <strong style={{ display: 'block', fontSize: '1.6rem', lineHeight: 1.1, color: '#1a1a1a' }}>
+                    {latencyByMethod.length}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Quotas */}
+            <div className="metric-card" style={{ position: 'relative', overflow: 'hidden' }}>
+              <div style={{
+                position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%',
+                background: 'rgba(16, 185, 129, 0.06)',
+              }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))',
+                  color: '#059669',
+                }}>
+                  <Zap size={22} />
+                </div>
+                <div>
+                  <span className="eyebrow" style={{ fontSize: '0.68rem', letterSpacing: '0.08em' }}>QUOTAS MONITORADAS</span>
+                  <strong style={{ display: 'block', fontSize: '1.6rem', lineHeight: 1.1, color: '#1a1a1a' }}>
+                    {quotaLimits.length}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Requests por Hora — Bar Chart ── */}
+          {hourlyRequests.length > 0 && (
+            <div className="form-card" style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(26, 115, 232, 0.1)', color: '#1a73e8',
+                }}>
+                  <BarChart3 size={16} />
+                </div>
+                <strong style={{ fontSize: '0.95rem' }}>Requests por Hora</strong>
+                <span style={{
+                  marginLeft: 'auto', fontSize: '0.75rem', padding: '4px 10px', borderRadius: 100,
+                  background: 'rgba(26, 115, 232, 0.08)', color: '#1a73e8', fontWeight: 600,
+                }}>
+                  Total: {fmtNum(totalRequests24h)}
+                </span>
+              </div>
+              <div className="ai-daily-chart">
+                {(() => {
+                  const maxVal = Math.max(...hourlyRequests.map(h => h.count), 1)
+                  return hourlyRequests.map(h => {
+                    const pct = h.count / maxVal
+                    // Gradiente de cor baseado na intensidade
+                    const barColor = pct > 0.8 ? 'linear-gradient(to top, #1a73e8, #5b9cf6)'
+                      : pct > 0.4 ? 'linear-gradient(to top, #3b82f6, #93bbfd)'
+                      : 'linear-gradient(to top, #93bbfd, #bfdbfe)'
+                    return (
+                      <div key={h.hour} className="ai-daily-bar-group" title={`${h.hour.slice(11)}h — ${fmtNum(h.count)} requests`}>
+                        <div className="ai-daily-bar"
+                          style={{ height: `${Math.max(pct * 120, 4)}px`, background: barColor, borderRadius: '4px 4px 0 0' }} />
+                        <span className="ai-daily-label">{h.hour.slice(11)}h</span>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* ── Latência e Quotas — Grid lado a lado ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: latencyByMethod.length > 0 && quotaLimits.length > 0 ? '1fr 1fr' : '1fr', gap: 14, marginBottom: 16 }}>
+            {/* Latência por Endpoint */}
+            {latencyByMethod.length > 0 && (
+              <div className="form-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed',
+                  }}>
+                    <Clock size={16} />
+                  </div>
+                  <strong style={{ fontSize: '0.92rem' }}>Latência por Endpoint</strong>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {latencyByMethod.map(l => {
+                    const latencyColor = l.avgMs < 500 ? '#059669' : l.avgMs < 2000 ? '#b45309' : '#dc2626'
+                    const latencyBg = l.avgMs < 500 ? 'rgba(16,185,129,0.08)' : l.avgMs < 2000 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'
+                    return (
+                      <div key={l.method} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 14px', borderRadius: 12,
+                        background: 'rgba(0,0,0,0.015)', border: '1px solid rgba(0,0,0,0.04)',
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)', color: '#334155' }}>
+                            {l.method}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', color: '#9ca3af' }}>{fmtNum(l.count)} requests</span>
+                        </div>
+                        <span style={{
+                          fontSize: '0.85rem', fontWeight: 700, padding: '4px 12px', borderRadius: 100,
+                          background: latencyBg, color: latencyColor,
+                        }}>
+                          {fmtNum(l.avgMs)}ms
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Quotas com barras visuais */}
+            {quotaLimits.length > 0 && (
+              <div className="form-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(16, 185, 129, 0.1)', color: '#059669',
+                  }}>
+                    <Zap size={16} />
+                  </div>
+                  <strong style={{ fontSize: '0.92rem' }}>Limites de Quota</strong>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {quotaLimits.map(q => (
+                    <div key={`${q.quotaMetric}-${q.limitName}`} style={{
+                      padding: '10px 14px', borderRadius: 12,
+                      background: 'rgba(0,0,0,0.015)', border: '1px solid rgba(0,0,0,0.04)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)', color: '#334155' }}>
+                          {q.quotaMetric}
+                        </span>
+                        <span style={{
+                          fontSize: '0.78rem', fontWeight: 700, padding: '2px 10px', borderRadius: 100,
+                          background: 'rgba(16, 185, 129, 0.08)', color: '#059669',
+                        }}>
+                          {fmtNum(q.limit)} / min
+                        </span>
+                      </div>
+                      {/* Barra de progresso visual (sem uso real, mostra o limite como escala) */}
+                      <div style={{
+                        height: 6, borderRadius: 100, background: 'rgba(0,0,0,0.04)', overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          height: '100%', borderRadius: 100, width: '100%',
+                          background: 'linear-gradient(90deg, #059669, #10b981)',
+                          opacity: 0.3,
+                        }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Raw JSON (colapsado, low priority) ── */}
+          {Object.keys(ts).length > 0 && (
+            <details style={{ marginTop: 4 }}>
+              <summary style={{
+                cursor: 'pointer', fontSize: '0.78rem', fontWeight: 500, color: '#b0aaa6',
+                padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <Settings size={12} /> Dados brutos (debug)
               </summary>
               <pre style={{
                 marginTop: 8, padding: 16, borderRadius: 12, background: '#1a1a2e', color: '#e2e8f0',
-                fontSize: '0.72rem', overflow: 'auto', maxHeight: 400, lineHeight: 1.5
+                fontSize: '0.68rem', overflow: 'auto', maxHeight: 350, lineHeight: 1.5,
+                border: '1px solid rgba(255,255,255,0.06)',
               }}>
-                {JSON.stringify(data.timeSeries, null, 2)}
+                {JSON.stringify(ts, null, 2)}
               </pre>
             </details>
           )}
         </>
       ) : (
-        <div className="form-card" style={{ padding: 24 }}>
-          <CloudOff size={32} style={{ color: '#dc2626', marginBottom: 8 }} />
-          <p style={{ color: '#dc2626', fontWeight: 600 }}>Erro ao consultar Cloud Monitoring</p>
+        <div className="form-card" style={{ textAlign: 'center', padding: 32 }}>
+          <CloudOff size={36} style={{ color: '#dc2626', marginBottom: 12 }} />
+          <p style={{ color: '#dc2626', fontWeight: 600, fontSize: '1rem', marginBottom: 4 }}>Erro ao consultar Cloud Monitoring</p>
           <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>{data?.error}</p>
+          <button type="button" className="ghost-button" onClick={fetchGcp} style={{ marginTop: 16, padding: '10px 20px' }}>
+            <RefreshCw size={14} /> Tentar novamente
+          </button>
         </div>
       )}
     </div>
