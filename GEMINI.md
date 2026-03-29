@@ -9,6 +9,15 @@
 ## 🧠 MEMÓRIA DE CONTEXTO E DECISÕES ARQUITETURAIS
 # AI Memory Log — Admin-App
 
+## 2026-03-29 — APP v01.70.04 — Financeiro Table Alignment (SumUp/MP)
+### Corrigido
+- `src/modules/financeiro/FinanceiroModule.tsx`: tabela de transações passou a expor classe por provedor para sincronizar a malha de colunas entre cabeçalho e linhas.
+- `src/App.css`: layout de colunas da tabela financeira unificado por template compartilhado (`--fin-cols`) com variante por provedor (SumUp/Mercado Pago), corrigindo desalinhamento visual sem alterar textos, cores ou lógica.
+
+### Controle de versão
+- `APP_VERSION`: APP v01.70.03 → APP v01.70.04
+- `CHANGELOG.md`: entrada v01.70.04 registrada.
+
 ## 2026-03-28 — APP v01.65.02 — CF DNS Proxied Sovereignty + CF P&W Guided Ops
 ### Corrigido
 - `src/modules/cfdns/CfDnsModule.tsx`: qualquer registro com `proxied = true` passou a neutralizar alertas e bloqueios semanticos do painel. O proxy nao e mais rebaixado automaticamente por tipo.
