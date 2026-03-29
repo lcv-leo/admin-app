@@ -1,5 +1,11 @@
 # Changelog — Admin App
 
+## [v01.70.01] — 2026-03-29
+### Corrigido
+- **PostEditor — Feedback em popup window**: notificações de salvamento agora exibem banner inline diretamente na janela popup do editor. Anteriormente, `showNotification` disparava toasts apenas na janela principal (invisíveis ao usuário no popup). Assinatura de `onSave` alterada para `Promise<boolean>` para retornar resultado do salvamento. CSS dedicado com variantes success/error e animação spring.
+
+### Controle de versão
+- `admin-app`: APP v01.70.00 → APP v01.70.01
 ## [v01.70.00] — 2026-03-29
 ### Corrigido
 - **DeploymentCleanupPanel — Purge logic fix**: lógica de identificação de deployments obsoletos corrigida no backend (`cleanup-deployments.ts`). Agora protege tanto o deployment mais recente (por data) quanto o deployment ativo do projeto (`project.latest_deployment.id`). Safety guard adicionado no endpoint POST: retorna `403 Forbidden` se tentar deletar o deployment ativo.

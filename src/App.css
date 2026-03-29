@@ -2394,6 +2394,55 @@ input[type="color"]:focus-visible {
   padding: 4px 12px;
 }
 
+/* ── PostEditor Inline Feedback (popup window) ── */
+.post-editor-feedback {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  animation: feedbackSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.post-editor-feedback--success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #059669;
+}
+
+.post-editor-feedback--error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+.post-editor-feedback span {
+  flex: 1;
+}
+
+.post-editor-feedback__close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  padding: 0 4px;
+  transition: opacity 0.15s;
+}
+
+.post-editor-feedback__close:hover {
+  opacity: 1;
+}
+
+@keyframes feedbackSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ── TipTap Editor ─────────────────────────────── */
 .tiptap-container {
   border: 1px solid rgba(148, 163, 184, 0.25);
