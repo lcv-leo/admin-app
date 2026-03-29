@@ -2,6 +2,8 @@
 // GET — Query mainsite_financial_logs from BIGDATA_DB with filters
 // Returns logs, totals, and approved counts
 
+import type { D1Database } from '@cloudflare/workers-types'
+
 interface Env {
   BIGDATA_DB: D1Database
 }
@@ -63,7 +65,12 @@ const resolveSumupStatusFromSources = (rowStatus: string, rawPayload: string | n
   return row !== 'UNKNOWN' ? row : 'UNKNOWN'
 }
 
-export const onRequestGet: PagesFunction<Env> = async (context) => {
+type FinanceiroContext = {
+  request: Request
+  env: Env
+}
+
+export const onRequestGet = async (context: FinanceiroContext): Promise<Response> => {
   const db = context.env.BIGDATA_DB
   const url = new URL(context.request.url)
 
@@ -98,32 +105,32 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         `SELECT id, payment_id, status, amount, method, payer_email, raw_payload, created_at
          FROM mainsite_financial_logs ${whereClause}
          ORDER BY created_at DESC LIMIT ?`
-      ).bind(...params, limit).all<FinancialLog>(),
+      ).bind(...params, limit).all() as Promise<{ results: FinancialLog[] }>,
 
       db.prepare(
         `SELECT COUNT(1) AS total FROM mainsite_financial_logs ${whereClause}`
-      ).bind(...params).first<{ total: number }>(),
+      ).bind(...params).first() as Promise<{ total: number } | null>,
 
       db.prepare(
         `SELECT COUNT(1) AS total FROM mainsite_financial_logs
          WHERE LOWER(status) IN ('approved', 'successful', 'paid')
          ${conditions.length > 0 ? `AND ${conditions.join(' AND ')}` : ''}`
-      ).bind(...params).first<{ total: number }>(),
+      ).bind(...params).first() as Promise<{ total: number } | null>,
 
       db.prepare(
         `SELECT COALESCE(SUM(amount), 0) AS total_amount FROM mainsite_financial_logs ${whereClause}`
-      ).bind(...params).first<{ total_amount: number }>(),
+      ).bind(...params).first() as Promise<{ total_amount: number } | null>,
 
       db.prepare(
         'SELECT DISTINCT LOWER(status) AS status FROM mainsite_financial_logs WHERE status IS NOT NULL ORDER BY status'
-      ).all<{ status: string }>(),
+      ).all() as Promise<{ results: { status: string }[] }>,
 
       db.prepare(
         'SELECT DISTINCT LOWER(method) AS method FROM mainsite_financial_logs WHERE method IS NOT NULL ORDER BY method'
-      ).all<{ method: string }>(),
+      ).all() as Promise<{ results: { method: string }[] }>,
     ])
 
-    const normalizedLogs = (logsResult.results ?? []).map((log) => {
+    const normalizedLogs = (logsResult.results ?? []).map((log: FinancialLog) => {
       if (String(log.method || '').trim().toLowerCase() !== 'sumup_card') return log
       return {
         ...log,
@@ -140,8 +147,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         totalAmount: Number(sumRow?.total_amount ?? 0),
       },
       filters: {
-        statuses: (distinctStatuses.results ?? []).map((r) => r.status),
-        methods: (distinctMethods.results ?? []).map((r) => r.method),
+        statuses: (distinctStatuses.results ?? []).map((r: { status: string }) => r.status),
+        methods: (distinctMethods.results ?? []).map((r: { method: string }) => r.method),
       },
     })
   } catch (err) {

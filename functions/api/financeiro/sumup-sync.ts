@@ -2,8 +2,8 @@
 // POST — Sincroniza checkouts SumUp com D1 usando @sumup/sdk
 // Portado 1:1 do mainsite-worker /api/sumup/sync para compliance com SumUp SDK v0.1.2+
 
-// @ts-expect-error — SumUp SDK default export
 import SumUp from '@sumup/sdk'
+import type { D1Database } from '@cloudflare/workers-types'
 
 interface Env {
   BIGDATA_DB: D1Database
@@ -49,14 +49,37 @@ const resolveSumupStatusFromSources = (rowStatus: string, payloadStatus: string 
   return row !== 'UNKNOWN' ? row : 'UNKNOWN'
 }
 
-export const onRequestPost: PagesFunction<Env> = async (context) => {
+interface SumUpTransaction {
+  id?: string
+  status?: string
+  type?: string
+  amount?: number
+  timestamp?: string
+}
+
+interface SumUpCheckout {
+  id?: string
+  status?: string
+  amount?: number
+  date?: string
+  timestamp?: string
+  created_at?: string
+  transactions?: SumUpTransaction[]
+}
+
+type SyncContext = {
+  request: Request
+  env: Env
+}
+
+export const onRequestPost = async (context: SyncContext): Promise<Response> => {
   const db = context.env.BIGDATA_DB
   const token = context.env.SUMUP_API_KEY_PRIVATE
   if (!token) return Response.json({ error: 'SUMUP_API_KEY_PRIVATE ausente.' }, { status: 503 })
 
   try {
     const client = new SumUp({ apiKey: token })
-    const checkouts = await client.checkouts.list()
+    const checkouts: SumUpCheckout[] = await client.checkouts.list()
     if (!Array.isArray(checkouts)) throw new Error('Resposta inesperada da SumUp.')
 
     let inserted = 0, updated = 0
@@ -74,18 +97,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       // Refunds aparecem como transações adicionais com type=REFUND.
       let payloadStatus = tx?.status || checkout.status || 'UNKNOWN'
       const allTxns = checkout.transactions || []
-      const refundTxns = allTxns.filter((t: any) =>
+      const refundTxns = allTxns.filter((t: SumUpTransaction) =>
         String(t.type || '').toUpperCase() === 'REFUND' &&
         String(t.status || '').toUpperCase() === 'SUCCESSFUL'
       )
       if (refundTxns.length > 0) {
-        const totalRefunded = refundTxns.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0)
+        const totalRefunded = refundTxns.reduce((sum: number, t: SumUpTransaction) => sum + Number(t.amount || 0), 0)
         payloadStatus = totalRefunded >= amount ? 'REFUNDED' : 'PARTIALLY_REFUNDED'
       }
 
       const existing = await db.prepare(
         "SELECT id, status FROM mainsite_financial_logs WHERE method = 'sumup_card' AND (payment_id = ? OR payment_id = ?) LIMIT 1"
-      ).bind(checkoutId, transactionId).first<{ id: number; status: string }>()
+      ).bind(checkoutId, transactionId).first() as { id: number; status: string } | null
 
       const status = resolveSumupStatusFromSources(existing?.status || 'UNKNOWN', payloadStatus)
 
