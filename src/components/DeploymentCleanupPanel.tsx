@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Cloud, Loader2, Play, RotateCcw, Search, Trash2 } from 'lucide-react'
+import { useNotification } from './Notification'
 import './DeploymentCleanupPanel.css'
 
 /* ── Types ── */
@@ -58,6 +59,7 @@ let logIdCounter = 0
 
 /* ── Component ── */
 export function DeploymentCleanupPanel() {
+  const { showNotification } = useNotification()
   const [state, setState] = useState<PanelState>('idle')
   const [scanData, setScanData] = useState<ScanResponse | null>(null)
   const [logs, setLogs] = useState<LogLine[]>([])
@@ -102,8 +104,10 @@ export function DeploymentCleanupPanel() {
 
       if (data.totalObsolete === 0) {
         addLog('✓ Infraestrutura otimizada — nenhum deployment obsoleto encontrado.', 'success')
+        showNotification('Infraestrutura otimizada — nenhum deployment obsoleto.', 'success')
       } else {
         addLog(`⚠ ${data.totalObsolete} deployment(s) obsoleto(s) identificado(s) para expurgo.`, 'warn')
+        showNotification(`${data.totalObsolete} deployment(s) obsoleto(s) identificado(s).`, 'info')
       }
 
       // Log detalhado por projeto
@@ -117,10 +121,12 @@ export function DeploymentCleanupPanel() {
 
       setState('scanned')
     } catch (err) {
-      addLog(`✗ Falha no scan: ${err instanceof Error ? err.message : 'Erro desconhecido'}`, 'error')
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      addLog(`✗ Falha no scan: ${msg}`, 'error')
+      showNotification(`Falha no scan: ${msg}`, 'error')
       setState('idle')
     }
-  }, [addLog])
+  }, [addLog, showNotification])
 
   /* ── PURGE ── */
   const handlePurge = useCallback(async () => {
@@ -187,14 +193,18 @@ export function DeploymentCleanupPanel() {
     }
 
     addLog('', 'dim')
-    if (failedCount === 0) {
+    if (abortRef.current) {
+      showNotification('Operação interrompida pelo operador.', 'info')
+    } else if (failedCount === 0) {
       addLog(`✓ Governança concluída — ${successCount} deployment(s) destruído(s).`, 'success')
+      showNotification(`Governança concluída — ${successCount} deployment(s) destruído(s).`, 'success')
     } else {
       addLog(`⚠ Concluído — ${successCount} sucesso(s), ${failedCount} falha(s).`, 'warn')
+      showNotification(`Expurgo parcial: ${successCount} sucesso(s), ${failedCount} falha(s).`, 'error')
     }
 
     setState('complete')
-  }, [scanData, addLog])
+  }, [scanData, addLog, showNotification])
 
   /** Abortar operação em andamento */
   const handleAbort = useCallback(() => {
