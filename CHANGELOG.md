@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.69.03] — 2026-03-29
+### Corrigido
+- **Purge de Deployments — Compliance de notificações**: componente `DeploymentCleanupPanel` violava a diretiva global de notificações (toast). Feedbacks de scan ok/erro, purge concluído/parcial e operação abortada agora emitem toast via `useNotification()`, além do log no terminal interno.
+
+### Controle de versão
+- `admin-app`: APP v01.69.02 → APP v01.69.03
+
 ## [v01.69.02] — 2026-03-29
 ### Alterado
 - **Telemetria — Fusão de abas**: abas "Chatbot" e "Auditoria IA" unificadas em uma única aba "Chatbot IA" com duas seções empilhadas — conversas (chat logs) e auditoria de contexto (posts selecionados, termos, scores). Elimina navegação desnecessária entre dados complementares da mesma feature.
