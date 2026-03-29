@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.70.04] — 2026-03-29
+### Corrigido
+- **Financeiro — Alinhamento visual das tabelas (SumUp/MP)**: alinhamento de colunas entre cabeçalho e linhas de transações estabilizado no `FinanceiroModule` com malha de colunas compartilhada por provedor (SumUp e Mercado Pago). Ajuste estritamente de layout, sem alterações de textos, regras de negócio, cores ou ações.
+
+### Controle de versão
+- `admin-app`: APP v01.70.03 → APP v01.70.04
+
 ## [v01.70.03] — 2026-03-29
 ### Corrigido
 - **DeploymentCleanupPanel — Preview delete confirmation intelligence**: endpoint `cleanup-deployments.ts` passou a aplicar exclusão de deployments `preview` com confirmação programática (`force=true`) via API oficial Cloudflare, espelhando o requisito de confirmação manual do Dashboard sem intervenção humana.

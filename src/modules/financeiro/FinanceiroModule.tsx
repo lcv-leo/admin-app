@@ -544,7 +544,7 @@ export function FinanceiroModule() {
           <p className="result-empty">Nenhuma transação encontrada com os filtros atuais.</p>
         ) : (
           <div className="fin-table-wrap">
-            <table className="fin-table" aria-label={`Tabela de transações ${providerLabel}`}>
+            <table className={`fin-table fin-table--${provider}`} aria-label={`Tabela de transações ${providerLabel}`}>
               <thead>
                 <tr>
                   <th scope="col">Data</th>
@@ -566,7 +566,7 @@ export function FinanceiroModule() {
 
                   return (
                     <tr key={txKey} className={isExp ? 'fin-row-expanded' : ''}>
-                      <td colSpan={provider === 'sumup' ? 9 : 9}>
+                      <td colSpan={7}>
                         <button type="button" className="fin-row-toggle-btn"
                           onClick={() => setExpandedRow(isExp ? null : txKey)}
                           aria-expanded={isExp} aria-controls={`fin-detail-${txKey}`}
