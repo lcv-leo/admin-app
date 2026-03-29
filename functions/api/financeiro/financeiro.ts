@@ -37,20 +37,30 @@ const resolveSumupStatusFromSources = (rowStatus: string, rawPayload: string | n
   let payloadStatus: string | null = null
   try {
     const payload = rawPayload ? JSON.parse(rawPayload) : null
-    payloadStatus = payload?.transactions?.[0]?.status || payload?.transaction?.status || payload?.status || null
+    const allTxns = payload?.transactions || []
+    const amount = Number(payload?.amount || 0)
+
+    // Detectar refunds no array de transações do checkout
+    const refundTxns = allTxns.filter((t: Record<string, unknown>) =>
+      String(t.type || '').toUpperCase() === 'REFUND' &&
+      String(t.status || '').toUpperCase() === 'SUCCESSFUL'
+    )
+    if (refundTxns.length > 0) {
+      const totalRefunded = refundTxns.reduce((sum: number, t: Record<string, unknown>) => sum + Number(t.amount || 0), 0)
+      payloadStatus = totalRefunded >= amount ? 'REFUNDED' : 'PARTIALLY_REFUNDED'
+    } else {
+      payloadStatus = allTxns[0]?.status || payload?.transaction?.status || payload?.status || null
+    }
   } catch {
     payloadStatus = null
   }
 
   const row = normalizeSumupStatus(rowStatus || 'UNKNOWN')
-  const payload = normalizeSumupStatus(payloadStatus || 'UNKNOWN')
-  const terminalPriority = ['PARTIALLY_REFUNDED', 'REFUNDED', 'CANCELLED', 'CHARGE_BACK', 'FAILED', 'EXPIRED']
-  for (const st of terminalPriority) {
-    if (row === st || payload === st) return st
-  }
-  if (row === 'SUCCESSFUL' || payload === 'SUCCESSFUL') return 'SUCCESSFUL'
-  if (row === 'PENDING' || payload === 'PENDING') return 'PENDING'
-  return row !== 'UNKNOWN' ? row : payload
+  const provider = normalizeSumupStatus(payloadStatus || 'UNKNOWN')
+
+  // Dados do provedor SEMPRE têm prioridade sobre o que está na D1
+  if (provider && provider !== 'UNKNOWN') return provider
+  return row !== 'UNKNOWN' ? row : 'UNKNOWN'
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
