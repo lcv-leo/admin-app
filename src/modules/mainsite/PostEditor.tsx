@@ -446,6 +446,9 @@ const PROMPT_MODAL_INITIAL: PromptModalState = {
   callback: null, isLink: false, linkText: '', showCaption: false, caption: '',
 }
 
+// ── Local save feedback (visible inside popup window) ────────
+type SaveFeedback = { message: string; type: 'success' | 'error' } | null
+
 // ── Component props ───────────────────────────────────────────
 export type PostEditorProps = {
   editingPostId: number | null
@@ -454,7 +457,7 @@ export type PostEditorProps = {
   savingPost: boolean
   adminActor: string
   showNotification: (msg: string, type: 'info' | 'success' | 'error') => void
-  onSave: (title: string, htmlContent: string) => void
+  onSave: (title: string, htmlContent: string) => Promise<boolean>
   onClose: () => void
 }
 
@@ -468,6 +471,8 @@ export default function PostEditor({
   const [promptModal, setPromptModal] = useState<PromptModalState>(PROMPT_MODAL_INITIAL)
   const [isUploading, setIsUploading] = useState(false)
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+  const [saveFeedback, setSaveFeedback] = useState<SaveFeedback>(null)
+  const saveFeedbackTimer = useRef<ReturnType<typeof setTimeout>>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   // AI Freeform Command
   const [aiChatOpen, setAiChatOpen] = useState(false)
@@ -739,16 +744,29 @@ export default function PostEditor({
     })
   }, [editor, showNotification, insertCaptionBlock])
 
+  // ── Local feedback helper (visible in popup window) ─────────
+  const flashFeedback = useCallback((message: string, type: 'success' | 'error') => {
+    if (saveFeedbackTimer.current) clearTimeout(saveFeedbackTimer.current)
+    setSaveFeedback({ message, type })
+    saveFeedbackTimer.current = setTimeout(() => setSaveFeedback(null), 5000)
+  }, [])
+
   // ── Form submission ─────────────────────────────────────────
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const title = postTitle.trim()
     const content = editor?.getHTML()?.trim() ?? ''
     if (!title || !content || content === '<p></p>') {
+      flashFeedback('Título e conteúdo são obrigatórios para salvar o post.', 'error')
       showNotification('Título e conteúdo são obrigatórios para salvar o post.', 'error')
       return
     }
-    onSave(title, content)
+    const success = await onSave(title, content)
+    if (success) {
+      flashFeedback(editingPostId ? 'Post atualizado com sucesso ✓' : 'Post criado com sucesso ✓', 'success')
+    } else {
+      flashFeedback('Falha ao salvar o post. Verifique e tente novamente.', 'error')
+    }
   }
 
   const handleClear = () => {
@@ -778,6 +796,19 @@ export default function PostEditor({
           </button>
         </div>
       </div>
+
+      {/* ── Inline save feedback (visible in popup window) ── */}
+      {saveFeedback && (
+        <div
+          className={`post-editor-feedback post-editor-feedback--${saveFeedback.type}`}
+          role="status"
+          aria-live="polite"
+        >
+          {saveFeedback.type === 'success' ? <CheckSquare size={16} /> : <X size={16} />}
+          <span>{saveFeedback.message}</span>
+          <button type="button" className="post-editor-feedback__close" onClick={() => setSaveFeedback(null)} aria-label="Fechar">×</button>
+        </div>
+      )}
 
       <div className="field-group">
         <label htmlFor="mainsite-post-title">Título do post</label>

@@ -252,7 +252,7 @@ export function MainsiteModule() {
   }
 
   /** Called by PostEditor when user submits */
-  const handleSavePost = async (title: string, htmlContent: string) => {
+  const handleSavePost = async (title: string, htmlContent: string): Promise<boolean> => {
     setSavingPost(true)
     try {
       const isEditing = editingPostId !== null
@@ -278,8 +278,10 @@ export function MainsiteModule() {
 
       await loadManagedPosts()
       showNotification(withTrace(isEditing ? 'Post do MainSite atualizado com sucesso.' : 'Post do MainSite criado com sucesso.', nextPayload), 'success')
+      return true
     } catch {
       showNotification('Não foi possível salvar o post do MainSite.', 'error')
+      return false
     } finally {
       setSavingPost(false)
     }
@@ -470,7 +472,7 @@ export function MainsiteModule() {
             savingPost={savingPost}
             adminActor={adminActor}
             showNotification={showNotification}
-            onSave={(title, html) => void handleSavePost(title, html)}
+            onSave={(title, html) => handleSavePost(title, html)}
             onClose={resetPostEditor}
           />
         </Suspense>
