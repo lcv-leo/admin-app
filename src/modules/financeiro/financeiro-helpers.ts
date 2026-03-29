@@ -209,13 +209,12 @@ export const resolveEffectiveSumupStatus = (
   const tx = normalize(raw?.txStatus)
   const checkout = normalize(raw?.checkoutStatus)
 
-  const terminalPriority = ['REFUNDED', 'PARTIALLY_REFUNDED', 'CANCELLED', 'CHARGE_BACK', 'FAILED', 'EXPIRED']
-  for (const st of terminalPriority) {
-    if (row === st || tx === st || checkout === st) return st
-  }
+  // Dados do provedor (SumUp) SEMPRE têm prioridade sobre o que está na D1.
+  // Status da transação > status do checkout > status do DB
+  if (tx && tx !== 'UNKNOWN' && tx !== '') return tx
+  if (checkout && checkout !== 'UNKNOWN' && checkout !== '') return checkout
 
-  if (tx) return tx
-  if (checkout) return checkout
+  // Fallback para status do DB apenas quando o provedor não reporta nada
   return row || 'UNKNOWN'
 }
 

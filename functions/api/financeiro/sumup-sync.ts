@@ -40,15 +40,13 @@ const normalizeSumupStatus = (status: string): string => {
 const resolveSumupStatusFromSources = (rowStatus: string, payloadStatus: string | null): string => {
   const row = normalizeSumupStatus(rowStatus || 'UNKNOWN')
   const payload = normalizeSumupStatus(payloadStatus || 'UNKNOWN')
-  const terminalPriority = ['REFUNDED', 'PARTIALLY_REFUNDED', 'CANCELLED', 'CHARGE_BACK', 'FAILED', 'EXPIRED']
 
-  for (const status of terminalPriority) {
-    if (row === status || payload === status) return status
-  }
+  // Dados do provedor (SumUp) SEMPRE têm prioridade sobre o que está na D1.
+  // Se o provedor reporta um status válido (não-UNKNOWN), ele vence.
+  if (payload && payload !== 'UNKNOWN') return payload
 
-  if (row === 'SUCCESSFUL' || payload === 'SUCCESSFUL') return 'SUCCESSFUL'
-  if (row === 'PENDING' || payload === 'PENDING') return 'PENDING'
-  return row !== 'UNKNOWN' ? row : payload
+  // Fallback para status do DB apenas quando o provedor não reporta nada
+  return row !== 'UNKNOWN' ? row : 'UNKNOWN'
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
