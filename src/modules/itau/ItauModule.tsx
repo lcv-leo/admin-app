@@ -2,19 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Database, Loader2, RefreshCw, Save, BrainCircuit } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
+import { useModuleConfig } from '../../lib/useModuleConfig'
 
 export interface CalculadoraConfig {
   modeloIA?: string
 }
 
 const DEFAULT_CONFIG: CalculadoraConfig = { modeloIA: '' }
-
-function loadConfig(): CalculadoraConfig {
-  try {
-    const s = localStorage.getItem('calculadora-config')
-    return s ? { ...DEFAULT_CONFIG, ...JSON.parse(s) } : DEFAULT_CONFIG
-  } catch { return DEFAULT_CONFIG }
-}
 
 export interface GeminiModelItem { id: string; displayName: string; api: string; vision: boolean }
 
@@ -51,17 +45,12 @@ export function CalculadoraModule() {
   const [adminActor] = useState('admin@app.lcv')
   const [parametrosForm, setParametrosForm] = useState<ParametrosForm>(initialParametrosForm)
 
-  const [config, setConfig] = useState<CalculadoraConfig>(loadConfig)
+  const [config, saveConfig] = useModuleConfig<CalculadoraConfig>('calculadora-config', DEFAULT_CONFIG, {
+    onSaveSuccess: () => showNotification('Configuração salva.', 'success'),
+    onSaveError: (err) => showNotification(`Erro ao salvar configuração: ${err}`, 'error'),
+  })
   const [geminiModels, setGeminiModels] = useState<GeminiModelItem[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
-
-  const saveConfig = (newValues: Partial<CalculadoraConfig>) => {
-    setConfig(prev => {
-      const next = { ...prev, ...newValues }
-      localStorage.setItem('calculadora-config', JSON.stringify(next))
-      return next
-    })
-  }
 
   const carregarModelos = async () => {
     setModelsLoading(true)
@@ -254,7 +243,7 @@ export function CalculadoraModule() {
               </select>
             </div>
             <p className="field-hint" style={{ marginTop: '8px' }}>
-              Esta alteração é persistida localmente (no seu navegador) e aplicada instantaneamente sem recarregar a página.
+              Esta alteração é persistida no banco de dados e sincronizada entre dispositivos.
             </p>
           </div>
         </div>
