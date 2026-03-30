@@ -15,5 +15,9 @@
 	},
 	"dependencies": {
 		"postal-mime": "^2.7.3"
+	},
+	"overrides": {
+		"picomatch": "4.0.4",
+		"undici": "6.24.0"
 	}
 }
