@@ -309,13 +309,13 @@ input[type="color"]:focus-visible {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-radius: 100px;
   color: #5f6368;
   background: transparent;
-  font-size: 0.92rem;
+  font-size: 0.84rem;
   font-weight: 500;
 }
 
@@ -422,13 +422,13 @@ input[type="color"]:focus-visible {
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: 7px;
+  padding: 6px 13px;
   border-radius: 100px;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   color: #5f6368;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 500;
 }
 
@@ -457,11 +457,11 @@ input[type="color"]:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 12px 22px;
+  gap: 8px;
+  padding: 9px 18px;
   border-radius: 100px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
 }
 
 .primary-button {
@@ -557,9 +557,9 @@ input[type="color"]:focus-visible {
 }
 
 .badge {
-  padding: 8px 12px;
+  padding: 5px 10px;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -751,11 +751,11 @@ input[type="color"]:focus-visible {
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .field-group label {
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: #5f6368;
 }
@@ -766,8 +766,9 @@ input[type="color"]:focus-visible {
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: #ffffff;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   color: #202124;
+  font-size: 0.84rem;
 }
 
 .field-group input:focus,
@@ -803,13 +804,13 @@ input[type="color"]:focus-visible {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
 }
 
 .field-hint {
-  margin: 6px 0 0;
+  margin: 5px 0 0;
   color: #80868b;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   line-height: 1.6;
 }
 
@@ -841,10 +842,10 @@ input[type="color"]:focus-visible {
 .ops-status-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 0.72rem;
+  padding: 6px 10px;
+  font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -854,8 +855,8 @@ input[type="color"]:focus-visible {
 }
 
 .ops-status-chip__dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: currentColor;
   opacity: 0.8;
@@ -2044,16 +2045,16 @@ input[type="color"]:focus-visible {
   background: #202124;
   border: 1px solid #3c4043;
   border-radius: 20px;
-  padding: 32px;
-  max-width: 380px;
+  padding: 26px;
+  max-width: 360px;
   width: 100%;
   text-align: center;
 }
 
 .confirm-dialog__icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 16px;
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 14px;
   border-radius: 50%;
   background: rgba(234, 67, 53, 0.15);
   display: flex;
@@ -2063,21 +2064,21 @@ input[type="color"]:focus-visible {
 }
 
 .confirm-dialog h4 {
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .confirm-dialog p {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: #9aa0a6;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   line-height: 1.5;
 }
 
 .confirm-dialog__actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .confirm-dialog__actions .ghost-button,
@@ -2348,14 +2349,14 @@ input[type="color"]:focus-visible {
 }
 
 .astro-email-inline .primary-button {
-  padding: 8px 16px;
-  font-size: 0.8rem;
+  padding: 6px 13px;
+  font-size: 0.72rem;
   border-radius: 10px;
 }
 
 .astro-email-inline .ghost-button {
-  padding: 8px 12px;
-  font-size: 0.8rem;
+  padding: 6px 10px;
+  font-size: 0.72rem;
 }
 
 @media (max-width: 768px) {
@@ -2398,10 +2399,10 @@ input[type="color"]:focus-visible {
 .post-editor-feedback {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
+  gap: 8px;
+  padding: 8px 13px;
   border-radius: 10px;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
   margin-bottom: 12px;
   animation: feedbackSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -2959,9 +2960,9 @@ input[type="color"]:focus-visible {
 .telemetria-tab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  font-size: 0.78rem;
+  gap: 5px;
+  padding: 6px 13px;
+  font-size: 0.72rem;
   font-weight: 600;
   border: none;
   border-radius: 8px;
@@ -3281,9 +3282,9 @@ input[type="color"]:focus-visible {
 }
 
 .fin-provider-tab {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-radius: 12px;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
@@ -3968,9 +3969,9 @@ input[type="color"]:focus-visible {
 .news-panel__search {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  margin: 12px 16px;
+  gap: 7px;
+  padding: 8px 13px;
+  margin: 10px 14px;
   border: 1px solid rgba(154, 160, 166, 0.15);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.7);
@@ -4349,8 +4350,8 @@ input[type="color"]:focus-visible {
 
 .news-settings__add-source .primary-button {
   white-space: nowrap;
-  padding: 8px 14px;
-  font-size: 0.8rem;
+  padding: 6px 11px;
+  font-size: 0.72rem;
 }
 
 @media (max-width: 768px) {
@@ -4460,9 +4461,9 @@ input[type="color"]:focus-visible {
 .rss-discover-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-size: 0.72rem;
+  gap: 5px;
+  padding: 6px 11px;
+  font-size: 0.66rem;
   font-weight: 600;
   color: #9aa0a6;
   border-bottom: 1px solid rgba(154, 160, 166, 0.1);

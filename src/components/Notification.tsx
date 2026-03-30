@@ -1,9 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { AlertCircle, CheckCircle2, Info } from 'lucide-react'
+import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 import './Notification.css'
 
-type NotificationTone = 'success' | 'error' | 'info'
+type NotificationTone = 'success' | 'error' | 'info' | 'warning'
 
 type NotificationItem = {
   id: number
@@ -29,6 +29,7 @@ const iconMap = {
   success: CheckCircle2,
   error: AlertCircle,
   info: Info,
+  warning: AlertTriangle,
 } satisfies Record<NotificationTone, typeof Info>
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
@@ -70,7 +71,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           return (
             <div key={item.id} className={`notification notification-${item.type}`} role="status" aria-live="polite">
               <div className="notification-body">
-                <div className="notification-icon"><Icon size={18} /></div>
+                <div className="notification-icon"><Icon size={15} /></div>
                 <span className="notification-message">{item.message}</span>
                 <button type="button" className="notification-close" onClick={() => removeNotification(item.id)} aria-label="Fechar notificação">
                   ×

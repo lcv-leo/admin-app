@@ -18,11 +18,11 @@
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 28px;
+  gap: 8px;
+  padding: 11px 22px;
   border-radius: 100px;
   font-weight: 700;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;
@@ -55,11 +55,18 @@
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
+/* ─── Variante: warning ─── */
+.notification-warning {
+  background: var(--semantic-warning, #f9ab00);
+  color: #202124;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
 /* ─── Body layout (icon + text + close) ─── */
 .notification-body {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
 }
 
@@ -78,6 +85,10 @@
   color: #1a73e8;
 }
 
+.notification-warning .notification-icon {
+  color: #202124;
+}
+
 /* ─── Mensagem ─── */
 .notification-message {
   flex: 1;
@@ -89,8 +100,8 @@
 /* ─── Botão fechar ─── */
 .notification-close {
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: none;
   border-radius: 999px;
   background: transparent;
@@ -100,7 +111,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1rem;
   transition: opacity 0.15s ease;
 }
 
@@ -134,8 +145,8 @@
 @media (max-width: 768px) {
   .notification {
     max-width: min(96vw, 420px);
-    padding: 12px 20px;
-    font-size: 0.82rem;
+    padding: 10px 16px;
+    font-size: 0.74rem;
     white-space: normal;
   }
 }

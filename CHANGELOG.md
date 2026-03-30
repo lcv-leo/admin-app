@@ -1,5 +1,19 @@
 # Changelog — Admin App
 
+## [v01.74.00] — 2026-03-29
+### Alterado
+- **Visual Standardization — Google Material Design Palette**: toda a paleta de cores do admin-app padronizada para o sistema oficial do Google (`#1a73e8` Blue, `#34a853` Green, `#ea4335` Red, `#f9ab00` Yellow, `#202124`/`#3c4043`/`#5f6368`/`#80868b` neutrals). Design tokens centralizados em `variables.css`. Todas as 10 module shells unificadas. Inline color overrides removidos de TSX/TS.
+- **UI Density — Option 5 "Balanced" (~20% reduction)**: redução proporcional de ~20% aplicada a todos os elementos interativos do admin-app — botões (`.primary-button`, `.ghost-button`), badges (`.badge`), status chips (`.ops-status-chip`), status pills (`.status-pill`), nav items (`.nav-item`), form inputs/labels/hints, confirm dialogs, telemetria tabs, financeiro tabs, astrólogo email buttons, news search, RSS discovery, e DeploymentCleanupPanel.
+- **Toast Notifications — Balanced sizing**: padding, font-size, icon e close button reduzidos em ~20%.
+
+### Adicionado
+- **Toast Warning Variant**: nova variante `notification-warning` (fundo `#f9ab00` Google Yellow/Orange, ícone `AlertTriangle`, texto escuro) adicionada ao sistema de notificações. Tipo `'warning'` disponível via `showNotification(msg, 'warning')`.
+- **TLS-RPT — Balanced sizing**: sync button e policy badge reduzidos em ~20%.
+- **DeploymentCleanupPanel — Balanced sizing**: action buttons, badges, terminal header e confirm modal reduzidos em ~20%.
+
+### Controle de versão
+- `admin-app`: APP v01.73.00 → APP v01.74.00
+
 ## [v01.73.00] — 2026-03-29
 ### Adicionado
 - **Autor dinâmico de posts**: campo "Autor do post" adicionado ao `PostEditor`, persistido na coluna `author` da tabela `mainsite_posts` (D1). Auto-migração de schema via `ensureAuthorColumn`. Backend `posts.ts` atualizado (INSERT/UPDATE/SELECT). Fallback para "Leonardo Cardozo Vargas" quando vazio.
