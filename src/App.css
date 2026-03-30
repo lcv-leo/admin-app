@@ -1368,7 +1368,7 @@ input[type="color"]:focus-visible {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #80868b;
-  padding: 8px 10px;
+  padding: 8px 6px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
