@@ -812,42 +812,46 @@ export default function PostEditor({
             </div>
           </div>
         )}
-        {geminiImportProgress.active && (
-          <div
-            className={`gemini-import-progress gemini-import-progress--${geminiImportProgress.stage}`}
-            role="status"
-            aria-live="polite"
-          >
-            <div className="gemini-import-progress__meta">
-              <span>Importacao Gemini</span>
-              <span>{geminiImportProgress.percent}%</span>
-            </div>
-            <div className="gemini-import-progress__track" aria-hidden="true">
-              <div className="gemini-import-progress__fill" style={{ width: `${geminiImportProgress.percent}%` }} />
-            </div>
-            <p className="gemini-import-progress__message">{geminiImportProgress.message}</p>
-            {geminiImportProgress.stage === 'error' && (
-              <div className="gemini-import-progress__actions">
-                <button
-                  type="button"
-                  className="gemini-import-progress__btn gemini-import-progress__btn--primary"
-                  onClick={() => handleGeminiImport(lastGeminiImportUrl)}
-                  disabled={!lastGeminiImportUrl || isImportingGemini}
-                >
-                  Tentar novamente
-                </button>
-                <button
-                  type="button"
-                  className="gemini-import-progress__btn gemini-import-progress__btn--ghost"
-                  onClick={() => setGeminiImportProgress(GEMINI_IMPORT_IDLE)}
-                  disabled={isImportingGemini}
-                >
-                  Fechar
-                </button>
+        {/* FIX: Wrapper estático para evitar "NotFoundError: Failed to execute 'insertBefore' on 'Node'" 
+             quando o React tenta montar condicionalmente ANTES de um nó do Tiptap (DragHandle) 
+             cujo DOM foi manipulado externamente. */}
+        <div className="gemini-import-progress-wrapper" aria-live="polite">
+          {geminiImportProgress.active && (
+            <div
+              className={`gemini-import-progress gemini-import-progress--${geminiImportProgress.stage}`}
+              role="status"
+            >
+              <div className="gemini-import-progress__meta">
+                <span>Importacao Gemini</span>
+                <span>{geminiImportProgress.percent}%</span>
               </div>
-            )}
-          </div>
-        )}
+              <div className="gemini-import-progress__track" aria-hidden="true">
+                <div className="gemini-import-progress__fill" style={{ width: `${geminiImportProgress.percent}%` }} />
+              </div>
+              <p className="gemini-import-progress__message">{geminiImportProgress.message}</p>
+              {geminiImportProgress.stage === 'error' && (
+                <div className="gemini-import-progress__actions">
+                  <button
+                    type="button"
+                    className="gemini-import-progress__btn gemini-import-progress__btn--primary"
+                    onClick={() => handleGeminiImport(lastGeminiImportUrl)}
+                    disabled={!lastGeminiImportUrl || isImportingGemini}
+                  >
+                    Tentar novamente
+                  </button>
+                  <button
+                    type="button"
+                    className="gemini-import-progress__btn gemini-import-progress__btn--ghost"
+                    onClick={() => setGeminiImportProgress(GEMINI_IMPORT_IDLE)}
+                    disabled={isImportingGemini}
+                  >
+                    Fechar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         {editor && (
           <DragHandle editor={editor} className="tiptap-drag-handle" onNodeChange={() => undefined}>
             <GripVertical size={14} strokeWidth={2.2} />
