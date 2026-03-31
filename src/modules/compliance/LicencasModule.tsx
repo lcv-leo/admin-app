@@ -4,7 +4,13 @@
  */
 import { useEffect, useState } from 'react';
 
-const getRawUrl = (file: string) => `https://raw.githubusercontent.com/lcv-leo/admin-app/main/${file}`;
+const LEGAL_PUBLIC_BASE = `${import.meta.env.BASE_URL}legal/`;
+
+const LEGAL_FILES = {
+  LICENSE: `${LEGAL_PUBLIC_BASE}LICENSE.txt`,
+  NOTICE: `${LEGAL_PUBLIC_BASE}NOTICE.txt`,
+  THIRDPARTY: `${LEGAL_PUBLIC_BASE}THIRDPARTY.md`
+} as const;
 
 type DocsState = {
   LICENSE: string;
@@ -20,10 +26,10 @@ export function LicencasModule() {
   });
 
   useEffect(() => {
-    const fetchFile = async (file: string): Promise<string> => {
-      const response = await fetch(getRawUrl(file), { cache: 'no-store' });
+    const fetchFile = async (label: keyof DocsState, path: string): Promise<string> => {
+      const response = await fetch(path, { cache: 'no-store' });
       if (!response.ok) {
-        throw new Error(`Falha ao carregar ${file}: ${response.status}`);
+        throw new Error(`Falha ao carregar ${label}: ${response.status}`);
       }
       return response.text();
     };
@@ -31,9 +37,9 @@ export function LicencasModule() {
     const fetchFiles = async () => {
       try {
         const [licenseText, noticeText, thirdPartyText] = await Promise.all([
-          fetchFile('LICENSE'),
-          fetchFile('NOTICE'),
-          fetchFile('THIRDPARTY.md')
+          fetchFile('LICENSE', LEGAL_FILES.LICENSE),
+          fetchFile('NOTICE', LEGAL_FILES.NOTICE),
+          fetchFile('THIRDPARTY', LEGAL_FILES.THIRDPARTY)
         ]);
 
         setContent({
