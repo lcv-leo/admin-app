@@ -1,5 +1,20 @@
 # Changelog — Admin App
 
+## [v01.74.08] — 2026-03-31
+### Corrigido
+- **Módulo de Licenças (Compliance)**: resolvido conflito de tipagem no mecanismo de carregamento tardio (lazy loading) do React (`App.tsx`) que esperava um ComponentType estrito. A exportação do `LicencasModule` foi refatorada de `React.FC` para declaração de função padrão.
+- **Limpeza de Linter (Segurança/Types)**: removidos parâmetros de erro ociosos em blocos de requisição (`catch`) e aplicada supressão cirúrgica de `no-control-regex` no filtro de controle de caracteres do parser URL (`validation.ts`).
+
+### Controle de versão
+- `admin-app`: APP v01.74.07 → APP v01.74.08
+
+## [v01.74.07] — 2026-03-31
+### Corrigido
+- **GCP Monitoring — JWT `Invalid JWT Signature` após rotação de chave**: `gcp-monitoring.ts` reescrito com parsing robusto de `GCP_SA_KEY`. Suporta agora raw JSON, base64-encoded JSON e JSON duplamente stringificado. `normalizePrivateKey()` normaliza `\r\n` e `\\n` → `\n`. Helpers `toBase64UrlFromBytes` e `toBase64UrlFromString` substituem `btoa(String.fromCharCode(...spread))` que falha em chaves grandes. Mensagem de erro em `invalid_grant` agora expõe `private_key_id` para facilitar diagnóstico de rotação.
+
+### Controle de versão
+- `admin-app`: APP v01.74.05 → APP v01.74.07 (v01.74.06 foi entrada de CHANGELOG sem bump de App.tsx)
+
 ## [v01.74.06] — 2026-03-31
 ### Governança
 - **Conformidade Híbrida Automática**: Injector de licenciamento (`apply-workspace-compliance.js`) parametrizado para gerar AGPLv3 `LICENSE`, `NOTICE` e `THIRDPARTY.md` na raiz física de todos os projetos, e estampar cabecalho SPDX (`SPDX-License-Identifier: AGPL-3.0-or-later`) em todos os sources `.js`/`.ts`/`.jsx`/`.tsx` do ecossistema.
