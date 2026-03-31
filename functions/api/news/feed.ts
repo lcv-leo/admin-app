@@ -139,17 +139,17 @@ function extractTag(block: string, tag: string): string {
 
 /**
  * Remove tags HTML e decodifica entidades comuns.
+ * Mantém &lt; e &gt; como entidades para evitar recriar tags.
  */
 function cleanHtml(text: string): string {
   return text
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/<\s*script[\s\S]*?>[\s\S]*?<\s*\/\s*script\s*>/gi, ' ')
-    .replace(/<\s*\/?\s*script\b[^>]*>/gi, ' ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+    // Decodifica entidades comuns seguras
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&nbsp;/gi, ' ')
+    // Remove qualquer tag HTML remanescente
+    .replace(/<[^>]*>/g, '')
+    // Garante que nenhum delimitador de tag reste
     .replace(/[<>]/g, '')
     .trim()
 }
