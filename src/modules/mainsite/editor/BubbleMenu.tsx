@@ -25,6 +25,14 @@ export function EditorBubbleMenu({ editor, onLinkClick }: EditorBubbleMenuProps)
   const [dragPos, setDragPos] = useState<{ top: number; left: number } | null>(null)
   const dragRef = useRef({ active: false, offsetX: 0, offsetY: 0 })
 
+  const getPortalTarget = () => {
+    try {
+      return editor?.view?.dom?.ownerDocument?.body || document.body
+    } catch {
+      return document.body
+    }
+  }
+
   useEffect(() => {
     if (!editor) return
 
@@ -96,7 +104,7 @@ export function EditorBubbleMenu({ editor, onLinkClick }: EditorBubbleMenuProps)
 
   if (!autoPos || !editor) return null
   const pos = dragPos || autoPos
-  const portalTarget = editor.view?.dom?.ownerDocument?.body || document.body
+  const portalTarget = getPortalTarget()
 
   return ReactDOM.createPortal(
     <div

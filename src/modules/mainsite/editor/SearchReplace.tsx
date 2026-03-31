@@ -108,14 +108,24 @@ export const SearchReplaceExtension = Extension.create({
   },
 
   addKeyboardShortcuts() {
+    const resolveOwnerDoc = () => {
+      try {
+        return this.editor.view.dom.ownerDocument
+      } catch {
+        return null
+      }
+    }
+
     return {
       'Mod-f': () => {
-        const ownerDoc = this.editor.view.dom.ownerDocument
+        const ownerDoc = resolveOwnerDoc()
+        if (!ownerDoc) return false
         ownerDoc.dispatchEvent(new CustomEvent('tiptap:search-toggle', { bubbles: true }))
         return true
       },
       'Mod-h': () => {
-        const ownerDoc = this.editor.view.dom.ownerDocument
+        const ownerDoc = resolveOwnerDoc()
+        if (!ownerDoc) return false
         ownerDoc.dispatchEvent(new CustomEvent('tiptap:search-toggle', { bubbles: true }))
         return true
       },
@@ -136,9 +146,17 @@ export function SearchReplacePanel({ editor }: SearchReplacePanelProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
+  const getOwnerDoc = useCallback(() => {
+    try {
+      return editor?.view?.dom?.ownerDocument || null
+    } catch {
+      return null
+    }
+  }, [editor])
+
   // Listen for Ctrl+H toggle event from extension
   useEffect(() => {
-    const ownerDoc = editor?.view?.dom?.ownerDocument
+    const ownerDoc = getOwnerDoc()
     if (!ownerDoc) return
     const toggle = () => {
       setVisible(v => {
@@ -154,7 +172,7 @@ export function SearchReplacePanel({ editor }: SearchReplacePanelProps) {
     }
     ownerDoc.addEventListener('tiptap:search-toggle', toggle)
     return () => ownerDoc.removeEventListener('tiptap:search-toggle', toggle)
-  }, [editor])
+  }, [editor, getOwnerDoc])
 
   // Recompute match list whenever searchTerm or doc changes
   const matches = useMemo(() => {

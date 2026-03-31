@@ -24,6 +24,22 @@ export function EditorFloatingMenu({ editor, onInsertTable }: EditorFloatingMenu
   const dragRef = useRef({ active: false, offsetX: 0, offsetY: 0 })
   const scrollRef = useRef(false)
 
+  const getPopupWindow = () => {
+    try {
+      return editor?.view?.dom?.ownerDocument?.defaultView || null
+    } catch {
+      return null
+    }
+  }
+
+  const getPortalTarget = () => {
+    try {
+      return editor?.view?.dom?.ownerDocument?.body || document.body
+    } catch {
+      return document.body
+    }
+  }
+
   useEffect(() => {
     if (!editor) return
 
@@ -50,7 +66,7 @@ export function EditorFloatingMenu({ editor, onInsertTable }: EditorFloatingMenu
       } catch { setAutoPos(null) }
     }
 
-    const popupWin = editor.view?.dom?.ownerDocument?.defaultView
+    const popupWin = getPopupWindow()
     const handleScroll = () => { scrollRef.current = true; setAutoPos(null) }
     const handleScrollEnd = () => { scrollRef.current = false; update() }
     popupWin?.addEventListener('scroll', handleScroll, true)
@@ -97,7 +113,7 @@ export function EditorFloatingMenu({ editor, onInsertTable }: EditorFloatingMenu
 
   if (!autoPos || !editor) return null
   const pos = dragPos || autoPos
-  const portalTarget = editor.view?.dom?.ownerDocument?.body || document.body
+  const portalTarget = getPortalTarget()
 
   const btn = (title: string, active: boolean, onClick: () => void, Icon: React.ElementType) => (
     <button
