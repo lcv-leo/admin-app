@@ -13,7 +13,7 @@ import {
   Link as LinkIcon, Unlink, Indent, Outdent,
   Subscript as SubIcon, Superscript as SuperIcon,
   Table as TableIcon, LayoutGrid, ListChecks,
-  Upload, Image as ImageIcon, Youtube, ZoomIn, ZoomOut, MessageSquare,
+  Upload, Image as ImageIcon, Video, ZoomIn, ZoomOut, MessageSquare,
   Sparkles, MousePointer2, Wand2, Send
 } from 'lucide-react'
 import { Extension } from '@tiptap/core'
@@ -1023,7 +1023,7 @@ export default function PostEditor({
             <input id="tiptap-file-upload" ref={fileInputRef} name="tiptapFileUpload" type="file" accept="image/*" title="Upload de imagem" className="tiptap-hidden-input" onChange={handleImageUpload} />
             <button type="button" title="Upload de imagem (R2)" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>{isUploading ? <Loader2 size={15} className="spin" /> : <Upload size={15} />}</button>
             <button type="button" title="Imagem por URL / Google Drive" onClick={addImageUrl}><ImageIcon size={15} /></button>
-            <button type="button" title="Vídeo do YouTube" onClick={addYoutube}><Youtube size={15} /></button>
+            <button type="button" title="Vídeo do YouTube" onClick={addYoutube}><Video size={15} /></button>
             <button type="button" title="Reduzir mídia" onClick={() => adjustSelectedMediaSize(-1)} disabled={!editor.isActive('image') && !editor.isActive('youtube')}><ZoomOut size={15} /></button>
             <button type="button" title="Ampliar mídia" onClick={() => adjustSelectedMediaSize(1)} disabled={!editor.isActive('image') && !editor.isActive('youtube')}><ZoomIn size={15} /></button>
             <button type="button" title="Legenda da mídia" onClick={editCaption} disabled={!editor.isActive('image') && !editor.isActive('youtube')}><MessageSquare size={15} /></button>
