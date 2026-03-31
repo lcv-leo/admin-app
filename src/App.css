@@ -2722,6 +2722,14 @@ input[type="color"]:focus-visible {
   margin: 0.3em 0;
 }
 
+.tiptap-editor .tiptap h3 {
+  font-size: 1.08rem;
+  font-weight: 700;
+  margin: 1.15em 0 0.45em;
+  color: #3c4043;
+  letter-spacing: -0.01em;
+}
+
 .tiptap-editor .tiptap blockquote {
   border-left: 3px solid #4285f4;
   padding-left: 16px;
@@ -2749,6 +2757,54 @@ input[type="color"]:focus-visible {
   background: none;
   padding: 0;
   color: inherit;
+}
+
+.tiptap-editor .tiptap pre code .hljs-comment,
+.tiptap-editor .tiptap pre code .hljs-quote {
+  color: #7f848e;
+  font-style: italic;
+}
+
+.tiptap-editor .tiptap pre code .hljs-keyword,
+.tiptap-editor .tiptap pre code .hljs-selector-tag,
+.tiptap-editor .tiptap pre code .hljs-literal {
+  color: #c678dd;
+}
+
+.tiptap-editor .tiptap pre code .hljs-string,
+.tiptap-editor .tiptap pre code .hljs-doctag,
+.tiptap-editor .tiptap pre code .hljs-regexp {
+  color: #98c379;
+}
+
+.tiptap-editor .tiptap pre code .hljs-number,
+.tiptap-editor .tiptap pre code .hljs-attr,
+.tiptap-editor .tiptap pre code .hljs-template-variable {
+  color: #d19a66;
+}
+
+.tiptap-editor .tiptap pre code .hljs-title,
+.tiptap-editor .tiptap pre code .hljs-section,
+.tiptap-editor .tiptap pre code .hljs-function .hljs-title {
+  color: #61afef;
+}
+
+.tiptap-editor .tiptap pre code .hljs-built_in,
+.tiptap-editor .tiptap pre code .hljs-type,
+.tiptap-editor .tiptap pre code .hljs-class .hljs-title {
+  color: #e5c07b;
+}
+
+.tiptap-editor .tiptap pre code .hljs-variable,
+.tiptap-editor .tiptap pre code .hljs-property,
+.tiptap-editor .tiptap pre code .hljs-params {
+  color: #e06c75;
+}
+
+.tiptap-editor .tiptap pre code .hljs-meta,
+.tiptap-editor .tiptap pre code .hljs-symbol,
+.tiptap-editor .tiptap pre code .hljs-bullet {
+  color: #56b6c2;
 }
 
 .tiptap-editor .tiptap mark {
@@ -5685,11 +5741,13 @@ input[type="color"]:focus-visible {
 
 /* ── Slash Commands popup (vanilla-DOM, keyboard nav) ─────────── */
 .slash-commands-menu {
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-  padding: 4px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(154, 160, 166, 0.18);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 6px;
   min-width: 220px;
   z-index: 99999;
 }
@@ -5735,10 +5793,12 @@ input[type="color"]:focus-visible {
 
 /* ── Search & Replace panel (in-editor search UI) ────────────── */
 .search-replace-panel {
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(154, 160, 166, 0.18);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   padding: 12px 14px;
   width: 100%;
   max-width: 380px;

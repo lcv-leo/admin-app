@@ -17,10 +17,9 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import {
   buildTiptapExtensions,
   EDITORIAL_MENTION_BASE_ITEMS,
-  formatImageUrl,
   isYoutubeUrl,
-  clamp,
 } from './editor/extensions'
+import { clamp, formatImageUrl } from './editor/utils'
 import { TIPTAP_SLASH_EVENTS } from './editor/SlashCommands'
 import { SearchReplacePanel } from './editor/SearchReplace'
 import { EditorBubbleMenu } from './editor/BubbleMenu'
