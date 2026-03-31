@@ -68,17 +68,20 @@ export function PromptModal({ modal, setModal, portalTarget }: PromptModalProps)
   const close = () => setModal(PROMPT_MODAL_INITIAL)
 
   const submit = () => {
-    modal.callback?.({
+    const callback = modal.callback
+    const payload: PromptModalSubmit = {
       value: modal.value.trim(),
       linkText: modal.linkText.trim(),
       caption: modal.caption.trim(),
       altText: modal.altText.trim(),
       titleText: modal.titleText.trim(),
-    })
+    }
     close()
+    // Execute callback after modal unmount to avoid portal reparent race in popup document.
+    queueMicrotask(() => callback?.(payload))
   }
 
-  const target = portalTarget || document.body
+  const target = portalTarget && portalTarget.isConnected ? portalTarget : document.body
 
   return ReactDOM.createPortal(
     <div className="admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Entrada de dados">
