@@ -19,12 +19,11 @@ import {
   buildTiptapExtensions,
   EDITORIAL_MENTION_BASE_ITEMS,
 } from './editor/extensions'
-import { clamp, formatImageUrl, isYoutubeUrl } from './editor/utils'
+import { clamp, formatImageUrl, isYoutubeUrl, migrateLegacyCaptions } from './editor/utils'
 import { TIPTAP_SLASH_EVENTS } from './editor/SlashCommands'
 import { SearchReplacePanel } from './editor/SearchReplace'
 import { EditorBubbleMenu } from './editor/BubbleMenu'
 import { EditorFloatingMenu } from './editor/FloatingMenu'
-import { migrateLegacyCaptions } from './editor/NodeViews'
 import {
   PromptModal as EditorPromptModal,
   type PromptModalState,
