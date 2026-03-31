@@ -141,7 +141,7 @@ const NewsPanel = lazyWithAccessRecovery(() => import('./modules/news/NewsPanel'
 const TlsrptModule = lazyWithAccessRecovery(() => import('./modules/tlsrpt/TlsrptModule').then(m => ({ default: m.TlsrptModule })))
 const LicencasModule = lazyWithAccessRecovery(() => import('./modules/compliance/LicencasModule').then(m => ({ default: m.LicencasModule })))
 
-const APP_VERSION = 'APP v01.74.15'
+const APP_VERSION = 'APP v01.74.16'
 type ModuleId = 'overview' | 'ai-status' | 'astrologo' | 'cardhub' | 'cfdns' | 'cfpw' | 'config' | 'financeiro' | 'oraculo' | 'calculadora' | 'mainsite' | 'mtasts' | 'telemetria' | 'tlsrpt' | 'compliance'
 
 const MODULE_LABELS: Record<Exclude<ModuleId, 'overview'>, string> = {
@@ -173,7 +173,14 @@ function App() {
   const [activeModule, setActiveModule] = useState<ModuleId>('overview')
 
   const handleModuleClick = (moduleId: ModuleId) => {
-    setActiveModule(moduleId)
+    // Chrome-first: View Transitions API for smooth crossfade between modules
+    // Falls back to instant switch on Firefox/Safari (zero regression)
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => void }
+    if (doc.startViewTransition) {
+      doc.startViewTransition(() => setActiveModule(moduleId))
+    } else {
+      setActiveModule(moduleId)
+    }
   }
 
   const [sidebarPinned, setSidebarPinned] = useState(true)

@@ -105,8 +105,95 @@ export const YoutubeSnapBar = ({ onSnap }: { onSnap: (w: number, h: number) => v
 
 // ── FigureNodeView ─────────────────────────────────────────────
 
-export const FigureNodeView = ({ node, updateAttributes, selected }: NodeViewProps) => {
+export const FigureNodeView = ({ node, updateAttributes, selected, editor, getPos }: NodeViewProps) => {
   const captionRef = useRef<HTMLElement>(null)
+  const startXRef = useRef(0)
+  const startWidthRef = useRef(100)
+  const imageRef = useRef<HTMLImageElement>(null)
+  const [localTone, setLocalTone] = useState('neutral')
+
+  useEffect(() => {
+    const img = imageRef.current
+    if (!img) return
+
+    const analyzeTone = () => {
+      try {
+        const sample = 24
+        const canvas = document.createElement('canvas')
+        canvas.width = sample
+        canvas.height = sample
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        if (!ctx) {
+          setLocalTone('neutral')
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, sample, sample)
+        const { data } = ctx.getImageData(0, 0, sample, sample)
+        let total = 0
+        let count = 0
+
+        for (let i = 0; i < data.length; i += 4) {
+          const a = data[i + 3]
+          if (a < 32) continue
+          const r = data[i]
+          const g = data[i + 1]
+          const b = data[i + 2]
+          total += (0.299 * r) + (0.587 * g) + (0.114 * b)
+          count += 1
+        }
+
+        if (!count) {
+          setLocalTone('neutral')
+          return
+        }
+
+        const luma = (total / count) / 255
+        setLocalTone(luma >= 0.56 ? 'light' : 'dark')
+      } catch {
+        setLocalTone('neutral')
+      }
+    }
+
+    if (img.complete) analyzeTone()
+    img.addEventListener('load', analyzeTone)
+    return () => img.removeEventListener('load', analyzeTone)
+  }, [node.attrs.src])
+
+  const onStartResize = (event: React.MouseEvent | React.TouchEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const point = ('touches' in event) ? event.touches[0] : (event as React.MouseEvent)
+    startXRef.current = point.clientX
+    startWidthRef.current = Number(String(node.attrs.width || '100').replace('%', '')) || 100
+
+    const onMove = (moveEvent: MouseEvent | TouchEvent) => {
+      const p = ('touches' in moveEvent) ? moveEvent.touches[0] : (moveEvent as MouseEvent)
+      const deltaX = p.clientX - startXRef.current
+      const next = clamp(Math.round(startWidthRef.current + (deltaX * 0.22)), 20, 100)
+      updateAttributes({ width: `${next}%` })
+    }
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onUp)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchmove', onMove, { passive: true })
+    window.addEventListener('touchend', onUp)
+  }
+
+  const selectCurrentNode = () => {
+    const pos = getPos?.()
+    if (typeof pos !== 'number') return
+    const tr = editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos))
+    editor.view.dispatch(tr)
+    editor.commands.focus()
+  }
 
   // Sync caption text back to attrs on blur
   const handleCaptionBlur = () => {
@@ -118,12 +205,15 @@ export const FigureNodeView = ({ node, updateAttributes, selected }: NodeViewPro
 
   return (
     <NodeViewWrapper
-      className={`tiptap-figure-nv ${selected ? 'is-selected' : ''}`}
+      className={`tiptap-figure-nv resizable-media media-image tone-${localTone} ${selected ? 'is-selected' : ''}`}
       contentEditable={false}
-      style={{ width: node.attrs.width || '100%', maxWidth: '100%', display: 'block' }}
+      style={{ width: node.attrs.width || '100%' }}
     >
-      <figure className="tiptap-figure">
+      <MediaSnapBar onSnap={(size) => updateAttributes({ width: size })} />
+      <SelectMediaButton onSelect={selectCurrentNode} />
+      <figure className="tiptap-figure" style={{ margin: 0, width: '100%', height: 'auto', display: 'block' }}>
         <img
+          ref={imageRef}
           src={node.attrs.src}
           alt={node.attrs.alt || ''}
           title={node.attrs.title || ''}
@@ -150,6 +240,7 @@ export const FigureNodeView = ({ node, updateAttributes, selected }: NodeViewPro
           {node.attrs.caption || ''}
         </figcaption>
       </figure>
+      <ResizableMediaHandle onStartResize={onStartResize} tone={localTone} />
     </NodeViewWrapper>
   )
 }

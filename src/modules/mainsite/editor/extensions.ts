@@ -295,6 +295,21 @@ export const CustomResizableImage = Image.extend({
 })
 
 export const CustomResizableYoutube = YoutubeExtension.extend({
+  parseHTML() {
+    return [
+      {
+        tag: 'div[data-youtube-video] iframe',
+      },
+      {
+        tag: 'iframe',
+        getAttrs: (node) => {
+          if (!(node instanceof HTMLElement)) return false
+          const src = node.getAttribute('src') || ''
+          return /(?:youtube\.com|youtu\.be)\//i.test(src) ? null : false
+        },
+      },
+    ]
+  },
   addNodeView() {
     return ReactNodeViewRenderer(ResizableYoutubeNodeView)
   },

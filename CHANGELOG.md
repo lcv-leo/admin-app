@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.74.16] - 2026-03-31
+### Corrigido
+- **PostEditor — seleção de mídias legadas restaurada**: solucionado o bug que impedia o redimensionamento e a seleção de imagens e vídeos antigos do banco de dados (quebra originária com o framework de NodeViews estritos atual). A extensão `CustomResizableYoutube` agora processa `<iframe>` soltas com validação de Regex garantindo paridade em vídeos; o componente `FigureNodeView` agora herda as barras de seleção (`<SelectMediaButton>`), de redimensionamento (`<ResizableMediaHandle>`) e de _snap bar_ (`<MediaSnapBar>`) que antes eram exclusivas de posts novos. Tudo operante sem mexer no conteúdo em si para ambos os vetores antigos.
+
+### Controle de versão
+- `admin-app`: APP v01.74.15 → APP v01.74.16
+
 ## [v01.74.15] - 2026-03-31
 ### Corrigido
 - **PostEditor — seleção robusta de mídia restaurada**: `ResizableImageNodeView` e `ResizableYoutubeNodeView` passaram a forçar `NodeSelection` no clique direto do wrapper e da própria mídia, fazendo voltar os controles de seleção, resize e snap bar em imagens e vídeos.
