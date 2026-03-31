@@ -13,6 +13,27 @@ interface Env {
   [key: string]: unknown
 }
 
+interface PagesContext<E = Env> {
+  request: Request
+  env: E
+}
+
+type PagesFunction<E = Env> = (context: PagesContext<E>) => Promise<Response> | Response
+
+interface HTMLRewriterChunk {
+  text: string
+  lastInTextNode: boolean
+}
+
+interface HTMLRewriterTextHandler {
+  text: (chunk: HTMLRewriterChunk) => void
+}
+
+declare class HTMLRewriter {
+  on(selector: string, handlers: HTMLRewriterTextHandler): HTMLRewriter
+  transform(response: Response): Response
+}
+
 interface ImportRequest {
   url: string
 }
@@ -176,7 +197,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   let body: ImportRequest
   try {
-    body = await context.request.json<ImportRequest>()
+    const parsed = await context.request.json() as unknown
+    body = parsed as ImportRequest
   } catch {
     return new Response(JSON.stringify({ error: 'JSON inválido' }), {
       status: 400,

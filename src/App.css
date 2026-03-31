@@ -2586,19 +2586,25 @@ input[type="color"]:focus-visible {
 .tiptap-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
-  padding: 8px 10px;
+  gap: 4px;
+  row-gap: 6px;
+  padding: 10px 12px;
   background: rgba(241, 243, 244, 0.7);
   border-bottom: 1px solid rgba(154, 160, 166, 0.2);
   align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .tiptap-toolbar button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -2615,6 +2621,14 @@ input[type="color"]:focus-visible {
 .tiptap-toolbar button.active {
   background: rgba(66, 133, 244, 0.15);
   color: #1a73e8;
+}
+
+.tiptap-toolbar button:focus-visible,
+.tiptap-select-group select:focus-visible,
+.tiptap-ai-group select:focus-visible,
+.tiptap-color-group input[type="color"]:focus-visible {
+  outline: 2px solid rgba(26, 115, 232, 0.55);
+  outline-offset: 1px;
 }
 
 .tiptap-toolbar button.tiptap-button-textual {
@@ -2662,12 +2676,13 @@ input[type="color"]:focus-visible {
 
 .tiptap-select-group select {
   font-size: 0.75rem;
-  padding: 4px;
+  padding: 4px 6px;
   background: transparent;
   color: inherit;
   border: none;
   font-weight: 600;
   cursor: pointer;
+  border-radius: 8px;
 }
 
 .tiptap-editor {
@@ -2940,6 +2955,142 @@ input[type="color"]:focus-visible {
   padding: 14px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
   animation: fadeIn 0.15s ease-out;
+}
+
+.tiptap-ai-popover-anchor {
+  position: relative;
+}
+
+.ai-freeform-popover__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ai-freeform-popover__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a73e8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ai-freeform-popover__scope {
+  font-size: 10px;
+  opacity: 0.5;
+  margin-left: auto;
+}
+
+.ai-freeform-popover__textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.02);
+  color: inherit;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.ai-freeform-popover__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  gap: 8px;
+}
+
+.ai-freeform-popover__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ai-freeform-popover__btn--ghost {
+  font-weight: 600;
+  background: transparent;
+  color: inherit;
+  opacity: 0.65;
+}
+
+.ai-freeform-popover__btn--ghost:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.ai-freeform-popover__btn--primary {
+  background: #1a73e8;
+  color: #fff;
+}
+
+.ai-freeform-popover__btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 980px) {
+  .tiptap-toolbar {
+    gap: 3px;
+    padding: 8px;
+  }
+
+  .tiptap-toolbar button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .tiptap-divider {
+    height: 16px;
+    margin: 0 2px;
+  }
+
+  .tiptap-ai-group {
+    padding: 5px 10px;
+    margin-right: 2px;
+  }
+}
+
+@media (max-width: 760px) {
+  .tiptap-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    padding-bottom: 10px;
+  }
+
+  .tiptap-toolbar::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .tiptap-toolbar::-webkit-scrollbar-thumb {
+    background: rgba(154, 160, 166, 0.4);
+    border-radius: 999px;
+  }
+
+  .tiptap-toolbar button,
+  .tiptap-ai-group,
+  .tiptap-color-group,
+  .tiptap-select-group,
+  .tiptap-divider {
+    flex-shrink: 0;
+  }
+
+  .tiptap-ai-group select,
+  .tiptap-select-group select {
+    font-size: 0.7rem;
+  }
 }
 
 /* ── Structured Settings ───────────────────────── */

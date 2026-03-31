@@ -6,6 +6,13 @@
 import { Extension } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
 
+export const TIPTAP_SLASH_EVENTS = {
+  figure: 'tiptap:slash-figure',
+  upload: 'tiptap:slash-upload',
+  youtube: 'tiptap:slash-youtube',
+  ai: 'tiptap:slash-ai',
+} as const
+
 interface SlashCommand {
   label: string
   description: string
@@ -14,7 +21,14 @@ interface SlashCommand {
   command: (editor: Editor) => void
 }
 
-const SLASH_COMMANDS: SlashCommand[] = [
+interface SlashStorage {
+  cleanup: (() => void) | null
+  triggerPos: number
+  isActive: boolean
+  handleSelectionUpdate: (() => void) | null
+}
+
+const createSlashCommands = (ownerDoc: Document): SlashCommand[] => [
   {
     label: 'Parágrafo',
     description: 'Texto simples',
@@ -97,16 +111,28 @@ const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Figura semântica com figcaption',
     icon: '🖼',
     keywords: ['imagem', 'figura', 'legenda', 'image', 'figure', 'figcaption'],
-    command: (e) => {
-      // Opens a prompt for src — deferred to PostEditor which can use PromptModal
-      // For slash command path, a simple inline prompt via the browser is acceptable
-      // as a fallback; PostEditor can override this with its own modal handler.
-      const src = window.prompt('URL da imagem:')
-      if (src) {
-        ;(e.commands as unknown as Record<string, (attrs: Record<string, unknown>) => boolean>)
-          .setFigureImage?.({ src, alt: '', caption: '' })
-      }
-    },
+    command: () => ownerDoc.dispatchEvent(new CustomEvent(TIPTAP_SLASH_EVENTS.figure, { bubbles: true })),
+  },
+  {
+    label: 'Upload de imagem',
+    description: 'Enviar imagem do computador',
+    icon: '⤴',
+    keywords: ['upload', 'arquivo', 'imagem', 'file', 'enviar'],
+    command: () => ownerDoc.dispatchEvent(new CustomEvent(TIPTAP_SLASH_EVENTS.upload, { bubbles: true })),
+  },
+  {
+    label: 'Vídeo do YouTube',
+    description: 'Inserir vídeo com proporção 16:9',
+    icon: 'YT',
+    keywords: ['youtube', 'video', 'vídeo', 'yt'],
+    command: () => ownerDoc.dispatchEvent(new CustomEvent(TIPTAP_SLASH_EVENTS.youtube, { bubbles: true })),
+  },
+  {
+    label: 'IA: Instrução Livre',
+    description: 'Abrir comando livre do Gemini',
+    icon: '✦',
+    keywords: ['ia', 'gemini', 'assistente', 'ai'],
+    command: () => ownerDoc.dispatchEvent(new CustomEvent(TIPTAP_SLASH_EVENTS.ai, { bubbles: true })),
   },
 ]
 
@@ -120,8 +146,10 @@ function createSlashPopup(
 ): (() => void) | null {
   const ownerDoc = editor.view.dom.ownerDocument
   const coords = editor.view.coordsAtPos(triggerPos)
+  const popupWin = ownerDoc.defaultView
+  const commands = createSlashCommands(ownerDoc)
 
-  const filtered = SLASH_COMMANDS.filter((cmd) => {
+  const filtered = commands.filter((cmd) => {
     if (!query) return true
     const q = query.toLowerCase()
     return (
@@ -139,12 +167,21 @@ function createSlashPopup(
   menu.setAttribute('aria-label', 'Comandos')
   Object.assign(menu.style, {
     position: 'fixed',
-    top: `${coords.bottom + 4}px`,
-    left: `${coords.left}px`,
     zIndex: '999999',
     maxHeight: '320px',
     overflowY: 'auto',
   })
+
+  const menuW = 320
+  const vpW = popupWin?.innerWidth || 1280
+  const vpH = popupWin?.innerHeight || 720
+  let top = coords.bottom + 4
+  let left = coords.left
+  if (left + menuW > vpW - 8) left = vpW - menuW - 8
+  if (left < 8) left = 8
+  if (top > vpH - 80) top = Math.max(8, coords.top - 300)
+  menu.style.top = `${top}px`
+  menu.style.left = `${left}px`
 
   let selectedIndex = 0
 
@@ -223,26 +260,57 @@ function createSlashPopup(
 export const SlashCommands = Extension.create({
   name: 'slashCommands',
 
-  addKeyboardShortcuts() {
-    let cleanup: (() => void) | null = null
-    let triggerPos = -1
-    let isActive = false
+  addStorage() {
+    return {
+      cleanup: null,
+      triggerPos: -1,
+      isActive: false,
+      handleSelectionUpdate: null,
+    } as SlashStorage
+  },
 
-    const handleSelectionUpdate = () => {
-      if (!isActive) return
+  onCreate() {
+    const storage = this.storage as SlashStorage
+    storage.handleSelectionUpdate = () => {
+      if (!storage.isActive) return
       const { empty } = this.editor.state.selection
-      if (!empty) { cleanup?.(); cleanup = null; isActive = false; return }
+      if (!empty) {
+        storage.cleanup?.()
+        storage.cleanup = null
+        storage.isActive = false
+        return
+      }
       const $from = this.editor.state.selection.$from
       const textBefore = $from.parent.textContent.slice(0, $from.parentOffset)
-      if (!textBefore.startsWith('/')) { cleanup?.(); cleanup = null; isActive = false; return }
+      if (!textBefore.startsWith('/')) {
+        storage.cleanup?.()
+        storage.cleanup = null
+        storage.isActive = false
+        return
+      }
       const query = textBefore.slice(1)
-      cleanup?.()
-      cleanup = createSlashPopup(this.editor, query, triggerPos)
+      storage.cleanup?.()
+      storage.cleanup = createSlashPopup(this.editor, query, storage.triggerPos)
     }
 
-    // Listen for selection updates to re-render popup with updated query
-    this.editor.on('selectionUpdate', handleSelectionUpdate)
-    this.editor.on('update', handleSelectionUpdate)
+    this.editor.on('selectionUpdate', storage.handleSelectionUpdate)
+    this.editor.on('update', storage.handleSelectionUpdate)
+  },
+
+  onDestroy() {
+    const storage = this.storage as SlashStorage
+    if (storage.handleSelectionUpdate) {
+      this.editor.off('selectionUpdate', storage.handleSelectionUpdate)
+      this.editor.off('update', storage.handleSelectionUpdate)
+    }
+    storage.cleanup?.()
+    storage.cleanup = null
+    storage.handleSelectionUpdate = null
+    storage.isActive = false
+  },
+
+  addKeyboardShortcuts() {
+    const storage = this.storage as SlashStorage
 
     return {
       '/': () => {
@@ -250,12 +318,12 @@ export const SlashCommands = Extension.create({
         if (!empty) return false
         const isEmptyBlock = $from.parent.textContent === '' && $from.parent.type.isTextblock
         if (!isEmptyBlock) return false
-        isActive = true
-        triggerPos = this.editor.state.selection.from
+        storage.isActive = true
+        storage.triggerPos = this.editor.state.selection.from
         // Let the character be inserted first, then show popup
         setTimeout(() => {
-          cleanup?.()
-          cleanup = createSlashPopup(this.editor, '', triggerPos)
+          storage.cleanup?.()
+          storage.cleanup = createSlashPopup(this.editor, '', storage.triggerPos)
         }, 0)
         return false // don't prevent default — let '/' be typed
       },

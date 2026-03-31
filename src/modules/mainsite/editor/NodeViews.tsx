@@ -22,6 +22,33 @@ export const formatImageUrl = (url: string): string => {
   return url
 }
 
+export function migrateLegacyCaptions(html: string): string {
+  if (!html) return html
+
+  const normalizeCaption = (caption: string) =>
+    caption
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const wrappedImagePattern = /<p[^>]*>\s*(<img\b[^>]*>)\s*<\/p>\s*<p[^>]*text-align\s*:\s*center[^>]*>\s*(?:<em>|<i>)\s*([\s\S]*?)\s*(?:<\/em>|<\/i>)\s*<\/p>/gi
+  const plainImagePattern = /(<img\b[^>]*>)\s*<p[^>]*text-align\s*:\s*center[^>]*>\s*(?:<em>|<i>)\s*([\s\S]*?)\s*(?:<\/em>|<\/i>)\s*<\/p>/gi
+
+  let migrated = html.replace(wrappedImagePattern, (_m, imgTag: string, captionRaw: string) => {
+    const caption = normalizeCaption(captionRaw)
+    if (!caption) return `<figure class="tiptap-figure">${imgTag}</figure>`
+    return `<figure class="tiptap-figure">${imgTag}<figcaption>${caption}</figcaption></figure>`
+  })
+
+  migrated = migrated.replace(plainImagePattern, (_m, imgTag: string, captionRaw: string) => {
+    const caption = normalizeCaption(captionRaw)
+    if (!caption) return `<figure class="tiptap-figure">${imgTag}</figure>`
+    return `<figure class="tiptap-figure">${imgTag}<figcaption>${caption}</figcaption></figure>`
+  })
+
+  return migrated
+}
+
 // ── Shared sub-components ─────────────────────────────────────
 
 export const ResizableMediaHandle = ({

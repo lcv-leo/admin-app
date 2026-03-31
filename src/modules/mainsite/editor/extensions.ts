@@ -25,7 +25,6 @@ import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
 import { Typography } from '@tiptap/extension-typography'
 import { Dropcursor } from '@tiptap/extension-dropcursor'
-import { Gapcursor } from '@tiptap/extension-gapcursor'
 import Focus from '@tiptap/extension-focus'
 import Image from '@tiptap/extension-image'
 import Mention from '@tiptap/extension-mention'
@@ -33,6 +32,8 @@ import YoutubeExtension from '@tiptap/extension-youtube'
 import { Markdown } from 'tiptap-markdown'
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
 import { common, createLowlight } from 'lowlight'
+import { SlashCommands } from './SlashCommands'
+import { SearchReplaceExtension } from './SearchReplace'
 import {
   ResizableImageNodeView,
   ResizableYoutubeNodeView,
@@ -141,6 +142,9 @@ export const formatImageUrl = (url: string): string => {
   if (match && match[1]) return `https://drive.google.com/uc?export=view&id=${match[1]}`
   return url
 }
+
+export const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value))
 
 export const isYoutubeUrl = (url: string): boolean =>
   /(?:youtube\.com|youtu\.be)\//i.test(url)
@@ -385,7 +389,6 @@ export const buildTiptapExtensions = (mentionItems: string[]) => [
   FontSize,
   TextIndent,
   Typography,
-  Gapcursor,
   Focus.configure({ className: 'has-focus', mode: 'all' }),
   Mention.configure({
     HTMLAttributes: { class: 'editor-mention' },
@@ -410,4 +413,6 @@ export const buildTiptapExtensions = (mentionItems: string[]) => [
   CustomResizableImage.configure({ inline: false }),
   CustomResizableYoutube.configure({ inline: false, width: 840, height: 472, allowFullscreen: true, nocookie: true }),
   FigureImageNode,
+  SlashCommands,
+  SearchReplaceExtension,
 ]

@@ -5,14 +5,21 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Extension } from '@tiptap/core'
-import { Plugin, PluginKey } from 'prosemirror-state'
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import { X, ChevronUp, ChevronDown } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
+import type { Node as ProseMirrorNode } from 'prosemirror-model'
 
 // -------------- ProseMirror plugin for search decorations ----------------
 
-export const searchHighlightKey = new PluginKey<DecorationSet>('searchHighlight')
+interface DecorationPluginState {
+  decorations: DecorationSet
+  term: string
+  currentIndex: number
+}
+
+export const searchHighlightKey = new PluginKey<DecorationPluginState>('searchHighlight')
 
 interface SearchState {
   term: string
@@ -21,7 +28,7 @@ interface SearchState {
 
 let globalSearchState: SearchState = { term: '', currentIndex: 0 }
 
-function findAllMatches(doc: import('prosemirror-model').Node, term: string): { from: number; to: number }[] {
+function findAllMatches(doc: ProseMirrorNode, term: string): { from: number; to: number }[] {
   if (!term) return []
   const results: { from: number; to: number }[] = []
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -41,7 +48,9 @@ export const SearchHighlightPlugin = new Plugin({
   key: searchHighlightKey,
   state: {
     init(_config, state) {
-      if (!globalSearchState.term) return DecorationSet.empty
+      if (!globalSearchState.term) {
+        return { decorations: DecorationSet.empty, term: '', currentIndex: 0 }
+      }
       const matches = findAllMatches(state.doc, globalSearchState.term)
       const decos = matches.map((m, i) =>
         Decoration.inline(m.from, m.to, {
@@ -50,10 +59,21 @@ export const SearchHighlightPlugin = new Plugin({
             : 'search-highlight',
         })
       )
-      return DecorationSet.create(state.doc, decos)
+      return {
+        decorations: DecorationSet.create(state.doc, decos),
+        term: globalSearchState.term,
+        currentIndex: globalSearchState.currentIndex,
+      }
     },
-    apply(_tr, _old, _oldState, newState) {
-      if (!globalSearchState.term) return DecorationSet.empty
+    apply(tr, oldPluginState: DecorationPluginState, _oldState, newState) {
+      if (!globalSearchState.term) {
+        return { decorations: DecorationSet.empty, term: '', currentIndex: 0 }
+      }
+
+      if (!tr.docChanged && oldPluginState.term === globalSearchState.term && oldPluginState.currentIndex === globalSearchState.currentIndex) {
+        return oldPluginState
+      }
+
       const matches = findAllMatches(newState.doc, globalSearchState.term)
       const decos = matches.map((m, i) =>
         Decoration.inline(m.from, m.to, {
@@ -62,18 +82,23 @@ export const SearchHighlightPlugin = new Plugin({
             : 'search-highlight',
         })
       )
-      return DecorationSet.create(newState.doc, decos)
+      return {
+        decorations: DecorationSet.create(newState.doc, decos),
+        term: globalSearchState.term,
+        currentIndex: globalSearchState.currentIndex,
+      }
     },
   },
   props: {
     decorations(state) {
-      return this.getState(state) ?? DecorationSet.empty
+      const pluginState = this.getState(state)
+      return pluginState?.decorations ?? DecorationSet.empty
     },
   },
 })
 
 /**
- * SearchReplace TipTap Extension — registers the highlight plugin and Ctrl+H shortcut.
+ * SearchReplace TipTap Extension — registers highlight plugin and Find/Replace shortcuts.
  */
 export const SearchReplaceExtension = Extension.create({
   name: 'searchReplace',
@@ -84,8 +109,12 @@ export const SearchReplaceExtension = Extension.create({
 
   addKeyboardShortcuts() {
     return {
+      'Mod-f': () => {
+        const ownerDoc = this.editor.view.dom.ownerDocument
+        ownerDoc.dispatchEvent(new CustomEvent('tiptap:search-toggle', { bubbles: true }))
+        return true
+      },
       'Mod-h': () => {
-        // Dispatched as a custom event so SearchReplacePanel can toggle
         const ownerDoc = this.editor.view.dom.ownerDocument
         ownerDoc.dispatchEvent(new CustomEvent('tiptap:search-toggle', { bubbles: true }))
         return true
@@ -147,8 +176,10 @@ export function SearchReplacePanel({ editor }: SearchReplacePanelProps) {
     const match = matches[index]
     if (!match) return
     try {
-      const dom = editor.view.nodeDOM(match.from)
-      if (dom instanceof HTMLElement) dom.scrollIntoView({ block: 'center' })
+      const tr = editor.state.tr
+        .setSelection(TextSelection.create(editor.state.doc, match.from, match.to))
+        .scrollIntoView()
+      editor.view.dispatch(tr)
     } catch { /* ignore */ }
   }, [editor, matches])
 
@@ -179,13 +210,15 @@ export function SearchReplacePanel({ editor }: SearchReplacePanelProps) {
 
   const replaceAll = () => {
     if (!editor || matches.length === 0 || !searchTerm) return
-    // Replace all from end to start to preserve positions
-    const sorted = [...matches].sort((a, b) => b.from - a.from)
-    let chain = editor.chain()
-    sorted.forEach(m => {
-      chain = chain.deleteRange({ from: m.from, to: m.to }).insertContentAt(m.from, replaceTerm)
+    const tr = editor.state.tr
+    let offset = 0
+    matches.forEach((m) => {
+      const from = m.from + offset
+      const to = m.to + offset
+      tr.replaceWith(from, to, editor.state.schema.text(replaceTerm))
+      offset += replaceTerm.length - (m.to - m.from)
     })
-    chain.run()
+    editor.view.dispatch(tr)
     setCurrentIndex(0)
   }
 
