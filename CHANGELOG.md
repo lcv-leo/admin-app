@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.74.09] — 2026-03-31
+### Corrigido
+- **GitHub Actions Deploy — falha em `npm ci` por peer dependency**: downgrade controlado de `eslint` para `^9.39.4` no `admin-app` para compatibilidade com `eslint-plugin-react-hooks@7.0.1`, eliminando erro `ERESOLVE` no workflow `Deploy` (branch `main`). `package-lock.json` regenerado para refletir a árvore válida.
+
+### Controle de versão
+- `admin-app`: APP v01.74.08 → APP v01.74.09
+
 ## [v01.74.08] — 2026-03-31
 ### Corrigido
 - **Módulo de Licenças (Compliance)**: resolvido conflito de tipagem no mecanismo de carregamento tardio (lazy loading) do React (`App.tsx`) que esperava um ComponentType estrito. A exportação do `LicencasModule` foi refatorada de `React.FC` para declaração de função padrão.
