@@ -65,7 +65,11 @@ export function validateAdminActor(actor: string): ValidationResult {
 
 const DOMAIN_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i
 const MX_HOSTNAME_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(\s+\d+)?$/i
+<<<<<<< HEAD
 const BLOCKED_URL_SCHEMES = ['javascript:', 'data:'] as const
+=======
+const BLOCKED_URL_SCHEMES = ['javascript:', 'data:', 'vbscript:'] as const
+>>>>>>> 06a650100fb96aa9e77f965e12b15483f3954e99
 
 const normalizeSchemeInput = (value: string): string =>
   value
@@ -366,9 +370,30 @@ export function safeParseJson<T>(jsonString: string): T | null {
  * @returns Sanitized HTML
  */
 export function stripDangerousHtml(html: string): string {
-  // Remove script tags and their content
-  let sanitized = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-  // Remove event handlers
-  sanitized = sanitized.replace(/\son\w+\s*=\s*["']?[^"']*["']?/gi, '')
-  return sanitized
+  if (typeof DOMParser === 'undefined') {
+    return escapeHtml(html)
+  }
+
+  const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'base'])
+  const parsed = new DOMParser().parseFromString(html, 'text/html')
+
+  const nodes = Array.from(parsed.body.querySelectorAll('*'))
+  nodes.forEach((node) => {
+    const tagName = node.tagName.toLowerCase()
+
+    if (blockedTags.has(tagName)) {
+      node.remove()
+      return
+    }
+
+    Array.from(node.attributes).forEach((attr) => {
+      const name = attr.name.toLowerCase()
+      const value = attr.value.trim().toLowerCase()
+      if (name.startsWith('on') || value.startsWith('javascript:') || value.startsWith('data:') || value.startsWith('vbscript:')) {
+        node.removeAttribute(attr.name)
+      }
+    })
+  })
+
+  return parsed.body.innerHTML
 }
