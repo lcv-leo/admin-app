@@ -65,7 +65,7 @@ export function validateAdminActor(actor: string): ValidationResult {
 
 const DOMAIN_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i
 const MX_HOSTNAME_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(\s+\d+)?$/i
-const BLOCKED_URL_SCHEMES = ['javascript:', 'data:'] as const
+const BLOCKED_URL_SCHEMES = ['javascript:', 'data:', 'vbscript:'] as const
 
 const normalizeSchemeInput = (value: string): string =>
   value
@@ -385,7 +385,7 @@ export function stripDangerousHtml(html: string): string {
     Array.from(node.attributes).forEach((attr) => {
       const name = attr.name.toLowerCase()
       const value = attr.value.trim().toLowerCase()
-      if (name.startsWith('on') || value.startsWith('javascript:') || value.startsWith('data:')) {
+      if (name.startsWith('on') || value.startsWith('javascript:') || value.startsWith('data:') || value.startsWith('vbscript:')) {
         node.removeAttribute(attr.name)
       }
     })
