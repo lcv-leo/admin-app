@@ -144,8 +144,14 @@ function createSlashPopup(
   query: string,
   triggerPos: number
 ): (() => void) | null {
-  const ownerDoc = editor.view.dom.ownerDocument
-  const coords = editor.view.coordsAtPos(triggerPos)
+  let ownerDoc: Document
+  let coords: { top: number; bottom: number; left: number }
+  try {
+    ownerDoc = editor.view.dom.ownerDocument
+    coords = editor.view.coordsAtPos(triggerPos)
+  } catch {
+    return null
+  }
   const popupWin = ownerDoc.defaultView
   const commands = createSlashCommands(ownerDoc)
 

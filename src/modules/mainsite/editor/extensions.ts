@@ -81,7 +81,12 @@ export const createMentionSuggestion = (rawItems: string[]) => ({
     const updatePosition = (props: { clientRect?: (() => DOMRect | null) | null; editor: { view: { dom: HTMLElement } } }) => {
       const rect = props.clientRect?.()
       if (!rect || !popup) return
-      const ownerDoc = props.editor.view.dom.ownerDocument
+      let ownerDoc: Document
+      try {
+        ownerDoc = props.editor.view.dom.ownerDocument
+      } catch {
+        return
+      }
       const popupWin = ownerDoc.defaultView || window
       const maxLeft = Math.max(8, popupWin.innerWidth - 260)
       const top = Math.min(rect.bottom + 8, popupWin.innerHeight - 120)
@@ -113,7 +118,12 @@ export const createMentionSuggestion = (rawItems: string[]) => ({
     return {
       onStart: (props: { items: Array<{ id: string; label: string }>; command: (item: { id: string; label: string }) => void; editor: { view: { dom: HTMLElement } }; clientRect?: (() => DOMRect | null) | null }) => {
         command = props.command; itemsState = props.items; selectedIndex = 0
-        mountPopup(props.editor.view.dom); renderList(); updatePosition(props)
+        try {
+          mountPopup(props.editor.view.dom)
+        } catch {
+          return
+        }
+        renderList(); updatePosition(props)
       },
       onUpdate: (props: { items: Array<{ id: string; label: string }>; command: (item: { id: string; label: string }) => void; editor: { view: { dom: HTMLElement } }; clientRect?: (() => DOMRect | null) | null }) => {
         command = props.command; itemsState = props.items
