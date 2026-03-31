@@ -233,7 +233,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   // Cache key inclui query params
   const cacheKey = new Request(url.toString(), context.request)
-  const cache = caches.default
+  const cache = (caches as CacheStorage & { default: Cache }).default
 
   const cachedResponse = await cache.match(cacheKey)
   if (cachedResponse) {
