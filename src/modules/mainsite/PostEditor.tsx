@@ -11,9 +11,10 @@ import {
   Table as TableIcon,
   Upload, Image as ImageIcon, ZoomIn, ZoomOut, MessageSquare,
   Sparkles, Wand2, Send, Download,
-  Undo2, Redo2
+  Undo2, Redo2, GripVertical
 } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
+import { DragHandle } from '@tiptap/extension-drag-handle-react'
 import {
   buildTiptapExtensions,
   EDITORIAL_MENTION_BASE_ITEMS,
@@ -743,6 +744,11 @@ export default function PostEditor({
               })()}
             </div>
           </div>
+        )}
+        {editor && (
+          <DragHandle editor={editor} className="tiptap-drag-handle" onNodeChange={() => undefined}>
+            <GripVertical size={14} strokeWidth={2.2} />
+          </DragHandle>
         )}
         <EditorContent editor={editor} className="tiptap-editor" />
         {editor && <SearchReplacePanel editor={editor} />}

@@ -220,15 +220,31 @@ export const ResizableImageNodeView = ({
     editor.view.dispatch(tr); editor.commands.focus()
   }
 
+  const handleSelectMedia = (event: React.MouseEvent | React.PointerEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    selectCurrentNode()
+  }
+
   return (
     <NodeViewWrapper
       className={`resizable-media media-image tone-${localTone} ${selected ? 'is-selected' : ''}`}
       contentEditable={false}
       style={{ width: node.attrs.width || '100%' }}
+      onMouseDown={handleSelectMedia}
+      onPointerDown={handleSelectMedia}
     >
       <MediaSnapBar onSnap={(size) => updateAttributes({ width: size })} />
       <SelectMediaButton onSelect={selectCurrentNode} />
-      <img ref={imageRef} src={node.attrs.src} alt={node.attrs.alt || ''} title={node.attrs.title || ''} draggable="false" />
+      <img
+        ref={imageRef}
+        src={node.attrs.src}
+        alt={node.attrs.alt || ''}
+        title={node.attrs.title || ''}
+        draggable="false"
+        onMouseDown={handleSelectMedia}
+        onPointerDown={handleSelectMedia}
+      />
       <ResizableMediaHandle onStartResize={onStartResize} tone={localTone} />
     </NodeViewWrapper>
   )
@@ -270,6 +286,12 @@ export const ResizableYoutubeNodeView = ({
     editor.view.dispatch(tr); editor.commands.focus()
   }
 
+  const handleSelectMedia = (event: React.MouseEvent | React.PointerEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    selectCurrentNode()
+  }
+
   const embedSrc = getEmbedUrlFromYoutubeUrl({
     url: node.attrs.src, allowFullscreen: true, autoplay: false, nocookie: true,
   }) || node.attrs.src
@@ -279,10 +301,12 @@ export const ResizableYoutubeNodeView = ({
       className={`resizable-media media-youtube ${selected ? 'is-selected' : ''}`}
       contentEditable={false}
       style={{ width: `${currentW}px`, maxWidth: '100%' }}
+      onMouseDown={handleSelectMedia}
+      onPointerDown={handleSelectMedia}
     >
       <YoutubeSnapBar onSnap={(w, h) => updateAttributes({ width: w, height: h })} />
       <SelectMediaButton onSelect={selectCurrentNode} />
-      <div data-youtube-video>
+      <div data-youtube-video onMouseDown={handleSelectMedia} onPointerDown={handleSelectMedia}>
         <iframe
           src={embedSrc}
           width={currentW}
