@@ -138,12 +138,13 @@ function extractTag(block: string, tag: string): string {
 }
 
 /**
- * Remove tags HTML e decodifica entidades comuns seguras.
- * Nao decodifica &lt; e &gt; para evitar reconstruir markup.
+ * Remove tags HTML e decodifica entidades comuns.
  */
 function cleanHtml(text: string): string {
   return text
-    // Decodifica apenas entidades que nao criam delimitadores de tag.
+    // Decodifica entidades comuns.
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
     .replace(/&nbsp;/gi, ' ')
