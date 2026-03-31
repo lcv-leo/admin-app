@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import {
   AlignCenter, AlignJustify, AlignLeft, AlignRight,
@@ -10,9 +10,10 @@ import {
   Subscript as SubIcon, Superscript as SuperIcon,
   Table as TableIcon, LayoutGrid, ListChecks,
   Upload, Image as ImageIcon, ZoomIn, ZoomOut, MessageSquare,
-  Sparkles, MousePointer2, Wand2, Send
+  Sparkles, MousePointer2, Wand2, Send, Download,
+  Undo2, Redo2
 } from 'lucide-react'
-import { Extension } from '@tiptap/core'
+import { Extension, mergeAttributes } from '@tiptap/core'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import { NodeSelection, Plugin, PluginKey } from 'prosemirror-state'
@@ -36,9 +37,136 @@ import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
 import { Typography } from '@tiptap/extension-typography'
 import { Dropcursor } from '@tiptap/extension-dropcursor'
+import { Gapcursor } from '@tiptap/extension-gapcursor'
+import Focus from '@tiptap/extension-focus'
 import Image from '@tiptap/extension-image'
+import Mention from '@tiptap/extension-mention'
 import YoutubeExtension, { getEmbedUrlFromYoutubeUrl } from '@tiptap/extension-youtube'
 import { Markdown } from 'tiptap-markdown'
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight'
+import { common, createLowlight } from 'lowlight'
+import { FigureImageNode } from './editor/extensions'
+import { SlashCommands } from './editor/SlashCommands'
+import { SearchReplaceExtension, SearchReplacePanel } from './editor/SearchReplace'
+
+const lowlight = createLowlight(common)
+const EDITORIAL_MENTION_BASE_ITEMS = [
+  'Leonardo Cardozo Vargas',
+  'MainSite',
+  'LCV',
+  'SEO',
+  'CTA',
+  'Gemini',
+  'Cloudflare',
+]
+
+const createMentionSuggestion = (rawItems: string[]) => ({
+  char: '@',
+  items: ({ query }: { query: string }) => {
+    const normalizedQuery = query.trim().toLowerCase()
+    return rawItems
+      .filter((item) => item.toLowerCase().includes(normalizedQuery))
+      .slice(0, 6)
+      .map((item) => ({ id: item, label: item }))
+  },
+  render: () => {
+    let popup: HTMLDivElement | null = null
+    let command: ((item: { id: string; label: string }) => void) | null = null
+    let itemsState: Array<{ id: string; label: string }> = []
+    let selectedIndex = 0
+
+    const mountPopup = (editorElement: HTMLElement) => {
+      const ownerDoc = editorElement.ownerDocument
+      popup = ownerDoc.createElement('div')
+      popup.className = 'tiptap-mention-menu'
+      ownerDoc.body.appendChild(popup)
+    }
+
+    const updatePosition = (props: { clientRect?: (() => DOMRect | null) | null; editor: { view: { dom: HTMLElement } } }) => {
+      const rect = props.clientRect?.()
+      if (!rect || !popup) return
+      const ownerDoc = props.editor.view.dom.ownerDocument
+      const popupWin = ownerDoc.defaultView || window
+      const maxLeft = Math.max(8, popupWin.innerWidth - 260)
+      const top = Math.min(rect.bottom + 8, popupWin.innerHeight - 120)
+      const left = Math.min(rect.left, maxLeft)
+      popup.style.top = `${top}px`
+      popup.style.left = `${Math.max(8, left)}px`
+    }
+
+    const renderList = () => {
+      if (!popup) return
+      popup.innerHTML = ''
+
+      if (!itemsState.length) {
+        const emptyState = popup.ownerDocument.createElement('div')
+        emptyState.className = 'tiptap-mention-menu__empty'
+        emptyState.textContent = 'Nenhuma menção encontrada'
+        popup.appendChild(emptyState)
+        return
+      }
+
+      itemsState.forEach((item, index) => {
+        const button = popup!.ownerDocument.createElement('button')
+        button.type = 'button'
+        button.className = `tiptap-mention-menu__item${index === selectedIndex ? ' is-selected' : ''}`
+        button.textContent = `@${item.label}`
+        button.onmousedown = (event) => {
+          event.preventDefault()
+          command?.(item)
+        }
+        popup!.appendChild(button)
+      })
+    }
+
+    return {
+      onStart: (props: { items: Array<{ id: string; label: string }>; command: (item: { id: string; label: string }) => void; editor: { view: { dom: HTMLElement } }; clientRect?: (() => DOMRect | null) | null }) => {
+        command = props.command
+        itemsState = props.items
+        selectedIndex = 0
+        mountPopup(props.editor.view.dom)
+        renderList()
+        updatePosition(props)
+      },
+      onUpdate: (props: { items: Array<{ id: string; label: string }>; command: (item: { id: string; label: string }) => void; editor: { view: { dom: HTMLElement } }; clientRect?: (() => DOMRect | null) | null }) => {
+        command = props.command
+        itemsState = props.items
+        if (selectedIndex >= itemsState.length) selectedIndex = 0
+        renderList()
+        updatePosition(props)
+      },
+      onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+        if (!itemsState.length) {
+          return event.key === 'Escape'
+        }
+        if (event.key === 'ArrowDown') {
+          selectedIndex = (selectedIndex + 1) % itemsState.length
+          renderList()
+          return true
+        }
+        if (event.key === 'ArrowUp') {
+          selectedIndex = (selectedIndex + itemsState.length - 1) % itemsState.length
+          renderList()
+          return true
+        }
+        if (event.key === 'Enter') {
+          command?.(itemsState[selectedIndex])
+          return true
+        }
+        if (event.key === 'Escape') {
+          popup?.remove()
+          popup = null
+          return true
+        }
+        return false
+      },
+      onExit: () => {
+        popup?.remove()
+        popup = null
+      },
+    }
+  },
+})
 
 // ── Media utilities ──────────────────────────────────────────
 
@@ -453,10 +581,10 @@ const AutoTargetBlankLink = LinkExtension.extend({
   },
 })
 
-const TIPTAP_EXTENSIONS = [
-  StarterKit.configure({ dropcursor: false, link: false }),
+const buildTiptapExtensions = (mentionItems: string[]) => [
+  StarterKit.configure({ dropcursor: false, link: false, codeBlock: false }),
+  CodeBlockLowlight.configure({ lowlight }),
   Markdown,
-  // Underline is bundled in StarterKit v3 — no need to add explicitly
   Highlight,
   Subscript,
   Superscript,
@@ -466,6 +594,18 @@ const TIPTAP_EXTENSIONS = [
   FontSize,
   TextIndent,
   Typography,
+  Gapcursor,
+  Focus.configure({ className: 'has-focus', mode: 'all' }),
+  Mention.configure({
+    HTMLAttributes: { class: 'editor-mention' },
+    suggestion: createMentionSuggestion(mentionItems),
+    renderText: ({ node, options }) => `${options.suggestion.char}${node.attrs.label ?? node.attrs.id}`,
+    renderHTML: ({ node, options }) => [
+      'span',
+      mergeAttributes(options.HTMLAttributes, { class: 'editor-mention' }),
+      `${options.suggestion.char}${node.attrs.label ?? node.attrs.id}`,
+    ],
+  }),
   TextAlign.configure({ types: ['heading', 'paragraph'] }),
   Table.configure({ resizable: true }), TableRow, TableHeader, TableCell,
   TaskList, TaskItem.configure({ nested: true }),
@@ -475,24 +615,56 @@ const TIPTAP_EXTENSIONS = [
   AutoTargetBlankLink.configure({ openOnClick: false, autolink: true, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
   CustomResizableImage.configure({ inline: false }),
   CustomResizableYoutube.configure({ inline: false, width: 840, height: 472, allowFullscreen: true, nocookie: true }),
+  FigureImageNode,
+  SlashCommands,
+  SearchReplaceExtension,
 ]
 
 // ── Prompt modal state type ───────────────────────────────────
 type PromptModalState = {
   show: boolean
   title: string
+  submitLabel: string
+  primaryLabel: string
   placeholder: string
   value: string
-  callback: ((url: string, text: string, caption: string) => void) | null
+  callback: ((payload: PromptModalSubmit) => void) | null
   isLink: boolean
+  showLinkText: boolean
   linkText: string
   showCaption: boolean
   caption: string
+  showAltText: boolean
+  altText: string
+  showTitleText: boolean
+  titleText: string
+}
+
+type PromptModalSubmit = {
+  value: string
+  linkText: string
+  caption: string
+  altText: string
+  titleText: string
 }
 
 const PROMPT_MODAL_INITIAL: PromptModalState = {
-  show: false, title: '', placeholder: 'https://...', value: '',
-  callback: null, isLink: false, linkText: '', showCaption: false, caption: '',
+  show: false,
+  title: '',
+  submitLabel: 'Inserir',
+  primaryLabel: 'Valor',
+  placeholder: 'https://...',
+  value: '',
+  callback: null,
+  isLink: false,
+  showLinkText: false,
+  linkText: '',
+  showCaption: false,
+  caption: '',
+  showAltText: false,
+  altText: '',
+  showTitleText: false,
+  titleText: '',
 }
 
 // ── Local save feedback (visible inside popup window) ────────
@@ -522,6 +694,7 @@ export default function PostEditor({
   const [promptModal, setPromptModal] = useState<PromptModalState>(PROMPT_MODAL_INITIAL)
   const [isUploading, setIsUploading] = useState(false)
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+  const [isImportingGemini, setIsImportingGemini] = useState(false)
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback>(null)
   const saveFeedbackTimer = useRef<ReturnType<typeof setTimeout>>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -529,9 +702,16 @@ export default function PostEditor({
   const [aiChatOpen, setAiChatOpen] = useState(false)
   const [aiChatInput, setAiChatInput] = useState('')
   const aiChatBtnRef = useRef<HTMLButtonElement>(null)
+  const mentionItems = useMemo(() => {
+    const baseItems = initialAuthor.trim()
+      ? [initialAuthor.trim(), ...EDITORIAL_MENTION_BASE_ITEMS]
+      : EDITORIAL_MENTION_BASE_ITEMS
+    return Array.from(new Set(baseItems))
+  }, [initialAuthor])
+  const tiptapExtensions = useMemo(() => buildTiptapExtensions(mentionItems), [mentionItems])
 
   const editor = useEditor({
-    extensions: TIPTAP_EXTENSIONS,
+    extensions: tiptapExtensions,
     content: initialContent || '',
   })
 
@@ -638,6 +818,14 @@ export default function PostEditor({
     }).run()
   }, [editor])
 
+  const openPromptModal = useCallback((nextState: Partial<PromptModalState>) => {
+    setPromptModal({
+      ...PROMPT_MODAL_INITIAL,
+      ...nextState,
+      show: true,
+    })
+  }, [])
+
   const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!editor) return
     const file = event.target.files?.[0]
@@ -650,16 +838,22 @@ export default function PostEditor({
       const res = await fetch('/api/mainsite/upload', { method: 'POST', body: formData })
       if (!res.ok) throw new Error('Falha na consolidação do arquivo.')
       const data = await res.json() as { url: string }
-      // Use 'as any' to bypass Tiptap's strict TS definition that does not include our custom 'width' attribute
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      editor.chain().focus().setImage({ src: data.url, width: '100%' } as any).run()
       showNotification('Upload concluído com sucesso.', 'success')
-      setPromptModal({
-        ...PROMPT_MODAL_INITIAL,
-        show: true,
-        title: 'Legenda da imagem (opcional):',
-        placeholder: 'Ex.: Foto tirada em março de 2026',
-        callback: (captionText) => insertCaptionBlock(captionText),
+      openPromptModal({
+        title: 'Finalizar inserção da imagem:',
+        submitLabel: 'Inserir imagem',
+        primaryLabel: 'URL',
+        placeholder: data.url,
+        value: data.url,
+        showAltText: true,
+        showTitleText: true,
+        showCaption: true,
+        callback: ({ value, altText, titleText, caption }) => {
+          const imageUrl = formatImageUrl(value || data.url)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          editor.chain().focus().setImage({ src: imageUrl, alt: altText.trim(), title: titleText.trim(), width: '100%' } as any).run()
+          insertCaptionBlock(caption)
+        },
       })
     } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Erro no upload.', 'error')
@@ -667,53 +861,58 @@ export default function PostEditor({
       setIsUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
-  }, [editor, showNotification, insertCaptionBlock])
+  }, [editor, showNotification, insertCaptionBlock, openPromptModal])
 
   const addImageUrl = useCallback(() => {
     if (!editor) return
-    setPromptModal({
-      ...PROMPT_MODAL_INITIAL,
-      show: true,
+    openPromptModal({
       title: 'URL da Imagem (Drive/Externa):',
+      submitLabel: 'Inserir imagem',
+      primaryLabel: 'URL da imagem',
       showCaption: true,
-      callback: (url, _text, caption) => {
-        if (!url) return
+      showAltText: true,
+      showTitleText: true,
+      callback: ({ value, caption, altText, titleText }) => {
+        if (!value) return
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        editor!.chain().focus().setImage({ src: formatImageUrl(url), width: '100%' } as any).run()
+        editor.chain().focus().setImage({ src: formatImageUrl(value), alt: altText.trim(), title: titleText.trim(), width: '100%' } as any).run()
         insertCaptionBlock(caption)
       },
     })
-  }, [editor, insertCaptionBlock])
+  }, [editor, insertCaptionBlock, openPromptModal])
 
   const addYoutube = useCallback(() => {
     if (!editor) return
-    setPromptModal({
-      ...PROMPT_MODAL_INITIAL,
-      show: true,
+    openPromptModal({
       title: 'Código ou URL do vídeo (YouTube):',
+      submitLabel: 'Inserir vídeo',
+      primaryLabel: 'URL ou código',
       placeholder: 'Ex.: dQw4w9WgXcQ ou https://youtube.com/watch?v=...',
       showCaption: true,
-      callback: (input, _text, caption) => {
-        if (!input) return
+      callback: ({ value, caption }) => {
+        if (!value) return
         // Aceita código puro (sem barras nem protocolo) e converte para URL completa
-        const isPlainCode = /^[\w-]+$/.test(input.trim())
-        const src = isPlainCode ? `https://www.youtube.com/watch?v=${input.trim()}` : input.trim()
-        editor!.chain().focus().setYoutubeVideo({ src, width: 840, height: 472 }).run()
+        const isPlainCode = /^[\w-]+$/.test(value.trim())
+        const src = isPlainCode ? `https://www.youtube.com/watch?v=${value.trim()}` : value.trim()
+        editor.chain().focus().setYoutubeVideo({ src, width: 840, height: 472 }).run()
         insertCaptionBlock(caption)
       },
     })
-  }, [editor, insertCaptionBlock])
+  }, [editor, insertCaptionBlock, openPromptModal])
 
   const addLink = useCallback(() => {
     if (!editor) return
     const prev = editor.getAttributes('link').href || ''
-    setPromptModal({
-      ...PROMPT_MODAL_INITIAL,
-      show: true,
+    openPromptModal({
       title: 'Inserir Link de Hipertexto:',
+      submitLabel: 'Aplicar link',
+      primaryLabel: 'URL',
       value: prev as string,
       isLink: true,
-      callback: (url, text) => {
+      showLinkText: editor.state.selection.empty,
+      callback: ({ value, linkText }) => {
+        const url = value.trim()
+        const text = linkText.trim()
         if (url === '') { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return }
         const linkAttrs = isYoutubeUrl(url)
           ? { href: url }
@@ -725,7 +924,7 @@ export default function PostEditor({
         }
       },
     })
-  }, [editor])
+  }, [editor, openPromptModal])
 
   const adjustSelectedMediaSize = useCallback((direction: 1 | -1) => {
     if (!editor) return
@@ -776,14 +975,14 @@ export default function PostEditor({
         captionTo = nodeEnd + nextNode.nodeSize
       }
     }
-    setPromptModal({
-      ...PROMPT_MODAL_INITIAL,
-      show: true,
+    openPromptModal({
       title: existingCaption ? 'Editar legenda da mídia:' : 'Adicionar legenda à mídia:',
+      submitLabel: 'Salvar legenda',
+      primaryLabel: 'Legenda',
       placeholder: 'Texto da legenda...',
       value: existingCaption,
-      callback: (text) => {
-        const trimmed = (text || '').trim()
+      callback: ({ value }) => {
+        const trimmed = (value || '').trim()
         if (captionFrom !== null && captionTo !== null) {
           const tr = editor.state.tr.delete(captionFrom, captionTo)
           editor.view.dispatch(tr)
@@ -800,7 +999,7 @@ export default function PostEditor({
         }
       },
     })
-  }, [editor, showNotification, insertCaptionBlock])
+  }, [editor, showNotification, insertCaptionBlock, openPromptModal])
 
   // ── Local feedback helper (visible in popup window) ─────────
   const flashFeedback = useCallback((message: string, type: 'success' | 'error') => {
@@ -808,6 +1007,16 @@ export default function PostEditor({
     setSaveFeedback({ message, type })
     saveFeedbackTimer.current = setTimeout(() => setSaveFeedback(null), 5000)
   }, [])
+
+  const runTableCommand = useCallback((command: (chain: ReturnType<typeof editor.chain>) => { run: () => boolean }, successMessage: string, errorMessage: string) => {
+    if (!editor) return
+    const chain = editor.chain().focus()
+    if (!command(chain).run()) {
+      showNotification(errorMessage, 'info')
+      return
+    }
+    showNotification(successMessage, 'success')
+  }, [editor, showNotification])
 
   // ── Deterministic link sanitizer at save-time ────────────────
   // Ensures ALL non-YouTube links get target="_blank" + secure rel,
@@ -858,6 +1067,30 @@ export default function PostEditor({
     setPostAuthor('')
     editor?.commands.clearContent()
   }
+
+  const handleGeminiImport = useCallback(async (url: string) => {
+    if (!url || !editor) return
+    setIsImportingGemini(true)
+    showNotification('Importando conteúdo do Gemini...', 'info')
+    try {
+      const res = await fetch('/api/mainsite/gemini-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const data = await res.json() as { html?: string; title?: string; error?: string }
+      if (!res.ok) throw new Error(data.error || 'Erro ao importar do Gemini.')
+      if (data.html) {
+        editor.chain().focus().insertContent(data.html).run()
+        if (data.title && !postTitle.trim()) setPostTitle(data.title)
+      }
+      showNotification('Conteúdo importado com sucesso!', 'success')
+    } catch (err) {
+      showNotification(err instanceof Error ? err.message : 'Erro desconhecido.', 'error')
+    } finally {
+      setIsImportingGemini(false)
+    }
+  }, [editor, showNotification, postTitle])
 
   return (
     <form className="form-card" onSubmit={handleSubmit}>
@@ -938,13 +1171,25 @@ export default function PostEditor({
                   </div>
                   <div className="admin-modal-form">
                     <div className="admin-modal-input-group">
-                      <label className="admin-modal-label" htmlFor="tiptap-prompt-url">{promptModal.isLink ? 'URL' : 'Valor'}</label>
+                      <label className="admin-modal-label" htmlFor="tiptap-prompt-url">{promptModal.primaryLabel}</label>
                       <input className="admin-modal-input" id="tiptap-prompt-url" name="tiptapPromptUrl" value={promptModal.value} onChange={(e) => setPromptModal({ ...promptModal, value: e.target.value })} placeholder={promptModal.placeholder} autoFocus />
                     </div>
-                    {promptModal.isLink && editor?.state.selection.empty && (
+                    {promptModal.showLinkText && (
                       <div className="admin-modal-input-group">
                         <label className="admin-modal-label" htmlFor="tiptap-prompt-text">Texto</label>
                         <input className="admin-modal-input" id="tiptap-prompt-text" name="tiptapPromptText" value={promptModal.linkText} onChange={(e) => setPromptModal({ ...promptModal, linkText: e.target.value })} placeholder="Texto de exibição" />
+                      </div>
+                    )}
+                    {promptModal.showAltText && (
+                      <div className="admin-modal-input-group">
+                        <label className="admin-modal-label" htmlFor="tiptap-prompt-alt">Texto alternativo</label>
+                        <input className="admin-modal-input" id="tiptap-prompt-alt" name="tiptapPromptAlt" value={promptModal.altText} onChange={(e) => setPromptModal({ ...promptModal, altText: e.target.value })} placeholder="Descreva a imagem para acessibilidade" />
+                      </div>
+                    )}
+                    {promptModal.showTitleText && (
+                      <div className="admin-modal-input-group">
+                        <label className="admin-modal-label" htmlFor="tiptap-prompt-title">Título da mídia</label>
+                        <input className="admin-modal-input" id="tiptap-prompt-title" name="tiptapPromptTitle" value={promptModal.titleText} onChange={(e) => setPromptModal({ ...promptModal, titleText: e.target.value })} placeholder="Opcional" />
                       </div>
                     )}
                     {promptModal.showCaption && (
@@ -958,10 +1203,16 @@ export default function PostEditor({
                         Cancelar
                       </button>
                       <button type="button" className="admin-modal-btn" onClick={() => {
-                        promptModal.callback?.(promptModal.value.trim(), promptModal.linkText.trim(), promptModal.caption.trim())
+                        promptModal.callback?.({
+                          value: promptModal.value.trim(),
+                          linkText: promptModal.linkText.trim(),
+                          caption: promptModal.caption.trim(),
+                          altText: promptModal.altText.trim(),
+                          titleText: promptModal.titleText.trim(),
+                        })
                         setPromptModal(PROMPT_MODAL_INITIAL)
                       }}>
-                        Inserir
+                        {promptModal.submitLabel}
                       </button>
                     </div>
                   </div>
@@ -983,37 +1234,53 @@ export default function PostEditor({
             </div>
             <span className="tiptap-divider" />
 
-            <button type="button" title="Negrito" className={editor.isActive('bold') ? 'active' : ''} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={15} /></button>
-            <button type="button" title="Itálico" className={editor.isActive('italic') ? 'active' : ''} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={15} /></button>
-            <button type="button" title="Sublinhado" className={editor.isActive('underline') ? 'active' : ''} onClick={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon size={15} /></button>
-            <button type="button" title="Tachado" className={editor.isActive('strike') ? 'active' : ''} onClick={() => editor.chain().focus().toggleStrike().run()}><Strikethrough size={15} /></button>
-            <button type="button" title="Marca-texto" className={editor.isActive('highlight') ? 'active' : ''} onClick={() => editor.chain().focus().toggleHighlight().run()}><Highlighter size={15} /></button>
+            <button type="button" title="Desfazer (Ctrl+Z)" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} className={!editor.can().undo() ? 'disabled' : ''}><Undo2 size={15} /></button>
+            <button type="button" title="Refazer (Ctrl+Y)" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} className={!editor.can().redo() ? 'disabled' : ''}><Redo2 size={15} /></button>
             <span className="tiptap-divider" />
-            <button type="button" title="Subscrito" className={editor.isActive('subscript') ? 'active' : ''} onClick={() => editor.chain().focus().toggleSubscript().run()}><SubIcon size={15} /></button>
-            <button type="button" title="Sobrescrito" className={editor.isActive('superscript') ? 'active' : ''} onClick={() => editor.chain().focus().toggleSuperscript().run()}><SuperIcon size={15} /></button>
-            <button type="button" title="Bloco de código" className={editor.isActive('codeBlock') ? 'active' : ''} onClick={() => editor.chain().focus().toggleCodeBlock().run()}><Code size={15} /></button>
-            <button type="button" title="Citação" className={editor.isActive('blockquote') ? 'active' : ''} onClick={() => editor.chain().focus().toggleBlockquote().run()}><Quote size={15} /></button>
+
+            <button type="button" title="Negrito (Ctrl+B)" className={editor.isActive('bold') ? 'active' : ''} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={15} /></button>
+            <button type="button" title="Itálico (Ctrl+I)" className={editor.isActive('italic') ? 'active' : ''} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={15} /></button>
+            <button type="button" title="Sublinhado (Ctrl+U)" className={editor.isActive('underline') ? 'active' : ''} onClick={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon size={15} /></button>
+            <button type="button" title="Tachado (Ctrl+Shift+X)" className={editor.isActive('strike') ? 'active' : ''} onClick={() => editor.chain().focus().toggleStrike().run()}><Strikethrough size={15} /></button>
+            <button type="button" title="Marca-texto (Ctrl+Shift+H)" className={editor.isActive('highlight') ? 'active' : ''} onClick={() => editor.chain().focus().toggleHighlight().run()}><Highlighter size={15} /></button>
             <span className="tiptap-divider" />
-            <button type="button" title="Esquerda" className={editor.isActive({ textAlign: 'left' }) ? 'active' : ''} onClick={() => editor.chain().focus().setTextAlign('left').run()}><AlignLeft size={15} /></button>
-            <button type="button" title="Centro" className={editor.isActive({ textAlign: 'center' }) ? 'active' : ''} onClick={() => editor.chain().focus().setTextAlign('center').run()}><AlignCenter size={15} /></button>
-            <button type="button" title="Direita" className={editor.isActive({ textAlign: 'right' }) ? 'active' : ''} onClick={() => editor.chain().focus().setTextAlign('right').run()}><AlignRight size={15} /></button>
-            <button type="button" title="Justificar" className={editor.isActive({ textAlign: 'justify' }) ? 'active' : ''} onClick={() => editor.chain().focus().setTextAlign('justify').run()}><AlignJustify size={15} /></button>
+            <button type="button" title="Subscrito (Ctrl+,)" className={editor.isActive('subscript') ? 'active' : ''} onClick={() => editor.chain().focus().toggleSubscript().run()}><SubIcon size={15} /></button>
+            <button type="button" title="Sobrescrito (Ctrl+.)" className={editor.isActive('superscript') ? 'active' : ''} onClick={() => editor.chain().focus().toggleSuperscript().run()}><SuperIcon size={15} /></button>
+            <button type="button" title="Bloco de código (Ctrl+Alt+C)" className={editor.isActive('codeBlock') ? 'active' : ''} onClick={() => editor.chain().focus().toggleCodeBlock().run()}><Code size={15} /></button>
+            <button type="button" title="Citação (Ctrl+Shift+B)" className={editor.isActive('blockquote') ? 'active' : ''} onClick={() => editor.chain().focus().toggleBlockquote().run()}><Quote size={15} /></button>
             <span className="tiptap-divider" />
-            <button type="button" title="Título 1" className={editor.isActive('heading', { level: 1 }) ? 'active' : ''} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}><Heading1 size={15} /></button>
-            <button type="button" title="Título 2" className={editor.isActive('heading', { level: 2 }) ? 'active' : ''} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 size={15} /></button>
-            <button type="button" title="Marcadores" className={editor.isActive('bulletList') ? 'active' : ''} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={15} /></button>
-            <button type="button" title="Numeração" className={editor.isActive('orderedList') ? 'active' : ''} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={15} /></button>
-            <button type="button" title="Tarefas" className={editor.isActive('taskList') ? 'active' : ''} onClick={() => editor.chain().focus().toggleTaskList().run()}><CheckSquare size={15} /></button>
-            <button type="button" title="Linha" onClick={() => editor.chain().focus().setHorizontalRule().run()}><Minus size={15} /></button>
-            <button type="button" title="Tabela" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><TableIcon size={15} /></button>
-            <button type="button" title="Quebra" onClick={() => editor.chain().focus().setHardBreak().run()}><WrapText size={15} /></button>
+            <button type="button" title="Esquerda (Ctrl+Shift+L)" className={editor.isActive({ textAlign: 'left' }) ? 'active' : ''} onClick={() => editor.chain().focus().setTextAlign('left').run()}><AlignLeft size={15} /></button>
+            <button type="button" title="Centro (Ctrl+Shift+E)" className={editor.isActive({ textAlign: 'center' }) ? 'active' : ''} onClick={() => editor.chain().focus().setTextAlign('center').run()}><AlignCenter size={15} /></button>
+            <button type="button" title="Direita (Ctrl+Shift+R)" className={editor.isActive({ textAlign: 'right' }) ? 'active' : ''} onClick={() => editor.chain().focus().setTextAlign('right').run()}><AlignRight size={15} /></button>
+            <button type="button" title="Justificar (Ctrl+Shift+J)" className={editor.isActive({ textAlign: 'justify' }) ? 'active' : ''} onClick={() => editor.chain().focus().setTextAlign('justify').run()}><AlignJustify size={15} /></button>
+            <span className="tiptap-divider" />
+            <button type="button" title="Título 1 (Ctrl+Alt+1)" className={editor.isActive('heading', { level: 1 }) ? 'active' : ''} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}><Heading1 size={15} /></button>
+            <button type="button" title="Título 2 (Ctrl+Alt+2)" className={editor.isActive('heading', { level: 2 }) ? 'active' : ''} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 size={15} /></button>
+            <button type="button" title="Título 3 (Ctrl+Alt+3)" className={editor.isActive('heading', { level: 3 }) ? 'active' : ''} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}><Heading3 size={15} /></button>
+            <button type="button" title="Marcadores (Ctrl+Shift+8)" className={editor.isActive('bulletList') ? 'active' : ''} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={15} /></button>
+            <button type="button" title="Numeração (Ctrl+Shift+7)" className={editor.isActive('orderedList') ? 'active' : ''} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={15} /></button>
+            <button type="button" title="Tarefas (Ctrl+Shift+9)" className={editor.isActive('taskList') ? 'active' : ''} onClick={() => editor.chain().focus().toggleTaskList().run()}><CheckSquare size={15} /></button>
+            <button type="button" title="Linha horizontal" onClick={() => editor.chain().focus().setHorizontalRule().run()}><Minus size={15} /></button>
+            <button type="button" title="Inserir tabela 3×3" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><TableIcon size={15} /></button>
+            {editor.isActive('table') && (
+              <>
+                <button type="button" className="tiptap-button-textual" title="Adicionar linha abaixo" onClick={() => runTableCommand((chain) => chain.addRowAfter(), 'Linha adicionada à tabela.', 'Posicione o cursor dentro da tabela para adicionar uma linha.')}><span className="tiptap-button-text">L+</span></button>
+                <button type="button" className="tiptap-button-textual" title="Remover linha" onClick={() => runTableCommand((chain) => chain.deleteRow(), 'Linha removida da tabela.', 'Posicione o cursor dentro da tabela para remover uma linha.')}><span className="tiptap-button-text">L-</span></button>
+                <button type="button" className="tiptap-button-textual" title="Adicionar coluna à direita" onClick={() => runTableCommand((chain) => chain.addColumnAfter(), 'Coluna adicionada à tabela.', 'Posicione o cursor dentro da tabela para adicionar uma coluna.')}><span className="tiptap-button-text">C+</span></button>
+                <button type="button" className="tiptap-button-textual" title="Remover coluna" onClick={() => runTableCommand((chain) => chain.deleteColumn(), 'Coluna removida da tabela.', 'Posicione o cursor dentro da tabela para remover uma coluna.')}><span className="tiptap-button-text">C-</span></button>
+                <button type="button" className="tiptap-button-textual" title="Alternar cabeçalho da linha" onClick={() => runTableCommand((chain) => chain.toggleHeaderRow(), 'Cabeçalho da tabela atualizado.', 'Posicione o cursor dentro da tabela para atualizar o cabeçalho.')}><span className="tiptap-button-text">Hdr</span></button>
+                <button type="button" className="tiptap-button-textual" title="Mesclar ou dividir células" onClick={() => runTableCommand((chain) => chain.mergeOrSplit(), 'Estrutura de células atualizada.', 'Selecione células válidas para mesclar ou dividir.')}><span className="tiptap-button-text">Mix</span></button>
+                <button type="button" className="tiptap-button-textual" title="Excluir tabela" onClick={() => runTableCommand((chain) => chain.deleteTable(), 'Tabela removida.', 'Posicione o cursor dentro da tabela para excluí-la.')}><span className="tiptap-button-text">Del</span></button>
+              </>
+            )}
+            <button type="button" title="Quebra de linha (Shift+Enter)" onClick={() => editor.chain().focus().setHardBreak().run()}><WrapText size={15} /></button>
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <button type="button" title="Aumentar recuo" onClick={() => (editor.chain().focus() as any).increaseIndent().run()}><Indent size={15} /></button>
+            <button type="button" title="Aumentar recuo (Tab)" onClick={() => (editor.chain().focus() as any).increaseIndent().run()}><Indent size={15} /></button>
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <button type="button" title="Diminuir recuo" onClick={() => (editor.chain().focus() as any).decreaseIndent().run()}><Outdent size={15} /></button>
+            <button type="button" title="Diminuir recuo (Shift+Tab)" onClick={() => (editor.chain().focus() as any).decreaseIndent().run()}><Outdent size={15} /></button>
             <span className="tiptap-divider" />
-            <button type="button" title="Link" className={editor.isActive('link') ? 'active' : ''} onClick={addLink}><LinkIcon size={15} /></button>
-            <button type="button" title="Remover Link" onClick={() => editor.chain().focus().unsetLink().run()} disabled={!editor.isActive('link')} className={!editor.isActive('link') ? 'disabled' : ''}><Unlink size={15} /></button>
+            <button type="button" title="Link (Ctrl+K)" className={editor.isActive('link') ? 'active' : ''} onClick={addLink}><LinkIcon size={15} /></button>
+            <button type="button" title="Remover link" onClick={() => editor.chain().focus().unsetLink().run()} disabled={!editor.isActive('link')} className={!editor.isActive('link') ? 'disabled' : ''}><Unlink size={15} /></button>
             <span className="tiptap-divider" />
             {/* ── Media toolbar ── */}
             <input id="tiptap-file-upload" ref={fileInputRef} name="tiptapFileUpload" type="file" accept="image/*" title="Upload de imagem" className="tiptap-hidden-input" onChange={handleImageUpload} />
@@ -1023,6 +1290,13 @@ export default function PostEditor({
             <button type="button" title="Reduzir mídia" onClick={() => adjustSelectedMediaSize(-1)} disabled={!editor.isActive('image') && !editor.isActive('youtube')}><ZoomOut size={15} /></button>
             <button type="button" title="Ampliar mídia" onClick={() => adjustSelectedMediaSize(1)} disabled={!editor.isActive('image') && !editor.isActive('youtube')}><ZoomIn size={15} /></button>
             <button type="button" title="Legenda da mídia" onClick={editCaption} disabled={!editor.isActive('image') && !editor.isActive('youtube')}><MessageSquare size={15} /></button>
+            <button type="button" title="Importar do Gemini" onClick={() => openPromptModal({
+              title: 'Importar do Gemini (link compartilhado):',
+              submitLabel: 'Importar',
+              primaryLabel: 'URL do compartilhamento',
+              placeholder: 'https://gemini.google.com/share/...',
+              callback: ({ value }) => handleGeminiImport(value),
+            })} disabled={isImportingGemini}>{isImportingGemini ? <Loader2 size={15} className="spin" /> : <Download size={15} />}</button>
             
             <span className="tiptap-divider" />
             
@@ -1099,8 +1373,9 @@ export default function PostEditor({
           </div>
         )}
         <EditorContent editor={editor} className="tiptap-editor" />
-        {editor && <EditorBubbleMenu editor={editor} />}
-        {editor && <EditorFloatingMenu editor={editor} />}
+        {editor && <SearchReplacePanel editor={editor} />}
+        {editor && <EditorBubbleMenu editor={editor} onLinkClick={addLink} />}
+        {editor && <EditorFloatingMenu editor={editor} onInsertTable={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />}
         {editor && (
           <div className="tiptap-status-bar">
             {editor.storage.characterCount.characters()} caracteres &middot; {editor.storage.characterCount.words()} palavras
@@ -1114,7 +1389,7 @@ export default function PostEditor({
 }
 
 // ── BubbleMenu — contextual formatting toolbar on text selection (draggable + viewport-clamped) ──
-function EditorBubbleMenu({ editor }: { editor: ReturnType<typeof useEditor> }) {
+function EditorBubbleMenu({ editor, onLinkClick }: { editor: ReturnType<typeof useEditor>; onLinkClick?: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const [autoPos, setAutoPos] = useState<{ top: number; left: number } | null>(null)
   const [dragPos, setDragPos] = useState<{ top: number; left: number } | null>(null)
@@ -1189,24 +1464,24 @@ function EditorBubbleMenu({ editor }: { editor: ReturnType<typeof useEditor> }) 
   const portalTarget = editor.view?.dom?.ownerDocument?.body || document.body
   return ReactDOM.createPortal(
     <div ref={ref} className="bubble-menu" onMouseDown={startDrag} style={{ position: 'fixed', top: `${pos.top}px`, left: `${pos.left}px`, zIndex: 99999, cursor: 'grab' }}>
-      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleBold().run() }} className={editor.isActive('bold') ? 'is-active' : ''} title="Negrito"><Bold size={14} /></button>
-      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleItalic().run() }} className={editor.isActive('italic') ? 'is-active' : ''} title="Itálico"><Italic size={14} /></button>
-      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleUnderline().run() }} className={editor.isActive('underline') ? 'is-active' : ''} title="Sublinhado"><UnderlineIcon size={14} /></button>
-      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleStrike().run() }} className={editor.isActive('strike') ? 'is-active' : ''} title="Tachado"><Strikethrough size={14} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleBold().run() }} className={editor.isActive('bold') ? 'is-active' : ''} title="Negrito (Ctrl+B)"><Bold size={14} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleItalic().run() }} className={editor.isActive('italic') ? 'is-active' : ''} title="Itálico (Ctrl+I)"><Italic size={14} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleUnderline().run() }} className={editor.isActive('underline') ? 'is-active' : ''} title="Sublinhado (Ctrl+U)"><UnderlineIcon size={14} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleStrike().run() }} className={editor.isActive('strike') ? 'is-active' : ''} title="Tachado (Ctrl+Shift+X)"><Strikethrough size={14} /></button>
       <span className="bubble-divider" />
-      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHighlight().run() }} className={editor.isActive('highlight') ? 'is-active' : ''} title="Marca-texto"><Highlighter size={14} /></button>
-      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleSubscript().run() }} className={editor.isActive('subscript') ? 'is-active' : ''} title="Subscrito"><SubIcon size={14} /></button>
-      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleSuperscript().run() }} className={editor.isActive('superscript') ? 'is-active' : ''} title="Sobrescrito"><SuperIcon size={14} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHighlight().run() }} className={editor.isActive('highlight') ? 'is-active' : ''} title="Marca-texto (Ctrl+Shift+H)"><Highlighter size={14} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleSubscript().run() }} className={editor.isActive('subscript') ? 'is-active' : ''} title="Subscrito (Ctrl+,)"><SubIcon size={14} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleSuperscript().run() }} className={editor.isActive('superscript') ? 'is-active' : ''} title="Sobrescrito (Ctrl+.)"><SuperIcon size={14} /></button>
       <span className="bubble-divider" />
-      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleCode().run() }} className={editor.isActive('code') ? 'is-active' : ''} title="Código inline"><Code size={14} /></button>
-      <button type="button" onMouseDown={e => { e.preventDefault(); if (editor.isActive('link')) { editor.chain().focus().unsetLink().run() } else { const popupWin = editor.view.dom.ownerDocument.defaultView || window; const url = popupWin.prompt('URL do link:'); if (url) editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run() } }} className={editor.isActive('link') ? 'is-active' : ''} title="Link"><LinkIcon size={14} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleCode().run() }} className={editor.isActive('code') ? 'is-active' : ''} title="Código inline (Ctrl+E)"><Code size={14} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); if (editor.isActive('link')) { editor.chain().focus().unsetLink().run() } else { onLinkClick?.() } }} className={editor.isActive('link') ? 'is-active' : ''} title="Link (Ctrl+K)"><LinkIcon size={14} /></button>
     </div>,
     portalTarget
   )
 }
 
 // ── FloatingMenu — quick-insert toolbar on empty lines (draggable + viewport-clamped) ──
-function EditorFloatingMenu({ editor }: { editor: ReturnType<typeof useEditor> }) {
+function EditorFloatingMenu({ editor, onInsertTable }: { editor: ReturnType<typeof useEditor>; onInsertTable: () => void }) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [autoPos, setAutoPos] = useState<{ top: number; left: number } | null>(null)
   const [dragPos, setDragPos] = useState<{ top: number; left: number } | null>(null)
@@ -1290,7 +1565,7 @@ function EditorFloatingMenu({ editor }: { editor: ReturnType<typeof useEditor> }
       <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleBlockquote().run() }} title="Citação"><Quote size={16} /></button>
       <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleCodeBlock().run() }} title="Bloco de Código"><Code size={16} /></button>
       <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().setHorizontalRule().run() }} title="Linha Horizontal"><Minus size={16} /></button>
-      <button type="button" onMouseDown={e => { e.preventDefault(); editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() }} title="Tabela"><LayoutGrid size={16} /></button>
+      <button type="button" onMouseDown={e => { e.preventDefault(); onInsertTable() }} title="Tabela"><LayoutGrid size={16} /></button>
     </div>,
     portalTarget
   )
