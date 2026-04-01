@@ -14,12 +14,12 @@ Auditoria completa do módulo `CF P&W` contra a API oficial Cloudflare para elim
 - **Importações Limpas:** Removidas `createCloudflareWorkerFromTemplate` e `deployCloudflareWorkerVersion` do ops.ts
 
 ### Resultado Final
-- **20 Operações Válidas** (todas suportadas pela API Cloudflare)
+- **18 Operações Válidas Nativas** (focadas em usabilidade e compliance estrito com a API Cloudflare):
   - WORKER_OPS: 11 operações (schedules, usage-model, secrets, versions list, routes)
-  - PAGE_OPS: 8 operações (create, settings, domains, retry, rollback, logs)
-  - RAW_OPS: 1 operação controlada
+  - PAGE_OPS: 7 operações (create, domains, retry, rollback, logs)
+  - *Removido*: A aba avançada de Raw HTTP Request foi completamente removida para evitar execuções não mapeadas.
 - **Build:** 100% sem erros TypeScript
-- **Paridade Visual:** 100% com Dashboard Cloudflare (tabelas, deployments, alerts, operações avançadas)
+- **Paridade Visual:** 100% com Dashboard Cloudflare (tabelas, deployments, alerts, operações guiadas)
 
 ### Controle de versão
 - `admin-app`: APP v01.77.04 → APP v01.77.05
