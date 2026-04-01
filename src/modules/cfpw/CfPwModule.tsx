@@ -297,20 +297,23 @@ const findOpsAction = (value: string) => {
 const parseApiPayload = async <T,>(response: Response, fallback: string): Promise<T> => {
   const rawText = await response.text()
   const trimmed = rawText.trim()
+  const cfRay = response.headers.get('cf-ray')
+  const statusInfo = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`
+  const traceInfo = cfRay ? `${statusInfo}, cf-ray ${cfRay}` : statusInfo
 
   if (!trimmed) {
-    throw new Error(`${fallback} (HTTP ${response.status}, corpo vazio).`)
+    throw new Error(`${fallback} (${traceInfo}, corpo vazio).`)
   }
 
   const looksLikeHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')
   if (looksLikeHtml) {
-    throw new Error(`${fallback} (HTTP ${response.status}, resposta HTML inesperada).`)
+    throw new Error(`${fallback} (${traceInfo}, resposta HTML inesperada).`)
   }
 
   try {
     return JSON.parse(trimmed) as T
   } catch {
-    throw new Error(`${fallback} (HTTP ${response.status}, resposta não-JSON).`)
+    throw new Error(`${fallback} (${traceInfo}, resposta não-JSON).`)
   }
 }
 
