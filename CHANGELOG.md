@@ -1,5 +1,16 @@
 # Changelog — Admin App
 
+## [v01.77.00] - 2026-04-01
+### Adicionado
+- **Governança de Infraestrutura — Purge de Cache Automático**: integrado mecanismo inteligente de invalidação de cache associado ao expurgo de deployments do Cloudflare Pages.
+- **Detecção de Zonas**: novo endpoint `cleanup-cache-project.ts` resolve automaticamente domínios customizados (como `admin.exemplo.com.br`) filtrando exclusivamente para seus respectivos Zone IDs raiz (como `exemplo.com.br`), invocando o comando generalizado na Edge Cloudflare (`purge_everything: true`) visando universalizar a robustez para qualquer conta independente do Plano. 
+- **Fase 2 de Governança Tracionada**: a UI `DeploymentCleanupPanel` foi enriquecida e agora processa e despacha programaticamente o fluxo consecutivo da Fase 2 (limpar o cache ao final do loop dos deploys obsoletos) e fornece *report logging* no terminal simulado.
+- Adicionadas helper functions de Zone Fetching (`listCloudflareZones` e `purgeCloudflareZoneCache`) ao injetor de APIs `cfpw-api.ts`.
+- Domínios internos da própria CF (`*.pages.dev`) são inteligentemente ignorados para mitigação de payload errors visto que não detém Zone IDs manipuláveis.
+
+### Controle de versão
+- `admin-app`: APP v01.76.01 → APP v01.77.00
+
 ## [v01.76.01] - 2026-04-01
 ### Adicionado
 - **PostEditor Fullscreen Popup**: O componente global `PopupPortal` passou a abrir nativamente maximizado e cobrindo toda a área disponível (`100vw`/`100vh`) em vez dos antigos limites hard-coded de `90%` com margens centralizadas. Essa adequação melhora a imersão na edição de publicações e remove o atrito de ter que maximizar manualmente a janela independente do _PostEditor_ na criação de postagens no MainSite.

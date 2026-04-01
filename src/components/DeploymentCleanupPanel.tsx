@@ -203,14 +203,59 @@ export function DeploymentCleanupPanel() {
       setPurgeResults({ success: successCount, failed: failedCount })
     }
 
+    // FASE 2: Cache Purge
+    if (!abortRef.current && successCount > 0) {
+      addLog('', 'dim')
+      addLog('═══ Iniciando limpeza de cache (Zonas Cloudflare) ═══', 'info')
+
+      const uniqueProjects = Array.from(new Set(allObsolete.map((d) => d.projectName)))
+      
+      for (const projectName of uniqueProjects) {
+        if (abortRef.current) {
+          addLog('⊘ Operação de cache interrompida pelo operador.', 'warn')
+          break
+        }
+        
+        addLog(`  → Verificando domínios customizados para ${projectName}...`, 'default')
+
+        try {
+          const res = await fetch('/api/cfpw/cleanup-cache-project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectName }),
+          })
+
+          if (res.ok) {
+            const data = await res.json() as { processedZones: number, purgedDomains: string[], message: string }
+            if (data.processedZones > 0) {
+              data.purgedDomains.forEach(domain => {
+                addLog(`    ✓ Cache expurgado para ${domain}`, 'success')
+              })
+            } else {
+              addLog(`    ✓ ${data.message}`, 'dim')
+            }
+          } else {
+            const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error?: string }
+            addLog(`    ✗ Falha no cache para ${projectName}: ${err.error ?? 'Erro'}`, 'error')
+            failedCount++
+            setPurgeResults({ success: successCount, failed: failedCount })
+          }
+        } catch (err) {
+          addLog(`    ✗ Erro de rede ao limpar cache de ${projectName}: ${err instanceof Error ? err.message : 'Erro'}`, 'error')
+          failedCount++
+          setPurgeResults({ success: successCount, failed: failedCount })
+        }
+      }
+    }
+
     addLog('', 'dim')
     if (abortRef.current) {
       showNotification('Operação interrompida pelo operador.', 'info')
     } else if (failedCount === 0) {
-      addLog(`✓ Governança concluída — ${successCount} deployment(s) destruído(s).`, 'success')
-      showNotification(`Governança concluída — ${successCount} deployment(s) destruído(s).`, 'success')
+      addLog(`✓ Governança e Cache concluídos — ${successCount} deployment(s) destruído(s).`, 'success')
+      showNotification(`Governança e Cache concluídos — ${successCount} deployment(s) expurgado(s).`, 'success')
     } else {
-      addLog(`⚠ Concluído — ${successCount} sucesso(s), ${failedCount} falha(s).`, 'warn')
+      addLog(`⚠ Concluído — ${successCount} sucesso(s), ${failedCount} falha(s) operacionais.`, 'warn')
       showNotification(`Expurgo parcial: ${successCount} sucesso(s), ${failedCount} falha(s).`, 'error')
     }
 

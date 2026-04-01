@@ -2,7 +2,15 @@
 
 > **Nota:** Este arquivo contém o histórico de desenvolvimento e decisões arquiteturais exclusivos do módulo `admin-app`. Refere-se a atualizações, correções e novos recursos referentes ao app administrativo.
 
-## 2026-03-31 — Admin-App v01.75.01 — AI Summary Auto-Generation Fix
+## 2026-04-01 — Admin-App v01.77.00 — Cloudflare Purge Cache
+### Adicionado
+- **Governança de Infraestrutura — Purge de Cache Automático**: integrado mecanismo inteligente de invalidação de cache associado ao expurgo de deployments do Cloudflare Pages. Novo endpoint `cleanup-cache-project.ts` descobre a(s) zona(s) raiz dos domínios customizados atrelados a cada projeto do Cloudflare Pages afetado, e aplica limpeza generalizada (`purge_everything: true`) visando compatibilidade máxima nos planos free/paid.
+- **Fase 2 de Limpeza**: A interface `DeploymentCleanupPanel` foi aprimorada para coordenar programaticamente as duas fases: limpar projetos (deployments antigos) e expurgar caches na sequência.
+- Funções base `listCloudflareZones` e `purgeCloudflareZoneCache` foram incorporadas à sublibrary `cfpw-api`. Domínios internos da própria CF (`*.pages.dev`) são inteligentemente ignorados do expurgo.
+### Controle de versão
+- `admin-app`: APP v01.76.01 → APP v01.77.00
+
+## 2026-03-31 — Admin-App v01.76.01 — AI Summary Auto-Generation Fix
 ### Corrigido
 - **`MainsiteModule.tsx`:** Função de geração automática de Resumo IA estava inoperante desde a refatoração do PostEditor, exigindo acionamento em massa manual. Corrigida a rotina `handleSavePost` para disparar via Fetch assíncrono (Fire-and-Forget) um rebuild `/api/mainsite/post-summaries` contendo a ação "regenerate" logo após confirmar que a persistência do post foi concluída nativamente no edge.
 ### Controle de versão

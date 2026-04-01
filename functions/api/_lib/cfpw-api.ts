@@ -900,3 +900,55 @@ export const runCloudflareRawRequest = async (
     requestInit,
   )
 }
+
+export type CfpwZone = {
+  id?: string
+  name?: string
+  status?: string
+}
+
+export const listCloudflareZones = async (env: EnvWithCloudflarePwToken) => {
+  const zones = await cloudflareRequest<CfpwZone[]>(
+    env,
+    '/zones?per_page=50',
+    'Falha ao carregar zonas da Cloudflare',
+  )
+
+  return Array.isArray(zones) ? zones : []
+}
+
+export const purgeCloudflareZoneCache = async (
+  env: EnvWithCloudflarePwToken,
+  zoneId: string,
+  options: { hosts?: string[]; purge_everything?: boolean }
+) => {
+  const normalizedZoneId = zoneId.trim()
+  if (!normalizedZoneId) {
+    throw new Error('zoneId é obrigatório para realizar purge de cache.')
+  }
+
+  const hasHosts = Array.isArray(options.hosts) && options.hosts.length > 0
+  const isEverything = Boolean(options.purge_everything)
+
+  if (!hasHosts && !isEverything) {
+    throw new Error('Forneça `hosts` ou `purge_everything: true` para o purge_cache.')
+  }
+
+  const payload: Record<string, unknown> = {}
+  if (hasHosts) {
+    payload.hosts = options.hosts
+  }
+  if (isEverything) {
+    payload.purge_everything = true
+  }
+
+  return cloudflareRequest<Record<string, unknown>>(
+    env,
+    `/zones/${encodeURIComponent(normalizedZoneId)}/purge_cache`,
+    `Falha ao executar purge_cache na zona ${normalizedZoneId}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
+}
