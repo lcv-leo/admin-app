@@ -152,27 +152,7 @@ const WORKER_OPS: OpsActionDefinition[] = [
     fields: ['scriptName', 'usageModel'],
     outcomeLabel: 'Resultado da troca de usage model',
   },
-  {
-    value: 'list-worker-secrets',
-    label: 'Listar secrets do Worker',
-    description: 'Retorna os nomes dos secrets configurados.',
-    fields: ['scriptName'],
-    outcomeLabel: 'Secrets encontrados',
-  },
-  {
-    value: 'add-worker-secret',
-    label: 'Adicionar secret ao Worker',
-    description: 'Grava um novo secret. O valor é enviado apenas na execução.',
-    fields: ['scriptName', 'secretName', 'secretValue'],
-    outcomeLabel: 'Resultado da gravação do secret',
-  },
-  {
-    value: 'delete-worker-secret',
-    label: 'Remover secret do Worker',
-    description: 'Exclui um secret existente pelo nome.',
-    fields: ['scriptName', 'secretName'],
-    outcomeLabel: 'Resultado da remoção do secret',
-  },
+
   {
     value: 'list-worker-versions',
     label: 'Listar versões do Worker',
@@ -297,6 +277,143 @@ const valueToText = (value: unknown) => {
   if (typeof value === 'string') return value.trim() || '—'
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   return '—'
+}
+
+const AmigavelViewer: React.FC<{ data: unknown }> = ({ data }) => {
+  if (data === null || data === undefined) return <span>Sem dados.</span>
+  if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+    return <span>{String(data)}</span>
+  }
+  if (Array.isArray(data)) {
+    if (data.length === 0) return <span>Vazio.</span>
+    return (
+      <ul style={{ paddingLeft: '20px', margin: '4px 0', fontSize: '0.85rem' }}>
+        {data.map((item, i) => (
+          <li key={i}><AmigavelViewer data={item}/></li>
+        ))}
+      </ul>
+    )
+  }
+  if (typeof data === 'object') {
+    const keys = Object.keys(data)
+    if (keys.length === 0) return <span>Vazio.</span>
+    return (
+      <div style={{ paddingLeft: '12px', borderLeft: '2px solid rgba(0,0,0,0.1)', margin: '4px 0', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
+        {keys.map(key => (
+           <div key={key}>
+             <strong style={{ color: '#5f6368' }}>{key}: </strong>
+             <AmigavelViewer data={(data as Record<string, unknown>)[key]}/>
+           </div>
+        ))}
+      </div>
+    )
+  }
+  return <span>Desconhecido</span>
+}
+
+const SecretsManager: React.FC<{ scriptName: string, adminActor: string }> = ({ scriptName, adminActor }) => {
+  const [secrets, setSecrets] = useState<{ name: string; type: string }[]>([])
+  const [loading, setLoading] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newValue, setNewValue] = useState('')
+  const { showNotification } = useNotification()
+
+  const loadSecrets = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/cfpw/ops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Actor': adminActor },
+        body: JSON.stringify({ action: 'list-worker-secrets', scriptName })
+      })
+      const payload = await res.json() as OpsResponsePayload
+      if (!res.ok || !payload.ok) throw new Error(payload.error ?? 'Falha.')
+      setSecrets(Array.isArray(payload.result) ? payload.result as { name: string; type: string }[] : [])
+    } catch (error) {
+      showNotification(error instanceof Error ? error.message : 'Erro ao ler secrets', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [scriptName, adminActor, showNotification])
+
+  useEffect(() => {
+    void loadSecrets()
+  }, [loadSecrets])
+
+  const handleDelete = async (secretName: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/cfpw/ops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Actor': adminActor },
+        body: JSON.stringify({ action: 'delete-worker-secret', scriptName, secretName })
+      })
+      const payload = await res.json() as OpsResponsePayload
+      if (!res.ok || !payload.ok) throw new Error(payload.error ?? 'Falha.')
+      showNotification('Secret removido.', 'success')
+      await loadSecrets()
+    } catch (error) {
+      showNotification(error instanceof Error ? error.message : 'Erro', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newName.trim() || !newValue.trim()) return
+    setLoading(true)
+    try {
+      const res = await fetch('/api/cfpw/ops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Actor': adminActor },
+        body: JSON.stringify({ action: 'add-worker-secret', scriptName, secretName: newName.trim(), secretValue: newValue.trim() })
+      })
+      const payload = await res.json() as OpsResponsePayload
+      if (!res.ok || !payload.ok) throw new Error(payload.error ?? 'Falha.')
+      showNotification('Secret adicionado.', 'success')
+      setNewName('')
+      setNewValue('')
+      await loadSecrets()
+    } catch (error) {
+      showNotification(error instanceof Error ? error.message : 'Erro', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid #dadce0', borderRadius: '12px', padding: '24px', marginBottom: '24px' }}>
+       <h3 style={{ margin: '0 0 16px', fontSize: '1.2rem' }}>Gerenciador de Variáveis & Segredos</h3>
+       
+       <form onSubmit={handleAdd} style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
+         <input placeholder="KEY_NAME" value={newName} onChange={e => setNewName(e.target.value)} disabled={loading} style={{ flex: 1, minWidth: '150px' }} />
+         <input type="password" placeholder="Valor Secreto" value={newValue} onChange={e => setNewValue(e.target.value)} disabled={loading} style={{ flex: 2, minWidth: '200px' }} />
+         <button type="submit" className="primary-button" disabled={loading} style={{ padding: '8px 16px' }}>Adicionar</button>
+       </form>
+
+       <div>
+         {loading && secrets.length === 0 ? (
+           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5f6368' }}><Loader2 size={16} className="spin" /> Carregando...</div>
+         ) : secrets.length === 0 ? (
+           <div style={{ color: '#5f6368', fontStyle: 'italic' }}>Nenhuma variável configurada.</div>
+         ) : (
+           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+             {secrets.map(s => (
+               <div key={s.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', padding: '12px 16px', borderRadius: '8px' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                   <ShieldCheck size={16} color="#1a73e8" />
+                   <strong>{s.name}</strong>
+                   <span style={{ fontSize: '0.8rem', background: '#e8eaed', padding: '2px 6px', borderRadius: '4px' }}>{s.type}</span>
+                 </div>
+                 <button type="button" className="ghost-button" style={{ color: '#d93025', padding: '4px' }} onClick={() => handleDelete(s.name)} disabled={loading} title="Remover"><Trash2 size={16} /></button>
+               </div>
+             ))}
+           </div>
+         )}
+       </div>
+    </div>
+  )
 }
 
 export function CfPwModule() {
@@ -492,6 +609,19 @@ export function CfPwModule() {
   const openActionModal = (action: OpsActionDefinition) => {
     setSelectedOp(action)
     setOpsResult(null)
+    
+    let defaultDeploymentId = ''
+    if (action.fields.includes('deploymentId') && details?.type === 'page') {
+      const deploy = (details.payload as PageDetailsPayload).deployments?.[0]
+      if (deploy?.id || deploy?.short_id) {
+        defaultDeploymentId = String(deploy.id || deploy.short_id)
+      }
+    }
+    
+    setOpsState(prev => ({
+      ...prev,
+      deploymentId: defaultDeploymentId || prev.deploymentId
+    }))
     setOpsModalOpen(true)
   }
 
@@ -672,6 +802,7 @@ export function CfPwModule() {
 
             {activeTab === 'settings' && (
               <div className="cfpw-detail-section">
+                 {details.type === 'worker' && <SecretsManager scriptName={details.id} adminActor={adminActor} />}
                  <h3>Ações de Gerenciamento</h3>
                  <div className="cfpw-action-list">
                     {(details.type === 'worker' ? WORKER_OPS : PAGE_OPS).map(action => (
@@ -820,9 +951,11 @@ export function CfPwModule() {
                         <CheckCircle size={12} /> Concluído
                       </span>
                     </div>
-                    <details>
-                      <summary style={{ fontSize: '0.85rem', cursor: 'pointer', color: '#5f6368' }}>Visualizar Saída de Dados</summary>
-                      <pre style={{ margin: '8px 0 0', fontSize: '0.8rem', textWrap: 'wrap', wordBreak: 'break-all' }}>{JSON.stringify(opsResult, null, 2)}</pre>
+                    <details open>
+                      <summary style={{ fontSize: '0.85rem', cursor: 'pointer', color: '#5f6368', paddingBottom: '8px' }}>Visualizar Saída de Dados</summary>
+                      <div style={{ background: '#fff', padding: '12px', borderRadius: '8px', border: '1px solid #dadce0', maxHeight: '400px', overflowY: 'auto' }}>
+                        <AmigavelViewer data={opsResult} />
+                      </div>
                     </details>
                   </div>
                ) : null}
