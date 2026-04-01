@@ -2,6 +2,13 @@
 
 > **Nota:** Este arquivo contém o histórico de desenvolvimento e decisões arquiteturais exclusivos do módulo `admin-app`. Refere-se a atualizações, correções e novos recursos referentes ao app administrativo.
 
+## 2026-04-01 — Admin-App v01.77.01 — Cloudflare Purge Cache Authentication Fix
+### Corrigido
+- Tratamento de limitação de token Cloudflare: o endpoit `cleanup-cache-project.ts` passava a receber HTTP 403 (ou fallback genérico) ao expurgar o cache de domínios atrelados ao plano caso a credencial de escopo do dashboard Cloudflare Pages and Workers não explicitasse acesso ao endpoint `Zone.CachePurge`.
+- Solução: implementada hierarquia de Tokens usando DNS Wrapper em `cfpw-api.ts`. A API checa e despacha nativamente com o `CLOUDFLARE_DNS` em preempção, quando disponível no environment, ao qual já se concede privilégios absolutos de Roteamento/Cache, solucionando o crash 500 sem comprometer a rigidez do core de deployment.
+### Controle de versão
+- `admin-app`: APP v01.77.00 → APP v01.77.01
+
 ## 2026-04-01 — Admin-App v01.77.00 — Cloudflare Purge Cache
 ### Adicionado
 - **Governança de Infraestrutura — Purge de Cache Automático**: integrado mecanismo inteligente de invalidação de cache associado ao expurgo de deployments do Cloudflare Pages. Novo endpoint `cleanup-cache-project.ts` descobre a(s) zona(s) raiz dos domínios customizados atrelados a cada projeto do Cloudflare Pages afetado, e aplica limpeza generalizada (`purge_everything: true`) visando compatibilidade máxima nos planos free/paid.

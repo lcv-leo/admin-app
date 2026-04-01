@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.77.01] - 2026-04-01
+### Corrigido
+- Resolvido um edge-case em que o Cache Purge API do Cloudflare Pages falharia em invocações locais ou de produção se o Token Base não possuísse as permissões explícitas de Zona para purgação e não falhasse adequadamente para um Token de resolução DNS que possuía. A API do `cfpw` agora delega para o Token DNS nativamente se configurado para bypass de permissão restrita da conta.
+
+### Controle de versão
+- `admin-app`: APP v01.77.00 → APP v01.77.01
+
 ## [v01.77.00] - 2026-04-01
 ### Adicionado
 - **Governança de Infraestrutura — Purge de Cache Automático**: integrado mecanismo inteligente de invalidação de cache associado ao expurgo de deployments do Cloudflare Pages.
