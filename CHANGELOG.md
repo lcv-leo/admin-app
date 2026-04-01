@@ -1,5 +1,14 @@
 # Changelog — Admin App
 
+## [v01.77.03] - 2026-04-01
+### Corrigido e Otimizado
+- **Segregação de Tokens Cloudflare**: O erro `403 (Authentication error)` no endpoint `/client/v4/zones/:id/purge_cache` persistia devido à restrição estrita das chaves preexistentes (`CLOUDFLARE_DNS`, `CLOUDFLARE_PW`) que não possuíam, por design de segurança (Governance/Defence in Depth), os privilégios híbridos necessários para purgar cache.
+- O loop fantasma que testava chaves irrelevantes foi erradicado do script base.
+- Instaurado a exigência programática de um Token dedicado e de propósito único (`CLOUDFLARE_CACHE_TOKEN`) que necessita ser configurado nativamente no Cloudflare Secret com escopos delimitados de _Zone: Read_ e _Zone: Cache Purge_. A API omitirá logs falsos e emitirá erro claro instruindo esse procedimento de onboarding de secret em caso de ausência.
+
+### Controle de versão
+- `admin-app`: APP v01.77.02 → APP v01.77.03
+
 ## [v01.77.02] - 2026-04-01
 ### Corrigido
 - Evoluída a resolução de Token na API de cache do Cloudflare Pages implementada. Agora o backend aplica iteração seqüencial (fallback robusto via loop `for`) cruzando `CLOUDFLARE_DNS`, `CLOUDFLARE_API_TOKEN`, `CF_API_TOKEN` e `CLOUDFLARE_PW` até transpor qualquer erro explícito `403 (Authentication error)` e isolar o token funcional com a devida permissão `Zone.CachePurge` autorizada nativamente à operação em andamento, impedindo hard 500 crashes se chaves mestre/específicas estiverem misturadas ou com escopo restrito.
