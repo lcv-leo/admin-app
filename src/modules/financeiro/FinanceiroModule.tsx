@@ -9,6 +9,7 @@
 // Acessibilidade: WCAG 2.1 AA + eMAG
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   DollarSign, Download, Loader2, RefreshCw,
   AlertCircle, RotateCcw, Ban, Wallet,
@@ -640,7 +641,7 @@ export function FinanceiroModule() {
       </article>
 
       {/* ── Modal de confirmação ── */}
-      {modal && (
+      {modal && createPortal(
         <div className="fin-modal-overlay" role="dialog" aria-modal="true"
           aria-labelledby="fin-modal-title" aria-describedby="fin-modal-desc"
           onClick={() => { if (!actionBusy) { setModal(null); setRefundAmount('') } }}>
@@ -702,7 +703,8 @@ export function FinanceiroModule() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   )

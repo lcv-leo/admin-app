@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   BrainCircuit, Clock, Database, Download, ExternalLink,
   Globe, Loader2, Mail, RefreshCw, Save, Search, Settings, Trash2, X,
@@ -848,7 +849,7 @@ export function OraculoModule() {
       )}
 
       {/* ── Modal de Exclusão ─────────────────────────────────────── */}
-      {confirmDelete?.show && (
+      {confirmDelete?.show && createPortal(
         <div className="admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Confirmar exclusão">
           <div className="admin-modal-content">
             <button type="button" title="Fechar" className="admin-modal-close" onClick={() => setConfirmDelete(null)}>
@@ -866,7 +867,8 @@ export function OraculoModule() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   )

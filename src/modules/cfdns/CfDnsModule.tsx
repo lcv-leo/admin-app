@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AlertTriangle, Cloud, Loader2, Pencil, Plus, RefreshCw, Save, ShieldCheck, Trash2 } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 
@@ -1912,7 +1913,7 @@ export function CfDnsModule() {
     </section>
 
     {/* ── Confirm Modal DNS Save (substitui window.confirm) ── */}
-    {pendingSaveConfirm && (
+    {pendingSaveConfirm && createPortal(
       <div className="cleanup-confirm-overlay" onClick={() => setPendingSaveConfirm(false)}>
         <div className="cleanup-confirm-modal" onClick={(e) => e.stopPropagation()}>
           <AlertTriangle size={32} className="cleanup-confirm-icon" />
@@ -1935,11 +1936,12 @@ export function CfDnsModule() {
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     )}
 
     {/* ── Confirm Modal DNS Delete (substitui window.confirm) ── */}
-    {pendingDeleteRecord && (
+    {pendingDeleteRecord && createPortal(
       <div className="cleanup-confirm-overlay" onClick={() => setPendingDeleteRecord(null)}>
         <div className="cleanup-confirm-modal" onClick={(e) => e.stopPropagation()}>
           <AlertTriangle size={32} className="cleanup-confirm-icon" />
@@ -1962,7 +1964,8 @@ export function CfDnsModule() {
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     )}
     </>
   )

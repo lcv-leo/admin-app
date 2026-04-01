@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Activity, AlertTriangle, BarChart3, Bot, Calendar,
   Database, Loader2, RefreshCw, Share2,
@@ -425,7 +426,7 @@ export function TelemetriaModule() {
       </div>
 
       {/* ── Confirmation dialog ── */}
-      {confirmDelete.show && (
+      {confirmDelete.show && createPortal(
         <div className="admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Confirmar exclusão">
           <div className="admin-modal-content">
             <button type="button" title="Fechar diálogo" className="admin-modal-close" onClick={() => setConfirmDelete({ show: false, table: '', id: 0, label: '' })}>
@@ -449,7 +450,8 @@ export function TelemetriaModule() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Tabs ── */}

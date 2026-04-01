@@ -1,5 +1,13 @@
 # Changelog — Admin App
 
+## [v01.76.00] - 2026-04-01
+### Alterado
+- **Padronização Global de Modais e Toasts (Portals)**: Todos os modais de confirmação, diálogos de entrada, e overlays de notificação em todos os módulos (MainSite, Astrólogo, Oráculo, Telemetria, CF DNS, CF P&W, etc) foram migrados de posicionamento embutido (inline rendering) para o padrão `React.createPortal()` na raiz do `document.body`. Isso resolve definitivamente qualquer bug e regressão de rolagem onde caixas de diálogo e toasts ficavam travados em topos virtuais de contextos de CSS (como o `content-visibility: auto` dos painéis modulares), sempre garantindo centralização exata na viewport nativa do usuário.
+- **Refatoração Semântica de Primitivas**: O ecossistema de classes de componentes visuais do modal foi renomeado globalmente de `.admin-modal-*` para `.admin-modal-*`, desvinculando os componentes modulares fundamentais de sua origem específica (Calculadora Hub) e preparando para reaproveitamento universal pela arquitetura do admin.
+
+### Controle de versão
+- `admin-app`: APP v01.75.02 → APP v01.76.00
+
 ## [v01.75.02] - 2026-04-01
 ### Corrigido
 - **DeploymentCleanupPanel — Fix na Posição do Modal**: A confirmação de exclusão (Purge de Deployments) voltou a ser centralizada no viewport do usuário. Devido à presença de `content-visibility: auto` no componente pai que cria um novo contexto de isolamento no CSS, modals que usavam `position: fixed` ficavam ancorados no topo da página interna rolável. O problema foi sanado utilizando um React `createPortal` para montar o modal/overlay de exclusão diretamente pro lado de fora, no escopo raiz do `document.body`.

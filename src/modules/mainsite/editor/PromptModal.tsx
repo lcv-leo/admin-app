@@ -3,6 +3,7 @@
  * (link, image URL, YouTube, caption, Gemini import URL)
  * Extracted from PostEditor.tsx for structural decomposition.
  */
+import { createPortal } from 'react-dom'
 import { X, Link as LinkIcon, Image as ImageIcon, Type } from 'lucide-react'
 import {
   PROMPT_MODAL_INITIAL,
@@ -38,7 +39,7 @@ export function PromptModal({ modal, setModal }: PromptModalProps) {
     queueMicrotask(() => callback?.(payload))
   }
 
-  return (
+  return createPortal(
     <div className="admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Entrada de dados">
       <div className="admin-modal-content">
         <button type="button" title="Fechar diálogo" className="admin-modal-close" onClick={close}>
@@ -105,6 +106,7 @@ export function PromptModal({ modal, setModal }: PromptModalProps) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

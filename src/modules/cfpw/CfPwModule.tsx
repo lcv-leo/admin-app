@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AlertTriangle, CheckCircle, Eye, EyeOff, Loader2, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 
@@ -1376,7 +1377,7 @@ export function CfPwModule() {
       </div>
 
       {/* ── Confirm Modal para operações destrutivas (substitui window.confirm) ── */}
-      {showDestructiveModal && (
+      {showDestructiveModal && createPortal(
         <div className="cleanup-confirm-overlay" onClick={() => setShowDestructiveModal(false)}>
           <div className="cleanup-confirm-modal" onClick={(e) => e.stopPropagation()}>
             <AlertTriangle size={32} className="cleanup-confirm-icon" />
@@ -1399,7 +1400,8 @@ export function CfPwModule() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   )

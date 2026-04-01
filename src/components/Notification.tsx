@@ -4,6 +4,7 @@
  */
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 import './Notification.css'
 
@@ -69,22 +70,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   return (
     <NotificationContext.Provider value={{ showNotification }}>
       {children}
-      <div className="notification-container">
-        {items.map((item) => {
-          const Icon = iconMap[item.type]
-          return (
-            <div key={item.id} className={`notification notification-${item.type}`} role="status" aria-live="polite">
-              <div className="notification-body">
-                <div className="notification-icon"><Icon size={15} /></div>
-                <span className="notification-message">{item.message}</span>
-                <button type="button" className="notification-close" onClick={() => removeNotification(item.id)} aria-label="Fechar notificação">
-                  ×
-                </button>
+      {createPortal(
+        <div className="notification-container">
+          {items.map((item) => {
+            const Icon = iconMap[item.type]
+            return (
+              <div key={item.id} className={`notification notification-${item.type}`} role="status" aria-live="polite">
+                <div className="notification-body">
+                  <div className="notification-icon"><Icon size={15} /></div>
+                  <span className="notification-message">{item.message}</span>
+                  <button type="button" className="notification-close" onClick={() => removeNotification(item.id)} aria-label="Fechar notificação">
+                    ×
+                  </button>
+                </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>,
+        document.body
+      )}
     </NotificationContext.Provider>
   )
-}
+}

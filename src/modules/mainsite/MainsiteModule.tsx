@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { Suspense, lazy } from 'react'
+import { createPortal } from 'react-dom'
 import {
   AlertTriangle, BrainCircuit, DollarSign,
   FilePlus2, Globe, GripVertical,
@@ -563,7 +564,7 @@ export function MainsiteModule() {
       </div>
 
       {/* ── Diálogo de confirmação ────────────────────── */}
-      {confirmDelete.show && (
+      {confirmDelete.show && createPortal(
         <div className="admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Confirmar exclusão">
           <div className="admin-modal-content">
             <button type="button" title="Fechar diálogo" className="admin-modal-close" onClick={() => setConfirmDelete({ show: false, id: null, title: '' })}>
@@ -587,7 +588,8 @@ export function MainsiteModule() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 

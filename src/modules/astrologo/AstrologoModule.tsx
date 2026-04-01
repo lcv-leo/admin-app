@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { useMemo, useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import type { FormEvent } from 'react'
 import { BrainCircuit, Loader2, Mail, Search, Send, Sparkles, Telescope, Trash2, X, RefreshCw } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
@@ -468,7 +469,7 @@ export function AstrologoModule() {
       </div>
 
       {/* Dialog de confirmação de exclusão */}
-      {confirmDelete?.show && (
+      {confirmDelete?.show && createPortal(
         <div className="admin-modal-overlay" role="dialog" aria-modal="true" aria-label="Confirmar exclusão">
           <div className="admin-modal-content">
             <button type="button" title="Fechar diálogo" className="admin-modal-close" onClick={() => setConfirmDelete(null)}>
@@ -492,7 +493,8 @@ export function AstrologoModule() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Tabs ── */}
