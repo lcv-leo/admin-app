@@ -1,5 +1,14 @@
 # Changelog — Admin App
 
+## [v01.77.06] - 2026-04-01
+### Features
+- **Gerenciador Visual de Segredos:** Integrada interface rica via componente \`SecretsManager\` diretamente na aba Ajustes do CF P&W.
+- **Suporte Cloudflare Pages:** Adicionada capacidade de gerenciar (visualizar, adicionar e excluir) Variáveis de Ambiente (\`plain_text\`) e Segredos (\`secret_text\`) para projetos do Pages usando PATCH incremental nativo.
+- **Botão Rotacionar**: Criada ação rápida de um clique (Rotacionar) para facilitar a sobreescrita de valores confidenciais persistentes sem precisar deletar e criar de novo.
+
+### Controle de versão
+- \`admin-app\`: APP v01.77.05 → APP v01.77.06
+
 ## [v01.77.05] - 2026-04-01
 ### Auditoria CF P&W & Aderência API Cloudflare
 - **Remoção de Operações Não Suportadas pela API**: Eliminadas operações que não possuem suporte na API oficial Cloudflare:
