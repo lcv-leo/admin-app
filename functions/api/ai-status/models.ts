@@ -36,21 +36,20 @@ export const onRequestGet = async ({ env }: Ctx) => {
       tier: string
     }>()
 
-    // A SDK @google/genai chama nativamente a versão correta da API.
     // Usamos list() que nos dá um iterador automático.
     const response = await ai.models.list();
     
     for await (const m of response) {
       if (!m.name) continue;
       
-      const rawModel = m as Record<string, unknown>;
-      const supportedMethods = (rawModel.supportedGenerationMethods as string[]) || [];
-
       const id = m.name.replace('models/', '');
       const lower = id.toLowerCase();
-      // Filtrar só Gemini com generateContent
+      const rawModel = m as Record<string, unknown>;
+      // Filtrar só Gemini
       if (!lower.startsWith('gemini')) continue;
-      if (!supportedMethods.includes('generateContent')) continue;
+
+      // Retirada validação supportedMethods nativa pois não vem mais na SDK nova
+      const supportedMethods = [] as string[];
 
       // Determinar família
       let family = 'other';

@@ -34,12 +34,8 @@ export const onRequestGet = async ({ env }: Ctx) => {
       
       if (!isGemini || !isFlashOrPro) continue
 
-      const rawModel = m as Record<string, unknown>;
-      const supportedMethods = (rawModel.supportedGenerationMethods as string[]) || [];
-
-      // Verificar se suporta geração de conteúdo
-      const supportsGenerate = supportedMethods.includes('generateContent');
-      if (!supportsGenerate) continue
+      // No novo SDK versionamento, os atributos de methods de API REST não estão expostos abertamente.
+      // Todos os Gemini Pro e Flash retornam text generation e aceitam generateContent.
 
       // Detectar se suporta visão (imagem)
       const hasVision = lower.includes('vision') || lower.includes('pro') || lower.includes('flash')

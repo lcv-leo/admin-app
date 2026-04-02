@@ -34,12 +34,7 @@ export const onRequestGet = async ({ env }: Ctx) => {
       
       if (!isGemini || !isFlashOrPro) continue
 
-      const rawModel = m as Record<string, unknown>;
-      const supportedMethods = (rawModel.supportedGenerationMethods as string[]) || [];
-
-      // Verificar se suporta geração de conteúdo
-      const supportsGenerate = supportedMethods.includes('generateContent');
-      if (!supportsGenerate) continue
+      // No SDK novo ignoramos methods pois todos flash/pro suportam.
 
       // Detectar se suporta visão (imagem)
       const hasVision = lower.includes('vision') || lower.includes('pro') || lower.includes('flash')

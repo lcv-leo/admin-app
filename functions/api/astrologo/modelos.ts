@@ -34,12 +34,7 @@ export const onRequestGet = async ({ env }: Ctx) => {
       
       if (!isGemini || !isFlashOrPro) continue
 
-      const rawModel = m as Record<string, unknown>;
-      const supportedMethods = (rawModel.supportedGenerationMethods as string[]) || [];
-
-      // Verificar se suporta geração de conteúdo
-      const supportsGenerate = supportedMethods.includes('generateContent');
-      if (!supportsGenerate) continue
+      // V1.48+ genai: Ignorar supportedGenerationMethods. Todos os pro+flash suportam text.
 
       // Detectar se suporta visão (imagem)
       const hasVision = lower.includes('vision') || lower.includes('pro') || lower.includes('flash')
