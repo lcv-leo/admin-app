@@ -791,7 +791,7 @@ export function ConfigModule() {
                 <button 
                   type="button" 
                   className="ghost-button" 
-                  onClick={() => void carregarModelos()} 
+                  onClick={() => void loadModels()} 
                   disabled={modelsLoading} 
                   style={{ padding: '2px 8px', fontSize: '11px', height: 'auto' }}
                 >
@@ -829,7 +829,7 @@ export function ConfigModule() {
                 <button 
                   type="button" 
                   className="ghost-button" 
-                  onClick={() => void carregarModelos()} 
+                  onClick={() => void loadModels()} 
                   disabled={modelsLoading} 
                   style={{ padding: '2px 8px', fontSize: '11px', height: 'auto' }}
                 >
