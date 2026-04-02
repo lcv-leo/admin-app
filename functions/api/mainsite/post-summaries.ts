@@ -232,6 +232,22 @@ export async function onRequestGet(context: SummaryContext) {
   }
 }
 
+async function resolveSummaryModel(db: D1Database, reqModel?: string): Promise<string> {
+  if (reqModel) return reqModel
+  try {
+    const row = await db.prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1').bind('mainsite/ai_models').first<{ payload?: string }>()
+    if (row?.payload) {
+      const parsed = JSON.parse(row.payload) as Record<string, unknown>
+      if (parsed && typeof parsed.summary === 'string' && parsed.summary) {
+        return parsed.summary
+      }
+    }
+  } catch {
+    // fallback ignorado, usa default
+  }
+  return DEFAULT_GEMINI_MODEL
+}
+
 // ── POST: actions (generate-all, regenerate, edit) ──
 export async function onRequestPost(context: SummaryContext) {
   const trace = createResponseTrace(context.request)
@@ -279,6 +295,7 @@ export async function onRequestPost(context: SummaryContext) {
       let skipped = 0
       let failed = 0
       const details: Array<{ postId: number; title: string; status: string }> = []
+      const resolvedModel = await resolveSummaryModel(db, body.model)
 
       for (const post of allPosts) {
         const cleanContent = stripHtml(post.content)
@@ -304,14 +321,13 @@ export async function onRequestPost(context: SummaryContext) {
         }
 
         try {
-          const result = await generateShareSummary(post.title, post.content, apiKey, body.model)
+          const result = await generateShareSummary(post.title, post.content, apiKey, resolvedModel)
           if ('error' in result) {
             failed++
             details.push({ postId: post.id, title: post.title, status: result.error })
             continue
           }
 
-          const usedModel = body.model || DEFAULT_GEMINI_MODEL
           await db.prepare(`
             INSERT INTO mainsite_post_ai_summaries (post_id, summary_og, summary_ld, content_hash, is_manual, model, updated_at)
             VALUES (?, ?, ?, ?, 0, ?, CURRENT_TIMESTAMP)
@@ -322,7 +338,7 @@ export async function onRequestPost(context: SummaryContext) {
               is_manual = 0,
               model = excluded.model,
               updated_at = CURRENT_TIMESTAMP
-          `).bind(post.id, result.summary_og, result.summary_ld, newHash, usedModel).run()
+          `).bind(post.id, result.summary_og, result.summary_ld, newHash, resolvedModel).run()
 
           generated++
           details.push({ postId: post.id, title: post.title, status: 'generated' })
@@ -356,12 +372,13 @@ export async function onRequestPost(context: SummaryContext) {
 
       if (!post) return json({ ok: false, error: 'Post não encontrado.', ...trace }, 404)
 
-      const result = await generateShareSummary(post.title, post.content, apiKey, body.model)
+      const resolvedModel = await resolveSummaryModel(db, body.model)
+
+      const result = await generateShareSummary(post.title, post.content, apiKey, resolvedModel)
       if ('error' in result) return json({ ok: false, error: result.error, ...trace }, 502)
 
       const contentHash = await hashContent(stripHtml(post.content))
 
-      const usedModel = body.model || DEFAULT_GEMINI_MODEL
       await db.prepare(`
         INSERT INTO mainsite_post_ai_summaries (post_id, summary_og, summary_ld, content_hash, is_manual, model, updated_at)
         VALUES (?, ?, ?, ?, 0, ?, CURRENT_TIMESTAMP)
@@ -372,7 +389,7 @@ export async function onRequestPost(context: SummaryContext) {
           is_manual = 0,
           model = excluded.model,
           updated_at = CURRENT_TIMESTAMP
-      `).bind(body.postId, result.summary_og, result.summary_ld, contentHash, usedModel).run()
+      `).bind(body.postId, result.summary_og, result.summary_ld, contentHash, resolvedModel).run()
 
       return json({ ok: true, ...result, ...trace })
     }

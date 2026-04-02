@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
 import { PopupPortal } from '../../components/PopupPortal'
-import { useModuleConfig } from '../../lib/useModuleConfig'
+
 
 // Lazy-loaded PostEditor — TipTap chunk only loads when editor is opened
 const PostEditor = lazy(() => import('./PostEditor'))
@@ -53,13 +53,7 @@ type DisclaimersSettings = {
 
 const DEFAULT_DISCLAIMERS: DisclaimersSettings = { enabled: true, items: [] }
 
-// ── Configuração local do modelo IA (paridade com Calculadora/Oráculo/Astrólogo) ──
-interface MainsiteConfig {
-  modeloIA?: string
-  summaryModeloIA?: string
-}
 
-// ── Configuração de taxas dos gateways de pagamento ──
 interface FeeConfig {
   sumupRate: number
   sumupFixed: number
@@ -73,8 +67,6 @@ const DEFAULT_FEES: FeeConfig = {
   mpRate: 0.0499,
   mpFixed: 0.40,
 }
-
-interface GeminiModelItem { id: string; displayName: string; api: string; vision: boolean }
 
 // ── Resumos IA para compartilhamento social ──
 type AiSummary = {
@@ -92,7 +84,7 @@ type AiSummary = {
 
 type BulkDetail = { postId: number; title: string; status: string }
 
-const DEFAULT_MS_CONFIG: MainsiteConfig = { modeloIA: '', summaryModeloIA: '' }
+
 
 export function MainsiteModule() {
   const { showNotification } = useNotification()
@@ -115,13 +107,6 @@ export function MainsiteModule() {
   const [confirmDelete, setConfirmDelete] = useState<ConfirmDeleteState>({ show: false, id: null, title: '' })
   const [draggedPostIndex, setDraggedPostIndex] = useState<number | null>(null)
 
-  // ── Modelo IA state (D1-persisted) ──
-  const [msConfig, saveMsConfig] = useModuleConfig<MainsiteConfig>('mainsite-config', DEFAULT_MS_CONFIG, {
-    onSaveSuccess: () => showNotification('Configuração IA salva.', 'success'),
-    onSaveError: (err) => showNotification(`Erro ao salvar configuração: ${err}`, 'error'),
-  })
-  const [geminiModels, setGeminiModels] = useState<GeminiModelItem[]>([])
-  const [modelsLoading, setModelsLoading] = useState(false)
 
   // ── Taxas state ──
   const [fees, setFees] = useState<FeeConfig>(DEFAULT_FEES)
@@ -140,18 +125,7 @@ export function MainsiteModule() {
   const [savingSummary, setSavingSummary] = useState(false)
   const [postsWithoutSummary, setPostsWithoutSummary] = useState<Array<{ id: number; title: string }>>([])
 
-  const carregarModelos = async () => {
-    setModelsLoading(true)
-    try {
-      const res = await fetch('/api/mainsite/modelos')
-      const data = await res.json() as { ok: boolean; models?: GeminiModelItem[] }
-      if (data.ok && data.models) setGeminiModels(data.models)
-    } catch {
-      // ignora erro — dropdown mostra fallback
-    } finally {
-      setModelsLoading(false)
-    }
-  }
+
 
 
   const loadManagedPosts = useCallback(async (shouldNotify = false) => {
@@ -261,7 +235,7 @@ export function MainsiteModule() {
       const res = await fetch('/api/mainsite/post-summaries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate-all', mode, model: msConfig.summaryModeloIA || undefined }),
+        body: JSON.stringify({ action: 'generate-all', mode }),
       })
       const data = await res.json() as { ok: boolean; generated?: number; skipped?: number; failed?: number; total?: number; details?: BulkDetail[]; error?: string }
       if (!data.ok) throw new Error(data.error ?? 'Falha na geração em massa.')
@@ -288,7 +262,7 @@ export function MainsiteModule() {
       const res = await fetch('/api/mainsite/post-summaries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'regenerate', postId, model: msConfig.summaryModeloIA || undefined }),
+        body: JSON.stringify({ action: 'regenerate', postId }),
       })
       const data = await res.json() as { ok: boolean; summary_og?: string; error?: string }
       if (!data.ok) throw new Error(data.error ?? 'Falha na regeneração.')
@@ -334,7 +308,6 @@ export function MainsiteModule() {
   useEffect(() => {
     void loadManagedPosts()
     void loadPublicSettings()
-    void carregarModelos()
     void carregarTaxas()
     void loadSummaries()
   }, [loadManagedPosts, loadPublicSettings, loadSummaries])
@@ -407,7 +380,7 @@ export function MainsiteModule() {
         fetch('/api/mainsite/post-summaries', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'regenerate', postId: targetPostId, model: msConfig.summaryModeloIA || undefined }),
+          body: JSON.stringify({ action: 'regenerate', postId: targetPostId }),
         }).then(() => loadSummaries()).catch(console.error)
       }
 
@@ -922,50 +895,7 @@ export function MainsiteModule() {
           </button>
         </div>
 
-        {/* Modelo IA para geração de resumos */}
-        <div className="form-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)', marginBottom: '16px' }}>
-          <div className="field-group">
-            <label htmlFor="summary-modelo-ia" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              Modelo de Geração de Resumos
-              <button 
-                type="button" 
-                className="ghost-button" 
-                onClick={() => void carregarModelos()} 
-                disabled={modelsLoading || bulkGenerating} 
-                style={{ padding: '2px 8px', fontSize: '11px', height: 'auto' }}
-              >
-                {modelsLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
-                Atualizar
-              </button>
-            </label>
-            <div className="select-wrapper">
-              <select
-                id="summary-modelo-ia"
-                name="summaryModeloIa"
-                value={msConfig.summaryModeloIA || ''}
-                onChange={e => saveMsConfig({ summaryModeloIA: e.target.value })}
-                disabled={bulkGenerating}
-              >
-                {modelsLoading ? (
-                  <option value={msConfig.summaryModeloIA || ''}>Carregando modelos...</option>
-                ) : (
-                  <>
-                    <option value="">Automático (Padrão)</option>
-                    {geminiModels.length === 0 && msConfig.summaryModeloIA && <option value={msConfig.summaryModeloIA}>{msConfig.summaryModeloIA}</option>}
-                    {geminiModels.map(m => (
-                      <option key={m.id} value={m.id}>
-                        {m.displayName} {m.vision ? '👁️' : ''} ({m.api})
-                      </option>
-                    ))}
-                  </>
-                )}
-              </select>
-            </div>
-            <p className="field-hint" style={{ marginTop: '8px' }}>
-              Motor Gemini utilizado para gerar os resumos de compartilhamento social (OG e LD).
-            </p>
-          </div>
-        </div>
+
 
         {/* Progresso da geração em massa */}
         {bulkGenerating && (

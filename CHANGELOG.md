@@ -1,5 +1,13 @@
 # Changelog — Admin App
 
+## [v01.77.12] - 2026-04-02
+### Alterado
+- **Governança de IA no Frontend**: Excluído código morto e dependências legadas (`useModuleConfig`, `msConfig`, `geminiModels`) que sobrou no `MainsiteModule` após movimentação inicial de Settings na versão .08.
+- **Backend (MainSite)**: Atualizada a rota `post-summaries.ts` (ações `regenerate` e `generate-all`) para buscar nativamente no banco (D1) qual é o modelo padronizado (`aiModels.summary`) da aba de System Settings do app quando a requisição não trafegar com force override via POST body, completando de fato o switch.
+
+### Controle de versão
+- `admin-app`: APP v01.77.11 -> APP v01.77.12
+
 ## [v01.77.11] - 2026-04-02
 ### Corrigido
 - Restaurada na interface gráfica a lista e submissão correta (fallback name + api route) dos seletores dinâmicos de Inteligência Artificial usando propriedades `m.displayName` formatadas no backend no lugar da dupla declaração de variável acidental que quebrava o parser TSX (`AstrologoModule`).
