@@ -13,6 +13,17 @@ function json(data: unknown, status = 200) {
   })
 }
 
+function formatModelName(id: string): string {
+  if (!id) return '';
+  return id.replace(/^gemini-/i, 'Gemini ')
+           .replace(/-pro/i, ' Pro')
+           .replace(/-flash/i, ' Flash')
+           .replace(/-lite/i, ' Lite')
+           .replace(/-exp(.*)/i, ' (Experimental$1)')
+           .replace(/-preview(.*)/i, ' (Preview$1)')
+           .trim();
+}
+
 export const onRequestGet = async ({ env }: Ctx) => {
   const apiKey = env?.GEMINI_API_KEY
   if (!apiKey) return json({ ok: false, error: 'GEMINI_API_KEY não configurada.' }, 503)
@@ -64,7 +75,7 @@ export const onRequestGet = async ({ env }: Ctx) => {
 
       allModels.set(id, {
         id,
-        displayName: m.displayName || id,
+        displayName: m.displayName || formatModelName(id),
         description: m.description || '',
         api: 'sdk',
         inputTokenLimit: (rawModel.inputTokenLimit as number) || 0,
