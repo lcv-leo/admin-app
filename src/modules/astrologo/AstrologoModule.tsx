@@ -76,6 +76,7 @@ export function AstrologoModule() {
   })
   const [geminiModels, setGeminiModels] = useState<GeminiModelItem[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
+  const [adminActor] = useState('admin@app.lcv')
   
   interface UserDataRow {
     id: string; email: string; dadosJson: string
@@ -96,7 +97,6 @@ export function AstrologoModule() {
   const [dataInicial, setDataInicial] = useState('')
   const [dataFinal, setDataFinal] = useState('')
   const [email, setEmail] = useState('')
-  const [adminActor] = useState('admin@app.lcv')
   const [items, setItems] = useState<MapaResumo[]>([])
   const [selectedMapa, setSelectedMapa] = useState<MapaDetalhado | null>(null)
   const [nomeConsulente, setNomeConsulente] = useState('')
