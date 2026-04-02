@@ -366,7 +366,12 @@ export function ConfigModule() {
 
       setMsAppearance(payload.settings.appearance as AppearanceSettings ?? DEFAULT_APPEARANCE)
       setMsRotation(payload.settings.rotation as RotationSettings ?? DEFAULT_ROTATION)
-      setMsAiModels((payload.settings.aiModels as { chat: string; summary: string }) ?? { chat: '', summary: '' })
+      
+      const incomingAiModels = (payload.settings.aiModels as { chat?: string; summary?: string }) || {}
+      setMsAiModels({
+        chat: incomingAiModels.chat ?? '',
+        summary: incomingAiModels.summary ?? '',
+      })
 
       if (shouldNotify) {
         showNotification('Ajustes do MainSite recarregados com sucesso.', 'success')

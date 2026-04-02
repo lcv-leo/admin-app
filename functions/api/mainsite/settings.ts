@@ -51,7 +51,11 @@ const safeParseObject = (rawPayload: string | undefined, fallback: Record<string
 
   try {
     const parsed = JSON.parse(rawPayload) as unknown
-    return isRecord(parsed) ? parsed : fallback
+    if (isRecord(parsed)) {
+      // Merge properties recursively or one level deep so missing keys fallback to defaults
+      return { ...fallback, ...parsed }
+    }
+    return fallback
   } catch {
     return fallback
   }
