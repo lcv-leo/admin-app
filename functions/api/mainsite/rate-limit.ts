@@ -58,7 +58,7 @@ const POLICY_META: Record<PolicyRoute, { label: string; defaults: { enabled: boo
     defaults: {
       enabled: false,
       max_requests: 3,
-      window_minutes: 15,
+      window_minutes: 1,
     },
   },
   contato: {

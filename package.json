@@ -45,7 +45,6 @@
     "@tiptap/pm": "^3.21.0",
     "@tiptap/react": "^3.21.0",
     "@tiptap/starter-kit": "^3.21.0",
-    "@types/dompurify": "^3.2.0",
     "dompurify": "^3.3.3",
     "lucide-react": "^1.7.0",
     "marked": "^17.0.5",
