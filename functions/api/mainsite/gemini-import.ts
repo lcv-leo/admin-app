@@ -9,6 +9,7 @@ import { GoogleGenAI } from '@google/genai'
 
 interface Env {
   GEMINI_API_KEY: string
+  JINA_API_KEY?: string
   BIGDATA_DB?: D1Database
 }
 
@@ -45,7 +46,7 @@ const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
  *   1. Direct fetch with real browser UA + manual redirect control
  *   2. Jina.ai Reader as fallback (handles anti-bot/CAPTCHA)
  */
-async function fetchSharePageHtml(url: string): Promise<string> {
+async function fetchSharePageHtml(url: string, jinaApiKey?: string): Promise<string> {
   // --- Tier 1: Direct fetch with controlled redirects ---
   const MAX_REDIRECTS = 8;
   let currentUrl = url;
@@ -91,14 +92,16 @@ async function fetchSharePageHtml(url: string): Promise<string> {
     });
   }
 
-  // --- Tier 2: Jina.ai Reader fallback ---
+  // --- Tier 2: Jina.ai Reader fallback (authenticated for higher rate limits) ---
   const jinaUrl = `${JINA_READER_PREFIX}${url}`;
-  const jinaRes = await fetch(jinaUrl, {
-    headers: {
-      'Accept': 'text/html',
-      'X-Return-Format': 'html',
-    },
-  });
+  const jinaHeaders: Record<string, string> = {
+    'Accept': 'text/html',
+    'X-Return-Format': 'html',
+  };
+  if (jinaApiKey) {
+    jinaHeaders['Authorization'] = `Bearer ${jinaApiKey}`;
+  }
+  const jinaRes = await fetch(jinaUrl, { headers: jinaHeaders });
 
   if (!jinaRes.ok) {
     throw new Error(`Fetch falhou: direto (CAPTCHA) e Jina (status ${jinaRes.status}). Tente novamente em alguns minutos.`);
@@ -202,7 +205,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     // 1. Fetch share page HTML using tiered strategy (direct → Jina fallback)
-    const htmlText = await fetchSharePageHtml(url);
+    const htmlText = await fetchSharePageHtml(url, context.env.JINA_API_KEY);
     // 2. Strip standard html bloat to save tokens (SVGs, <script>, <style>)
     const cleanedHtml = htmlText
       .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
