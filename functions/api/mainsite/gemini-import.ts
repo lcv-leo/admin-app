@@ -30,10 +30,12 @@ interface ImportRequest {
 const GEMINI_CONFIG = {
   model: 'gemini-2.5-pro',
   temperature: 0.1,
-  topP: 0.8,
   maxRetries: 2,
   retryDelayMs: 1000
 };
+
+// Jina.ai Reader API prefix — bypasses Google anti-bot/CAPTCHA protection
+const JINA_READER_PREFIX = 'https://r.jina.ai/';
 
 // Log estruturado
 function structuredLog(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
@@ -129,17 +131,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   let finalTitle = '';
 
   try {
-    // 1. Fetch the Gemini URL directly
-    const shareRes = await fetch(url, {
+    // 1. Fetch via Jina.ai Reader API to bypass Google anti-bot/CAPTCHA
+    //    Direct fetch from Cloudflare Worker IPs gets blocked by Google's /sorry/index redirect loop
+    const jinaUrl = `${JINA_READER_PREFIX}${url}`;
+    const shareRes = await fetch(jinaUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-        'Accept': 'text/html,application/xhtml+xml',
+        'Accept': 'text/html',
+        'X-Return-Format': 'html',
       },
-      redirect: 'follow',
     });
 
     if (!shareRes.ok) {
-      throw new Error(`O servidor respondeu com status ${shareRes.status}`);
+      throw new Error(`Jina Reader respondeu com status ${shareRes.status}`);
     }
 
     const htmlText = await shareRes.text();
@@ -156,23 +159,22 @@ Atue como um conversor de alta fidelidade para Markdown garantindo:
 3. LIMPEZA DE RUÍDO: Descarte inteiramente as partes que são puramente interface de usuário ('Sign in', 'Settings', botões de rodapé/menu), retendo exclusivamente o fluxo de conversa.
 4. TÍTULO: Infira ou deduz o cabeçalho original ou título principal da conversa.`;
 
-    // Defaults for safety will be used
-
+    // Config per official @google/genai structured output docs:
+    // Uses responseJsonSchema (standard JSON Schema) with lowercase types
     const config = {
       systemInstruction: systemInstructionConfig,
       temperature: GEMINI_CONFIG.temperature,
-      topP: GEMINI_CONFIG.topP,
       responseMimeType: "application/json",
-      responseSchema: {
-        type: "OBJECT",
+      responseJsonSchema: {
+        type: "object",
         properties: {
           title: {
-            type: "STRING",
-            description: "O título deduzido ou o cabeçalho original da conversa (ex: 'Plano de Marketing 2025')"
+            type: "string",
+            description: "O título deduzido ou o cabeçalho original da conversa"
           },
           markdown: {
-            type: "STRING",
-            description: "O conteúdo puro da conversa integralmente limpo e reescrito em formatação Markdown (ex: *texto*, links em (), listas etc)"
+            type: "string",
+            description: "O conteúdo puro da conversa integralmente limpo e reescrito em formatação Markdown"
           }
         },
         required: ["title", "markdown"],
@@ -186,7 +188,7 @@ Atue como um conversor de alta fidelidade para Markdown garantindo:
       try {
         const response = await ai.models.generateContent({
           model: GEMINI_CONFIG.model,
-          contents: `Análise detalhadamente o código HTML da página do Gemini Share abaixo e extraia a conversa:\n\nHTML:\n${cleanedHtml}`,
+          contents: `Analise detalhadamente o conteúdo HTML da página do Gemini Share abaixo e extraia a conversa:\n\nHTML:\n${cleanedHtml}`,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           config: config as any
         });
@@ -235,9 +237,10 @@ Atue como um conversor de alta fidelidade para Markdown garantindo:
     structuredLog('error', 'Falha no import nativo do Gemini', { error: err instanceof Error ? err.message : 'Unknown' });
 
     const message = err instanceof Error ? err.message : 'Erro na leitura do HTML';
+    const statusCode = message.includes('status 4') ? 422 : 502;
     return new Response(
-      JSON.stringify({ error: `O Gemini encontrou erro ou falhou ao ler o link do formato compartilhado. Tente recriar o link público. Detalhe: ${message}` }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: `Falha na importação Gemini. Detalhe: ${message}` }),
+      { status: statusCode, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 
