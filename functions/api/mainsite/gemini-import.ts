@@ -35,30 +35,47 @@ const GEMINI_CONFIG = {
   retryDelayMs: 1000
 };
 
-// Jina.ai Reader API — used to fetch Gemini share pages
+// Jina.ai Reader API — fetches page content as clean markdown
 // (direct fetch from Cloudflare Worker IPs ALWAYS triggers Google CAPTCHA)
 const JINA_READER_PREFIX = 'https://r.jina.ai/';
+const JINA_TIMEOUT_MS = 15_000; // 15s max for Jina fetch
 
 /**
- * Fetch Gemini share page HTML via Jina Reader (authenticated).
- * Direct fetch from CF Workers to gemini.google.com is blocked by Google anti-bot.
+ * Fetch Gemini share page content as markdown via Jina Reader.
+ * Returns clean markdown (much lighter than HTML — saves tokens and time).
  */
-async function fetchSharePageHtml(url: string, jinaApiKey?: string): Promise<string> {
+async function fetchSharePageContent(url: string, jinaApiKey?: string): Promise<string> {
   const jinaUrl = `${JINA_READER_PREFIX}${url}`;
   const jinaHeaders: Record<string, string> = {
-    'Accept': 'text/html',
-    'X-Return-Format': 'html',
+    'Accept': 'text/markdown',
+    'X-Return-Format': 'markdown',
   };
   if (jinaApiKey) {
     jinaHeaders['Authorization'] = `Bearer ${jinaApiKey}`;
   }
-  const jinaRes = await fetch(jinaUrl, { headers: jinaHeaders });
 
-  if (!jinaRes.ok) {
-    throw new Error(`Jina Reader retornou status ${jinaRes.status}. Tente novamente em alguns minutos.`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), JINA_TIMEOUT_MS);
+
+  try {
+    const jinaRes = await fetch(jinaUrl, {
+      headers: jinaHeaders,
+      signal: controller.signal,
+    });
+
+    if (!jinaRes.ok) {
+      throw new Error(`Jina Reader retornou status ${jinaRes.status}.`);
+    }
+
+    return jinaRes.text();
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Jina Reader timeout (15s). A página pode ser muito pesada.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return jinaRes.text();
 }
 
 // Log estruturado
@@ -155,23 +172,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   let finalTitle = '';
 
   try {
-    // 1. Fetch share page HTML using tiered strategy (direct → Jina fallback)
-    const htmlText = await fetchSharePageHtml(url, context.env.JINA_API_KEY);
-    // 2. Strip standard html bloat to save tokens (SVGs, <script>, <style>)
-    const cleanedHtml = htmlText
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+    // 1. Fetch page content as clean markdown via Jina Reader
+    const pageContent = await fetchSharePageContent(url, context.env.JINA_API_KEY);
 
-    // 3. Prompt native Gemini SDK to act as an extractor, returning JSON mode
-    const systemInstructionConfig = `Você é um sistema de extração inteligente super avançado encarregado de parsear links de compartilhamento do Gemini.
-Atue como um conversor de alta fidelidade para Markdown garantindo:
-1. FIDELIDADE ABSOLUTA: Recupere todo o conteúdo da conversa (perguntas do usuário e respostas da IA) de forma idêntica ao original. Não resuma, não omita.
-2. PRESERVAÇÃO DE ATIVOS: Você DEVE preservar TODAS as imagens (usando a sintaxe ![alt](url) do markdown extraindo os links 'src' verdadeiros das tags <img> do HTML do artigo), bem como quaisquer tabelas (formatadas precisamente como tabelas Markdown) e blocos de código (com as especificações de linguagem corretas).
-3. LIMPEZA DE RUÍDO: Descarte inteiramente as partes que são puramente interface de usuário ('Sign in', 'Settings', botões de rodapé/menu), retendo exclusivamente o fluxo de conversa.
-4. TÍTULO: Infira ou deduz o cabeçalho original ou título principal da conversa.`;
+    // 2. Prompt Gemini Flash to extract structured conversation from markdown
+    const systemInstructionConfig = `Você é um sistema de extração inteligente. Analise o conteúdo markdown de uma página de compartilhamento do Gemini.
+Regras:
+1. FIDELIDADE: Recupere todo o conteúdo da conversa (perguntas do usuário e respostas da IA) de forma idêntica ao original. Não resuma, não omita.
+2. PRESERVAÇÃO: Mantenha imagens (![alt](url)), tabelas, e blocos de código com linguagem correta.
+3. LIMPEZA: Descarte elementos de UI (Sign in, Settings, botões de menu).
+4. TÍTULO: Infira o título principal da conversa.`;
 
-    // Config per official @google/genai structured output docs:
-    // Uses responseJsonSchema (standard JSON Schema) with lowercase types
     const config = {
       systemInstruction: systemInstructionConfig,
       temperature: GEMINI_CONFIG.temperature,
@@ -179,14 +190,8 @@ Atue como um conversor de alta fidelidade para Markdown garantindo:
       responseJsonSchema: {
         type: "object",
         properties: {
-          title: {
-            type: "string",
-            description: "O título deduzido ou o cabeçalho original da conversa"
-          },
-          markdown: {
-            type: "string",
-            description: "O conteúdo puro da conversa integralmente limpo e reescrito em formatação Markdown"
-          }
+          title: { type: "string", description: "Título da conversa" },
+          markdown: { type: "string", description: "Conteúdo em Markdown" }
         },
         required: ["title", "markdown"],
       }
@@ -199,7 +204,7 @@ Atue como um conversor de alta fidelidade para Markdown garantindo:
       try {
         const response = await ai.models.generateContent({
           model: GEMINI_CONFIG.model,
-          contents: `Analise detalhadamente o conteúdo HTML da página do Gemini Share abaixo e extraia a conversa:\n\nHTML:\n${cleanedHtml}`,
+          contents: `Extraia a conversa do conteúdo abaixo:\n\n${pageContent}`,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           config: config as any
         });
