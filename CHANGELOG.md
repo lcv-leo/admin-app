@@ -1,5 +1,13 @@
 # Changelog — Admin App
 
+## [v01.77.20] - 2026-04-03
+### Corrigido
+- **Formatação de Importação Gemini**: Implementada normalização inteligente de parágrafos vazios. O pipeline de importação nativo agora remove parágrafos em branco preexistentes inseridos pelo modelo ou pelo conversor Markdown, garantindo espaçamento consistente e uniforme através da inserção controlada de `<br>` do Tiptap.
+- **Alinhamento H3 Tiptap**: Corrigido CSS para forçar `text-align: left` para títulos `h3` no Tiptap editor do MainSite.
+
+### Controle de versão
+- `admin-app`: APP v01.77.19 -> APP v01.77.20
+
 ## [v01.77.19] - 2026-04-03
 ### Corrigido
 - **Fix Crítico: Gemini Import 502 Bad Gateway Fantasma**: Root cause identificada via análise de network (352ms TTFB prova crash imediato, não timeout). O error handler retornava HTTP `502` como status code — porém o **Cloudflare proxy intercepta respostas 502** de Pages Functions e substitui o body JSON pela sua própria página HTML de "Bad Gateway", ocultando completamente a mensagem de erro real. Fix:

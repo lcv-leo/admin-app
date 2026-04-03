@@ -133,6 +133,9 @@ function preprocessMarkdown(md: string): string {
 function postprocessHtml(html: string): string {
   let processed = html;
   
+  // 0. Remove parágrafos vazios preexistentes para evitar duplicação de espaçamento
+  processed = processed.replace(/<p[^>]*>(?:<br\s*\/?>|&nbsp;|\s)*<\/p>\s*/gi, '');
+
   // 1. Configura justificação global e recuo de primeira linha (1.5rem) nos parágrafos normais
   // O TipTap lida com isso através da extensão TextIndent configurada em extensions.ts
   processed = processed.replace(/<p>/g, '<p style="text-align: justify; text-indent: 1.5rem">');
