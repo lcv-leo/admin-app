@@ -34,8 +34,78 @@ const GEMINI_CONFIG = {
   retryDelayMs: 1000
 };
 
-// Jina.ai Reader API prefix — bypasses Google anti-bot/CAPTCHA protection
+// Jina.ai Reader API prefix — fallback for Google anti-bot/CAPTCHA protection
 const JINA_READER_PREFIX = 'https://r.jina.ai/';
+
+// Real Chrome User-Agent for direct fetch
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/**
+ * Fetch Gemini share page HTML using a tiered strategy:
+ *   1. Direct fetch with real browser UA + manual redirect control
+ *   2. Jina.ai Reader as fallback (handles anti-bot/CAPTCHA)
+ */
+async function fetchSharePageHtml(url: string): Promise<string> {
+  // --- Tier 1: Direct fetch with controlled redirects ---
+  const MAX_REDIRECTS = 8;
+  let currentUrl = url;
+
+  try {
+    for (let i = 0; i < MAX_REDIRECTS; i++) {
+      const res = await fetch(currentUrl, {
+        headers: {
+          'User-Agent': CHROME_UA,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        },
+        redirect: 'manual',
+      });
+
+      // Success
+      if (res.status >= 200 && res.status < 300) {
+        return res.text();
+      }
+
+      // Redirect
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location');
+        if (!location) break;
+
+        // Detect Google CAPTCHA/abuse redirect — fall through to Jina
+        if (location.includes('/sorry/') || location.includes('google_abuse')) {
+          structuredLog('warn', 'Google CAPTCHA detected on direct fetch, falling back to Jina', { redirect: location });
+          break; // exit loop, fall through to Tier 2
+        }
+
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+
+      // Any other status: also fall through
+      structuredLog('warn', 'Direct fetch failed', { status: res.status });
+      break;
+    }
+  } catch (directErr) {
+    structuredLog('warn', 'Direct fetch exception, trying Jina fallback', {
+      error: directErr instanceof Error ? directErr.message : 'unknown'
+    });
+  }
+
+  // --- Tier 2: Jina.ai Reader fallback ---
+  const jinaUrl = `${JINA_READER_PREFIX}${url}`;
+  const jinaRes = await fetch(jinaUrl, {
+    headers: {
+      'Accept': 'text/html',
+      'X-Return-Format': 'html',
+    },
+  });
+
+  if (!jinaRes.ok) {
+    throw new Error(`Fetch falhou: direto (CAPTCHA) e Jina (status ${jinaRes.status}). Tente novamente em alguns minutos.`);
+  }
+
+  return jinaRes.text();
+}
 
 // Log estruturado
 function structuredLog(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
@@ -131,21 +201,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   let finalTitle = '';
 
   try {
-    // 1. Fetch via Jina.ai Reader API to bypass Google anti-bot/CAPTCHA
-    //    Direct fetch from Cloudflare Worker IPs gets blocked by Google's /sorry/index redirect loop
-    const jinaUrl = `${JINA_READER_PREFIX}${url}`;
-    const shareRes = await fetch(jinaUrl, {
-      headers: {
-        'Accept': 'text/html',
-        'X-Return-Format': 'html',
-      },
-    });
-
-    if (!shareRes.ok) {
-      throw new Error(`Jina Reader respondeu com status ${shareRes.status}`);
-    }
-
-    const htmlText = await shareRes.text();
+    // 1. Fetch share page HTML using tiered strategy (direct → Jina fallback)
+    const htmlText = await fetchSharePageHtml(url);
     // 2. Strip standard html bloat to save tokens (SVGs, <script>, <style>)
     const cleanedHtml = htmlText
       .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
