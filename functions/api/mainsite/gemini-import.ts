@@ -28,7 +28,7 @@ interface ImportRequest {
 }
 
 const GEMINI_CONFIG = {
-  model: 'gemini-pro-latest',
+  model: 'gemini-1.5-pro-latest',
   temperature: 0.1,
   topP: 0.8,
   maxRetries: 2,
