@@ -60,6 +60,7 @@ export async function onRequestGet(context: Context) {
   const url = new URL(context.request.url)
   const domain = normalizeDomain(url.searchParams.get('domain'))
   const zoneId = String(url.searchParams.get('zoneId') ?? '').trim()
+  console.debug('[mtasts/policy] request:start', { domain, zoneId })
 
   if (!domain || !zoneId) {
     return toError('Parâmetros domain e zoneId são obrigatórios.', trace, 400)
@@ -136,6 +137,11 @@ export async function onRequestGet(context: Context) {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao carregar policy do domínio'
+    console.error('[mtasts/policy] request:error', {
+      domain,
+      zoneId,
+      error: message,
+    })
 
     if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
@@ -157,5 +163,7 @@ export async function onRequestGet(context: Context) {
     }
 
     return toError(message, trace, 502)
+  } finally {
+    console.info('[mtasts/policy] request:end', { domain, zoneId })
   }
 }

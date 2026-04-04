@@ -67,19 +67,27 @@ type EnvWithCloudflareToken = {
 const resolveToken = (env: EnvWithCloudflareToken) => {
   const byDnsToken = env.CLOUDFLARE_DNS?.trim()
   if (byDnsToken) {
+    console.debug('[cloudflare-api] token:using-CLOUDFLARE_DNS', { tokenLength: byDnsToken.length })
     return byDnsToken
   }
 
   const byPwToken = env.CLOUDFLARE_PW?.trim()
   if (byPwToken) {
+    console.warn('[cloudflare-api] token:fallback-CLOUDFLARE_PW', { tokenLength: byPwToken.length })
     return byPwToken
   }
 
   const byCacheToken = env.CLOUDFLARE_CACHE?.trim()
   if (byCacheToken) {
+    console.warn('[cloudflare-api] token:fallback-CLOUDFLARE_CACHE', { tokenLength: byCacheToken.length })
     return byCacheToken
   }
 
+  console.error('[cloudflare-api] token:missing', {
+    hasDnsToken: Boolean(env.CLOUDFLARE_DNS?.trim()),
+    hasPwToken: Boolean(env.CLOUDFLARE_PW?.trim()),
+    hasCacheToken: Boolean(env.CLOUDFLARE_CACHE?.trim()),
+  })
   return ''
 }
 
@@ -129,6 +137,12 @@ const cloudflareRequestPayload = async <T>(
     throw new Error('Token Cloudflare ausente no runtime (configure CLOUDFLARE_DNS, CLOUDFLARE_PW ou CLOUDFLARE_CACHE).')
   }
 
+  console.debug('[cloudflare-api] request:start', {
+    method: init?.method ?? 'GET',
+    path,
+    fallback,
+  })
+
   const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
     method: init?.method ?? 'GET',
     headers: {
@@ -145,8 +159,21 @@ const cloudflareRequestPayload = async <T>(
 
   if (!response.ok || payload.success !== true) {
     const message = toFirstError(payload)
+    console.error('[cloudflare-api] request:error', {
+      method: init?.method ?? 'GET',
+      path,
+      status: response.status,
+      message: message ?? null,
+      fallback,
+    })
     throw new Error(message ? `${fallback}: ${message}` : `${fallback}: HTTP ${response.status}`)
   }
+
+  console.info('[cloudflare-api] request:ok', {
+    method: init?.method ?? 'GET',
+    path,
+    status: response.status,
+  })
 
   return payload
 }
@@ -168,8 +195,20 @@ export const listCloudflareZones = async (env: EnvWithCloudflareToken) => {
 }
 
 const extractDnsResult = async (env: EnvWithCloudflareToken, path: string, fallback: string) => {
-  const result = await cloudflareRequest<CloudflareDnsRecord[]>(env, path, fallback)
-  return Array.isArray(result) ? result : []
+  try {
+    const result = await cloudflareRequest<CloudflareDnsRecord[]>(env, path, fallback)
+    const normalized = Array.isArray(result) ? result : []
+    console.debug('[cloudflare-api] extractDnsResult:ok', { path, total: normalized.length })
+    return normalized
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('[cloudflare-api] extractDnsResult:error', {
+      path,
+      fallback,
+      error: message,
+    })
+    throw error
+  }
 }
 
 const quoteTxtContent = (content: string) => {

@@ -37,6 +37,8 @@ const toError = (message: string, trace: { request_id: string; timestamp: string
 
 export async function onRequestGet(context: Context) {
   const trace = createResponseTrace(context.request)
+  const startedAt = Date.now()
+  console.debug('[mtasts/zones] request:start')
   try {
     const payload = await listCloudflareZones(((context as any).data?.env || context.env))
 
@@ -68,6 +70,7 @@ export async function onRequestGet(context: Context) {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao carregar zonas do MTA-STS'
+    console.error('[mtasts/zones] request:error', { error: message })
 
     if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
@@ -88,5 +91,7 @@ export async function onRequestGet(context: Context) {
     }
 
     return toError(message, trace, 502)
+  } finally {
+    console.info('[mtasts/zones] request:end', { latencyMs: Date.now() - startedAt })
   }
 }

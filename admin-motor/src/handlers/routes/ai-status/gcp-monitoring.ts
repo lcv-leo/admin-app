@@ -201,7 +201,16 @@ export const onRequestGet = async (context: any) => {
   const saKey = env?.GCP_SA_KEY
   const projectId = env?.GCP_PROJECT_ID
 
+  console.debug('[ai-status/gcp-monitoring] request:start', {
+    hasSaKey: Boolean(saKey),
+    hasProjectId: Boolean(projectId),
+  })
+
   if (!saKey || !projectId) {
+    console.warn('[ai-status/gcp-monitoring] config:missing', {
+      hasSaKey: Boolean(saKey),
+      hasProjectId: Boolean(projectId),
+    })
     return json({
       ok: false,
       configured: false,
@@ -230,6 +239,10 @@ export const onRequestGet = async (context: any) => {
 
   try {
     const accessToken = await getAccessToken(saKey)
+    console.info('[ai-status/gcp-monitoring] token:ok', {
+      projectId,
+      tokenLength: accessToken.length,
+    })
 
     // Período: últimas 24h para dados granulares
     const endTime = new Date().toISOString()
@@ -272,6 +285,20 @@ export const onRequestGet = async (context: any) => {
 
     const metricResults = await Promise.all(fetches)
 
+    const failedMetrics = metricResults.filter((result) => 'error' in result)
+    if (failedMetrics.length > 0) {
+      console.warn('[ai-status/gcp-monitoring] metrics:partial-failure', {
+        projectId,
+        failed: failedMetrics,
+      })
+    }
+
+    console.info('[ai-status/gcp-monitoring] request:ok', {
+      projectId,
+      totalMetrics: metricResults.length,
+      failedMetrics: failedMetrics.length,
+    })
+
     return json({
       ok: true,
       configured: true,
@@ -281,10 +308,15 @@ export const onRequestGet = async (context: any) => {
       timeSeries: results,
     })
   } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro ao consultar Cloud Monitoring.'
+    console.error('[ai-status/gcp-monitoring] request:error', {
+      projectId,
+      error: message,
+    })
     return json({
       ok: false,
       configured: true,
-      error: err instanceof Error ? err.message : 'Erro ao consultar Cloud Monitoring.',
+      error: message,
     }, 500)
   }
 }

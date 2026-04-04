@@ -318,22 +318,46 @@ const notFound = () =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+const sanitizeErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+const logDebug = (message: string, context: Record<string, unknown> = {}) => {
+  console.debug(`[admin-motor] ${message}`, context);
+};
+
+const logInfo = (message: string, context: Record<string, unknown> = {}) => {
+  console.info(`[admin-motor] ${message}`, context);
+};
+
+const logWarn = (message: string, context: Record<string, unknown> = {}) => {
+  console.warn(`[admin-motor] ${message}`, context);
+};
+
+const logError = (message: string, context: Record<string, unknown> = {}) => {
+  console.error(`[admin-motor] ${message}`, context);
+};
+
 export default {
   async fetch(request: Request, env: AdminMotorEnv): Promise<Response> {
+    const startedAt = Date.now();
     const url = new URL(request.url);
     const pathname = url.pathname;
     const method = request.method.toUpperCase();
-    const runtimeEnv = await resolveRuntimeEnv(env);
-    if (method === 'GET' && pathname === '/api/ai-status/health') {
-      return handleAiStatusHealth(request, runtimeEnv);
-    }
+
+    logDebug('request:start', { method, pathname });
+
+    try {
+      const runtimeEnv = await resolveRuntimeEnv(env);
+      const routeContext = <T>() => ({ request, env: runtimeEnv } as unknown as T);
+      if (method === 'GET' && pathname === '/api/ai-status/health') {
+        return handleAiStatusHealth(request, runtimeEnv);
+      }
 
     if (method === 'GET' && pathname === '/api/ai-status/models') {
       return handleAiStatusModelsGet({ request, env: runtimeEnv });
     }
 
     if (method === 'GET' && pathname === '/api/ai-status/gcp-monitoring') {
-      return handleAiStatusGcpMonitoringGet({ request, env: runtimeEnv } as any);
+      return handleAiStatusGcpMonitoringGet(routeContext<Parameters<typeof handleAiStatusGcpMonitoringGet>[0]>());
     }
 
     if (method === 'GET' && pathname === '/api/mainsite/modelos') {
@@ -366,35 +390,35 @@ export default {
     }
 
     if (method === 'GET' && pathname === '/api/cfdns/records') {
-      return handleCfdnsRecordsGet({ request, env: runtimeEnv } as any);
+      return handleCfdnsRecordsGet(routeContext<Parameters<typeof handleCfdnsRecordsGet>[0]>());
     }
 
     if (method === 'GET' && pathname === '/api/cfpw/overview') {
-      return handleCfpwOverviewGet({ request, env: runtimeEnv } as any);
+      return handleCfpwOverviewGet(routeContext<Parameters<typeof handleCfpwOverviewGet>[0]>());
     }
 
     if (method === 'POST' && pathname === '/api/cfpw/ops') {
-      return handleCfpwOpsPost({ request, env: runtimeEnv } as any);
+      return handleCfpwOpsPost(routeContext<Parameters<typeof handleCfpwOpsPost>[0]>());
     }
 
     if (method === 'GET' && pathname === '/api/cfpw/page-details') {
-      return handleCfpwPageDetailsGet({ request, env: runtimeEnv } as any);
+      return handleCfpwPageDetailsGet(routeContext<Parameters<typeof handleCfpwPageDetailsGet>[0]>());
     }
 
     if (method === 'GET' && pathname === '/api/cfpw/worker-details') {
-      return handleCfpwWorkerDetailsGet({ request, env: runtimeEnv } as any);
+      return handleCfpwWorkerDetailsGet(routeContext<Parameters<typeof handleCfpwWorkerDetailsGet>[0]>());
     }
 
     if (method === 'POST' && pathname === '/api/cfpw/delete-page') {
-      return handleCfpwDeletePagePost({ request, env: runtimeEnv } as any);
+      return handleCfpwDeletePagePost(routeContext<Parameters<typeof handleCfpwDeletePagePost>[0]>());
     }
 
     if (method === 'POST' && pathname === '/api/cfpw/delete-worker') {
-      return handleCfpwDeleteWorkerPost({ request, env: runtimeEnv } as any);
+      return handleCfpwDeleteWorkerPost(routeContext<Parameters<typeof handleCfpwDeleteWorkerPost>[0]>());
     }
 
     if (method === 'POST' && pathname === '/api/cfpw/cleanup-cache-project') {
-      return handleCfpwCleanupCacheProjectPost({ request, env: runtimeEnv } as any);
+      return handleCfpwCleanupCacheProjectPost(routeContext<Parameters<typeof handleCfpwCleanupCacheProjectPost>[0]>());
     }
 
     if (pathname === '/api/cfpw/cleanup-deployments') {
@@ -407,11 +431,11 @@ export default {
     }
 
     if (method === 'GET' && pathname === '/api/financeiro/mp-balance') {
-      return handleMpBalanceGet({ request, env: runtimeEnv } as any);
+      return handleMpBalanceGet(routeContext<Parameters<typeof handleMpBalanceGet>[0]>());
     }
 
     if (method === 'GET' && pathname === '/api/financeiro/sumup-balance') {
-      return handleSumupBalanceGet({ request, env: runtimeEnv } as any);
+      return handleSumupBalanceGet(routeContext<Parameters<typeof handleSumupBalanceGet>[0]>());
     }
 
     if (method === 'POST' && pathname === '/api/financeiro/sumup-refund') {
@@ -431,45 +455,59 @@ export default {
     }
 
     if (pathname === '/api/mainsite/post-summaries') {
-      if (method === 'GET') return handlePostSummariesGet({ request, env: runtimeEnv } as any);
-      if (method === 'POST') return handlePostSummariesPost({ request, env: runtimeEnv } as any);
+      if (method === 'GET') return handlePostSummariesGet(routeContext<Parameters<typeof handlePostSummariesGet>[0]>());
+      if (method === 'POST') return handlePostSummariesPost(routeContext<Parameters<typeof handlePostSummariesPost>[0]>());
     }
 
     if (pathname === '/api/mainsite/gemini-import') {
-      if (method === 'POST') return handleGeminiImportPost({ request, env: runtimeEnv } as any);
-      if (method === 'OPTIONS') return handleGeminiImportOptions({ request, env: runtimeEnv } as any);
+      if (method === 'POST') return handleGeminiImportPost(routeContext<Parameters<typeof handleGeminiImportPost>[0]>());
+      if (method === 'OPTIONS') return handleGeminiImportOptions(routeContext<Parameters<typeof handleGeminiImportOptions>[0]>());
     }
 
     if (method === 'POST' && pathname === '/api/mainsite/ai/transform') {
-      return handleMainsiteAiTransformPost({ request, env: runtimeEnv } as any);
+      return handleMainsiteAiTransformPost(routeContext<Parameters<typeof handleMainsiteAiTransformPost>[0]>());
     }
 
     if (method === 'GET' && pathname === '/api/mtasts/zones') {
-      return handleMtastsZonesGet({ request, env: runtimeEnv } as any);
+      return handleMtastsZonesGet(routeContext<Parameters<typeof handleMtastsZonesGet>[0]>());
     }
 
     if (method === 'GET' && pathname === '/api/mtasts/policy') {
-      return handleMtastsPolicyGet({ request, env: runtimeEnv } as any);
+      return handleMtastsPolicyGet(routeContext<Parameters<typeof handleMtastsPolicyGet>[0]>());
     }
 
     if (method === 'POST' && pathname === '/api/mtasts/orchestrate') {
-      return handleMtastsOrchestratePost({ request, env: runtimeEnv } as any);
+      return handleMtastsOrchestratePost(routeContext<Parameters<typeof handleMtastsOrchestratePost>[0]>());
     }
 
     if (method === 'GET' && pathname === '/api/news/discover') {
-      return handleNewsDiscoverGet({ request, env: runtimeEnv } as any);
+      return handleNewsDiscoverGet(routeContext<Parameters<typeof handleNewsDiscoverGet>[0]>());
     }
 
     if (pathname === '/api/adminhub/config') {
-      if (method === 'GET') return handleAdminhubConfigGet({ request, env: runtimeEnv } as any);
-      if (method === 'PUT') return handleAdminhubConfigPut({ request, env: runtimeEnv } as any);
+      if (method === 'GET') return handleAdminhubConfigGet(routeContext<Parameters<typeof handleAdminhubConfigGet>[0]>());
+      if (method === 'PUT') return handleAdminhubConfigPut(routeContext<Parameters<typeof handleAdminhubConfigPut>[0]>());
     }
 
-    if (pathname === '/api/apphub/config') {
-      if (method === 'GET') return handleApphubConfigGet({ request, env: runtimeEnv } as any);
-      if (method === 'PUT') return handleApphubConfigPut({ request, env: runtimeEnv } as any);
-    }
+      if (pathname === '/api/apphub/config') {
+        if (method === 'GET') return handleApphubConfigGet(routeContext<Parameters<typeof handleApphubConfigGet>[0]>());
+        if (method === 'PUT') return handleApphubConfigPut(routeContext<Parameters<typeof handleApphubConfigPut>[0]>());
+      }
 
-    return notFound();
+      logWarn('request:not-found', { method, pathname });
+      return notFound();
+    } catch (error) {
+      const message = sanitizeErrorMessage(error);
+      logError('request:unhandled-exception', { method, pathname, error: message });
+      return new Response(
+        JSON.stringify({ ok: false, error: 'Erro interno no admin-motor.', detail: message.slice(0, 500) }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    } finally {
+      logInfo('request:end', { method, pathname, latencyMs: Date.now() - startedAt });
+    }
   },
 };
