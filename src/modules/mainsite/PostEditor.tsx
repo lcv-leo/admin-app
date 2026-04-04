@@ -168,7 +168,7 @@ export default function PostEditor({
 
     try {
       const res = await fetch(`/api/mainsite/ai/transform`, {
-        method: 'POST', 
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, text: selectedText })
       })
@@ -252,25 +252,27 @@ export default function PostEditor({
     if (!file) return
     setIsProcessingWord(true)
     showNotification('Processando documento do MS Word...', 'info')
-    
+
     try {
       const mammothModule = await import('mammoth')
       const mammoth = mammothModule.default || mammothModule
       const arrayBuffer = await file.arrayBuffer()
-      
+
       const htmlResult = await mammoth.convertToHtml(
         { arrayBuffer },
-        { styleMap: [
-          "p[style-name='Normal'] => p:fresh",
-          "p[style-name='Heading 1'] => h1:fresh",
-          "p[style-name='Heading 2'] => h2:fresh",
-          "p[style-name='Heading 3'] => h3:fresh",
-          "p[style-name='Heading 4'] => h4:fresh",
-          "p[style-name='Heading 5'] => h5:fresh",
-          "p[style-name='Heading 6'] => h6:fresh"
-        ] }
+        {
+          styleMap: [
+            "p[style-name='Normal'] => p:fresh",
+            "p[style-name='Heading 1'] => h1:fresh",
+            "p[style-name='Heading 2'] => h2:fresh",
+            "p[style-name='Heading 3'] => h3:fresh",
+            "p[style-name='Heading 4'] => h4:fresh",
+            "p[style-name='Heading 5'] => h5:fresh",
+            "p[style-name='Heading 6'] => h6:fresh"
+          ]
+        }
       )
-      
+
       const html = htmlResult.value
       editor.chain().focus().insertContent(html).run()
       showNotification('Documento do Word importado com sucesso.', 'success')
@@ -437,7 +439,7 @@ export default function PostEditor({
     const { selection, doc } = editor.state
     const nodeSize = (selection as unknown as { node?: { nodeSize: number } }).node?.nodeSize || 1
     const nodeEnd = selection.from + nodeSize
-    
+
     let existingCaption = ''
     let captionFrom: number | null = null
     let captionTo: number | null = null
@@ -588,7 +590,7 @@ export default function PostEditor({
     setLastGeminiImportUrl(normalizedUrl)
 
     setIsImportingGemini(true)
-    updateProgress({ stage: 'requesting', percent: 36, message: 'Conectando ao endpoint de importacao...' })
+    updateProgress({ stage: 'requesting', percent: 36, message: 'Conectando ao endpoint de importação...' })
     showNotification('Importando conteúdo do Gemini...', 'info')
 
     try {
@@ -778,9 +780,9 @@ export default function PostEditor({
               placeholder: 'https://gemini.google.com/share/...',
               callback: ({ value }) => handleGeminiImport(value),
             })} disabled={isImportingGemini}>{isImportingGemini ? <Loader2 size={15} className="spin" /> : <Download size={15} />}</button>
-            
+
             <span className="tiptap-divider" />
-            
+
             <div className="tiptap-color-group">
               <Palette size={14} />
               <input id="tiptap-text-color" name="tiptapTextColor" type="color" title="Cor do texto" onInput={(e) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()} value={(editor.getAttributes('textStyle').color as string) || '#000000'} />
@@ -817,13 +819,13 @@ export default function PostEditor({
                   if (lh === 'normal') (editor.chain().focus() as any).unsetLineHeight().run();
                   else (editor.chain().focus() as any).setLineHeight(lh).run();
                 } else if (val === 'mar-add-top') {
-                   (editor.chain().focus() as any).setMarginTop('1.5em').run();
+                  (editor.chain().focus() as any).setMarginTop('1.5em').run();
                 } else if (val === 'mar-rem-top') {
-                   (editor.chain().focus() as any).setMarginTop('0px').run();
+                  (editor.chain().focus() as any).setMarginTop('0px').run();
                 } else if (val === 'mar-add-bot') {
-                   (editor.chain().focus() as any).setMarginBottom('1.5em').run();
+                  (editor.chain().focus() as any).setMarginBottom('1.5em').run();
                 } else if (val === 'mar-rem-bot') {
-                   (editor.chain().focus() as any).setMarginBottom('0px').run();
+                  (editor.chain().focus() as any).setMarginBottom('0px').run();
                 }
                 /* eslint-enable @typescript-eslint/no-explicit-any */
                 e.target.value = '';
