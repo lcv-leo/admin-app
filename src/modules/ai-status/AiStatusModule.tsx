@@ -1428,28 +1428,102 @@ function GcpLogsTab() {
               
               {isExpanded && (
                 <div style={{ padding: '0 20px 20px', animation: 'fadeSlideIn 0.2s ease' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16 }}>
-                    <div>
-                      <span className="eyebrow" style={{ fontSize: '0.72rem', marginBottom: 8, display: 'block' }}>REQUEST PAYLOAD</span>
-                      <pre style={{
-                        margin: 0, padding: 16, borderRadius: 12, background: '#1a1a2e', color: '#dadce0',
-                        fontSize: '0.72rem', overflow: 'auto', maxHeight: 400, border: '1px solid rgba(255,255,255,0.06)',
-                        fontFamily: 'var(--font-mono, monospace)', whiteSpace: 'pre-wrap'
-                      }}>
-                        {JSON.stringify(log.protoPayload?.request || {}, null, 2)}
-                      </pre>
-                    </div>
-                    <div>
-                      <span className="eyebrow" style={{ fontSize: '0.72rem', marginBottom: 8, display: 'block' }}>RESPONSE PAYLOAD</span>
-                      <pre style={{
-                        margin: 0, padding: 16, borderRadius: 12, background: '#1e293b', color: '#f8fafc',
-                        fontSize: '0.72rem', overflow: 'auto', maxHeight: 400, border: '1px solid rgba(255,255,255,0.06)',
-                        fontFamily: 'var(--font-mono, monospace)', whiteSpace: 'pre-wrap'
-                      }}>
-                        {JSON.stringify(log.protoPayload?.response || {}, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
+                  {/* Extracting Friendly Data */}
+                  {(() => {
+                    interface LogPart { text?: string }
+                    interface LogContent { role?: string; parts?: LogPart[] }
+
+                    const req = (log.protoPayload?.request || {}) as {
+                      model?: string
+                      systemInstruction?: { parts?: LogPart[] }
+                      contents?: LogContent[]
+                    }
+                    
+                    const res = (log.protoPayload?.response || {}) as {
+                      candidates?: { content?: LogContent, finishReason?: string }[]
+                      usageMetadata?: { totalTokenCount?: number, promptTokenCount?: number }
+                    }
+                    
+                    const reqModel = req.model?.split('/').pop() || 'Desconhecido'
+                    
+                    // Extract Prompts (System + User)
+                    const systemInstructions = req.systemInstruction?.parts?.map((p: LogPart) => p.text).filter(Boolean).join('\n') || ''
+                    const userContents = req.contents?.map((c: LogContent) => {
+                      const text = c.parts?.map((p: LogPart) => p.text).filter(Boolean).join('\n') || ''
+                      return { role: c.role || 'user', text }
+                    }) || []
+
+                    // Extract Response
+                    const candidate = res.candidates?.[0]
+                    const responseText = candidate?.content?.parts?.map((p: LogPart) => p.text).filter(Boolean).join('\n') || ''
+                    const finishReason = candidate?.finishReason || ''
+                    
+                    // Tokens
+                    const tokens = res.usageMetadata || {}
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {/* Meta Banner */}
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 6, background: 'rgba(26, 115, 232, 0.1)', color: '#1a73e8', fontWeight: 600 }}>
+                            🤖 Modelo: {reqModel}
+                          </span>
+                          {tokens.totalTokenCount && (
+                            <span style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 6, background: 'rgba(16, 185, 129, 0.1)', color: '#059669', fontWeight: 600 }}>
+                              🎫 Uso Total: {tokens.totalTokenCount} tokens
+                            </span>
+                          )}
+                          {finishReason && (
+                            <span style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 6, background: finishReason === 'STOP' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: finishReason === 'STOP' ? '#059669' : '#b45309', fontWeight: 600 }}>
+                              🏁 Finish: {finishReason}
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16 }}>
+                          {/* Left Column: Request */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <span className="eyebrow" style={{ fontSize: '0.72rem', display: 'block' }}>REQUEST (PROMPTS)</span>
+                            
+                            {systemInstructions && (
+                              <div style={{ padding: 16, borderRadius: 12, background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#b45309', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}><Settings size={12} /> System Instruction</div>
+                                <div style={{ fontSize: '0.85rem', color: '#451a03', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{systemInstructions}</div>
+                              </div>
+                            )}
+
+                            {userContents.map((c: { role: string; text: string }, i: number) => (
+                              <div key={i} style={{ padding: 16, borderRadius: 12, background: 'rgba(26,115,232,0.03)', border: '1px solid rgba(26,115,232,0.1)' }}>
+                                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#1a73e8', marginBottom: 6, textTransform: 'uppercase' }}>{c.role}</div>
+                                <div style={{ fontSize: '0.85rem', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{c.text || <em style={{opacity: 0.5}}>(Sem texto / Imagem)</em>}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Right Column: Response */}
+                          <div>
+                            <span className="eyebrow" style={{ fontSize: '0.72rem', display: 'block', marginBottom: 12 }}>RESPONSE (MODEL)</span>
+                            <div style={{ padding: 16, borderRadius: 12, background: '#1e293b', border: '1px solid #334155', color: '#f8fafc' }}>
+                              <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#e2e8f0', marginBottom: 6, textTransform: 'uppercase' }}>MODEL</div>
+                              <div style={{ fontSize: '0.85rem', color: '#f1f5f9', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                                {responseText || <em style={{opacity: 0.5}}>(Resposta vazia ou estruturada sem texto principal)</em>}
+                              </div>
+                            </div>
+
+                            {/* Raw Fallback button */}
+                            <details style={{ marginTop: 12 }}>
+                              <summary style={{ cursor: 'pointer', fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
+                                Ver JSON bruto completo
+                              </summary>
+                              <pre style={{ margin: '8px 0 0', padding: 12, borderRadius: 8, background: '#0f172a', color: '#cbd5e1', fontSize: '0.68rem', overflow: 'auto', maxHeight: 300, border: '1px solid rgba(255,255,255,0.05)' }}>
+                                {JSON.stringify(log.protoPayload, null, 2)}
+                              </pre>
+                            </details>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </div>
