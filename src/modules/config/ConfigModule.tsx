@@ -95,7 +95,7 @@ export function ConfigModule() {
   // ── MainSite settings (appearance + rotation) state ──
   const [msAppearance, setMsAppearance] = useState<AppearanceSettings>(DEFAULT_APPEARANCE)
   const [msRotation, setMsRotation] = useState<RotationSettings>(DEFAULT_ROTATION)
-  const [msAiModels, setMsAiModels] = useState<{ chat: string; summary: string }>({ chat: '', summary: '' })
+  const [msAiModels, setMsAiModels] = useState<{ chat: string; summary: string; reader: string; editor: string; import: string }>({ chat: '', summary: '', reader: '', editor: '', import: '' })
   const [msSettingsLoading, setMsSettingsLoading] = useState(false)
   const [msSavingSettings, setMsSavingSettings] = useState(false)
   const [adminActor] = useState('admin@app.lcv')
@@ -367,10 +367,13 @@ export function ConfigModule() {
       setMsAppearance(payload.settings.appearance as AppearanceSettings ?? DEFAULT_APPEARANCE)
       setMsRotation(payload.settings.rotation as RotationSettings ?? DEFAULT_ROTATION)
       
-      const incomingAiModels = (payload.settings.aiModels as { chat?: string; summary?: string }) || {}
+      const incomingAiModels = (payload.settings.aiModels as { chat?: string; summary?: string; reader?: string; editor?: string; import?: string }) || {}
       setMsAiModels({
-        chat: incomingAiModels.chat ?? '',
-        summary: incomingAiModels.summary ?? '',
+        chat: incomingAiModels.chat || '',
+        summary: incomingAiModels.summary || '',
+        reader: incomingAiModels.reader || '',
+        editor: incomingAiModels.editor || '',
+        import: incomingAiModels.import || ''
       })
 
       if (shouldNotify) {
@@ -428,7 +431,7 @@ export function ConfigModule() {
   }
 
   // ── AI Models: auto-save on select change (paridade com Astrólogo/Calculadora) ──
-  const saveAiModelsImmediately = useCallback(async (nextModels: { chat: string; summary: string }) => {
+  const saveAiModelsImmediately = useCallback(async (nextModels: { chat: string; summary: string; reader: string; editor: string; import: string }) => {
     try {
       // 1. Fetch current full settings to preserve everything else
       const currentRes = await fetch('/api/mainsite/settings', {
@@ -460,7 +463,7 @@ export function ConfigModule() {
     }
   }, [adminActor, showNotification])
 
-  const handleAiModelChange = useCallback((field: 'chat' | 'summary', value: string) => {
+  const handleAiModelChange = useCallback((field: 'chat' | 'summary' | 'reader' | 'editor' | 'import', value: string) => {
     setMsAiModels(prev => {
       const next = { ...prev, [field]: value }
       void saveAiModelsImmediately(next)
@@ -887,6 +890,96 @@ export function ConfigModule() {
                 )}
                 {geminiModels.map(m => (
                   <option key={`sum-${m.id}`} value={m.id}>{m.displayName} ({m.api}) {m.vision ? '👁️' : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field-group">
+              <label htmlFor="cfg-mainsite-ai-reader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                Modelo do Leitor (Tradução/Resumo Público)
+                <button 
+                  type="button" 
+                  className="ghost-button" 
+                  onClick={() => void loadModels()} 
+                  disabled={modelsLoading} 
+                  style={{ padding: '2px 8px', fontSize: '11px', height: 'auto' }}
+                >
+                  {modelsLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                  Atualizar
+                </button>
+              </label>
+              <select
+                id="cfg-mainsite-ai-reader"
+                name="cfgMainsiteAiReader"
+                value={msAiModels.reader}
+                onChange={e => handleAiModelChange('reader', e.target.value)}
+              >
+                {!msAiModels.reader && <option value="">(Padrão do Sistema)</option>}
+                {msAiModels.reader && !geminiModels.some(m => m.id === msAiModels.reader) && (
+                  <option value={msAiModels.reader}>{msAiModels.reader} (Personalizado)</option>
+                )}
+                {geminiModels.map(m => (
+                  <option key={`reader-${m.id}`} value={m.id}>{m.displayName} ({m.api}) {m.vision ? '👁️' : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field-group">
+              <label htmlFor="cfg-mainsite-ai-editor" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                Modelo do Editor (Transformações Formais/Gramática)
+                <button 
+                  type="button" 
+                  className="ghost-button" 
+                  onClick={() => void loadModels()} 
+                  disabled={modelsLoading} 
+                  style={{ padding: '2px 8px', fontSize: '11px', height: 'auto' }}
+                >
+                  {modelsLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                  Atualizar
+                </button>
+              </label>
+              <select
+                id="cfg-mainsite-ai-editor"
+                name="cfgMainsiteAiEditor"
+                value={msAiModels.editor}
+                onChange={e => handleAiModelChange('editor', e.target.value)}
+              >
+                {!msAiModels.editor && <option value="">(Padrão do Sistema)</option>}
+                {msAiModels.editor && !geminiModels.some(m => m.id === msAiModels.editor) && (
+                  <option value={msAiModels.editor}>{msAiModels.editor} (Personalizado)</option>
+                )}
+                {geminiModels.map(m => (
+                  <option key={`editor-${m.id}`} value={m.id}>{m.displayName} ({m.api}) {m.vision ? '👁️' : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field-group">
+              <label htmlFor="cfg-mainsite-ai-import" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                Modelo de Importação (Gemini Share URL)
+                <button 
+                  type="button" 
+                  className="ghost-button" 
+                  onClick={() => void loadModels()} 
+                  disabled={modelsLoading} 
+                  style={{ padding: '2px 8px', fontSize: '11px', height: 'auto' }}
+                >
+                  {modelsLoading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                  Atualizar
+                </button>
+              </label>
+              <select
+                id="cfg-mainsite-ai-import"
+                name="cfgMainsiteAiImport"
+                value={msAiModels.import}
+                onChange={e => handleAiModelChange('import', e.target.value)}
+              >
+                {!msAiModels.import && <option value="">(Padrão do Sistema)</option>}
+                {msAiModels.import && !geminiModels.some(m => m.id === msAiModels.import) && (
+                  <option value={msAiModels.import}>{msAiModels.import} (Personalizado)</option>
+                )}
+                {geminiModels.map(m => (
+                  <option key={`import-${m.id}`} value={m.id}>{m.displayName} ({m.api}) {m.vision ? '👁️' : ''}</option>
                 ))}
               </select>
             </div>

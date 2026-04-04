@@ -63,9 +63,9 @@ async function resolveModel(db: D1Database | undefined): Promise<string> {
     const row = await db.prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1').bind('mainsite/ai_models').first<{ payload?: string }>();
     if (row?.payload) {
       const parsed = JSON.parse(row.payload) as Record<string, unknown>;
-      if (typeof parsed.chat === 'string' && parsed.chat) {
-        structuredLog('info', 'resolveModel: model from DB', { model: parsed.chat });
-        return parsed.chat;
+      if (typeof parsed.editor === 'string' && parsed.editor) {
+        structuredLog('info', 'resolveModel: model from DB', { model: parsed.editor });
+        return parsed.editor;
       }
     }
   } catch (err) {

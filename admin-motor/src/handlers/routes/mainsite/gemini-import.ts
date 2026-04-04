@@ -23,6 +23,9 @@ interface D1Database {
 interface PagesContext<E = Env> {
   request: Request
   env: E
+  data?: {
+    env?: E
+  }
 }
 
 type PagesFunction<E = Env> = (context: PagesContext<E>) => Promise<Response> | Response
@@ -45,8 +48,8 @@ async function resolveModel(db: D1Database | undefined): Promise<string> {
     const res = await db.prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1')
       .bind('mainsite/ai_models').all<{ payload: string }>();
     if (res.results && res.results.length > 0 && res.results[0].payload) {
-      const parsed = JSON.parse(res.results[0].payload) as { chat?: string };
-      if (parsed.chat) return parsed.chat;
+      const parsed = JSON.parse(res.results[0].payload) as { import?: string };
+      if (parsed.import) return parsed.import;
     }
   } catch { /* fallback silently */ }
   return FALLBACK_MODEL;
@@ -196,6 +199,7 @@ async function handleGeminiImport(
   context: Parameters<PagesFunction<Env>>[0],
   corsHeaders: Record<string, string>
 ): Promise<Response> {
+  const env = context.data?.env || context.env;
 
   const contentType = context.request.headers.get('content-type') || ''
   if (!contentType.includes('application/json')) {
@@ -226,14 +230,14 @@ async function handleGeminiImport(
     )
   }
 
-  if (!((context as any).data?.env || context.env).GEMINI_API_KEY) {
+  if (!env?.GEMINI_API_KEY) {
     return new Response(
       JSON.stringify({ error: 'Falta variável GEMINI_API_KEY no deploy.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 
-  const activeModel = await resolveModel(((context as any).data?.env || context.env).BIGDATA_DB);
+  const activeModel = await resolveModel(env?.BIGDATA_DB);
 
   const _telemetryStart = Date.now();
   let finalMarkdown = '';
@@ -241,7 +245,7 @@ async function handleGeminiImport(
 
   try {
     // 1. Fetch page content as clean markdown via Jina Reader
-    const pageContent = await fetchSharePageContent(url, ((context as any).data?.env || context.env).JINA_API_KEY);
+    const pageContent = await fetchSharePageContent(url, env?.JINA_API_KEY);
 
     // 2. Prompt Gemini Flash to extract structured conversation from markdown
     const systemInstructionConfig = `Você é um sistema de extração inteligente. Analise o conteúdo markdown de uma página de compartilhamento do Gemini.
@@ -272,9 +276,9 @@ Regras:
           }
         };
 
-        const baseUrl = ((context as any).data?.env || context.env).CF_AI_GATEWAY || 'https://generativelanguage.googleapis.com'
-        const url = `${baseUrl}/v1beta/models/${activeModel}:generateContent?key=${((context as any).data?.env || context.env).GEMINI_API_KEY}`
-        const response = await fetch(url, {
+        const baseUrl = env?.CF_AI_GATEWAY || 'https://generativelanguage.googleapis.com'
+        const apiUrl = `${baseUrl}/v1beta/models/${activeModel}:generateContent?key=${env?.GEMINI_API_KEY}`
+        const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -297,7 +301,7 @@ Regras:
             cachedTokens: data.usageMetadata?.cachedContentTokenCount || 0,
           };
 
-          logAiUsage(((context as any).data?.env || context.env).BIGDATA_DB, {
+          logAiUsage(env?.BIGDATA_DB, {
             module: 'mainsite_gemini_import',
             model: activeModel,
             input_tokens: usageMetadata.promptTokens,
@@ -322,7 +326,7 @@ Regras:
 
   } catch (err) {
     // Telemetria de erro
-    logAiUsage(((context as any).data?.env || context.env).BIGDATA_DB, {
+    logAiUsage(env?.BIGDATA_DB, {
       module: 'mainsite_gemini_import',
       model: activeModel,
       input_tokens: 0,
