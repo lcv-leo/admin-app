@@ -7,15 +7,67 @@ import { handleAiStatusModelsGet } from './handlers/aiStatusModels';
 import { handleOraculoModelosGet } from './handlers/oraculoModelos';
 import { handleOraculoCronGet, handleOraculoCronPut } from './handlers/oraculoCron';
 import { handleAstrologoEnviarEmailPost } from './handlers/astrologoEmail';
+import { handleCfdnsZonesGet } from './handlers/cfdnsZones';
 import {
   handleSumupRefundPost,
   handleSumupCancelPost,
   handleMpRefundPost,
   handleMpCancelPost,
 } from './handlers/financeiroActions';
+import { onRequestGet as handleAiStatusGcpMonitoringGet } from './handlers/routes/ai-status/gcp-monitoring';
+import { onRequestGet as handleCfdnsRecordsGet } from './handlers/routes/cfdns/records';
+import { onRequestGet as handleCfpwOverviewGet } from './handlers/routes/cfpw/overview';
+import { onRequestPost as handleCfpwOpsPost } from './handlers/routes/cfpw/ops';
+import { onRequestGet as handleCfpwPageDetailsGet } from './handlers/routes/cfpw/page-details';
+import { onRequestGet as handleCfpwWorkerDetailsGet } from './handlers/routes/cfpw/worker-details';
+import { onRequestPost as handleCfpwDeletePagePost } from './handlers/routes/cfpw/delete-page';
+import { onRequestPost as handleCfpwDeleteWorkerPost } from './handlers/routes/cfpw/delete-worker';
+import { onRequestPost as handleCfpwCleanupCacheProjectPost } from './handlers/routes/cfpw/cleanup-cache-project';
+import { onRequestGet as handleMpBalanceGet } from './handlers/routes/financeiro/mp-balance';
+import { onRequestGet as handleSumupBalanceGet } from './handlers/routes/financeiro/sumup-balance';
+import {
+  onRequestGet as handlePostSummariesGet,
+  onRequestPost as handlePostSummariesPost,
+} from './handlers/routes/mainsite/post-summaries';
+import {
+  onRequestPost as handleGeminiImportPost,
+  onRequestOptions as handleGeminiImportOptions,
+} from './handlers/routes/mainsite/gemini-import';
+import { onRequestPost as handleMainsiteAiTransformPost } from './handlers/routes/mainsite/ai/transform';
+import { onRequestGet as handleMtastsZonesGet } from './handlers/routes/mtasts/zones';
+import { onRequestGet as handleMtastsPolicyGet } from './handlers/routes/mtasts/policy';
+import { onRequestPost as handleMtastsOrchestratePost } from './handlers/routes/mtasts/orchestrate';
+import { onRequestGet as handleNewsDiscoverGet } from './handlers/routes/news/discover';
+import {
+  onRequestGet as handleAdminhubConfigGet,
+  onRequestPut as handleAdminhubConfigPut,
+} from './handlers/routes/adminhub/config';
+import {
+  onRequestGet as handleApphubConfigGet,
+  onRequestPut as handleApphubConfigPut,
+} from './handlers/routes/apphub/config';
 import { toHeaders } from '../../functions/api/_lib/mainsite-admin';
 
 type AdminMotorEnv = {
+  BIGDATA_DB?: D1Like;
+  GEMINI_API_KEY?: unknown;
+  CF_AI_GATEWAY?: unknown;
+  CLOUDFLARE_PW?: unknown;
+  CF_ACCOUNT_ID?: unknown;
+  SUMUP_API_KEY_PRIVATE?: unknown;
+  SUMUP_MERCHANT_CODE?: unknown;
+  MP_ACCESS_TOKEN?: unknown;
+  RESEND_API_KEY?: unknown;
+  CLOUDFLARE_DNS?: unknown;
+  CLOUDFLARE_CACHE?: unknown;
+  GCP_SA_KEY?: unknown;
+  GCP_PROJECT_ID?: unknown;
+  JINA_API_KEY?: unknown;
+  ADMINHUB_BEARER_TOKEN?: unknown;
+  APPHUB_BEARER_TOKEN?: unknown;
+};
+
+type ResolvedAdminMotorEnv = {
   BIGDATA_DB?: D1Like;
   GEMINI_API_KEY?: string;
   CF_AI_GATEWAY?: string;
@@ -24,6 +76,14 @@ type AdminMotorEnv = {
   SUMUP_API_KEY_PRIVATE?: string;
   SUMUP_MERCHANT_CODE?: string;
   MP_ACCESS_TOKEN?: string;
+  RESEND_API_KEY?: string;
+  CLOUDFLARE_DNS?: string;
+  CLOUDFLARE_CACHE?: string;
+  GCP_SA_KEY?: string;
+  GCP_PROJECT_ID?: string;
+  JINA_API_KEY?: string;
+  ADMINHUB_BEARER_TOKEN?: string;
+  APPHUB_BEARER_TOKEN?: string;
 };
 
 type D1Like = {
@@ -70,7 +130,59 @@ const formatModelName = (id: string): string => {
     .trim();
 };
 
-const handleAiStatusHealth = async (request: Request, env: AdminMotorEnv): Promise<Response> => {
+const readSecretString = async (value: unknown): Promise<string> => {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (!value || typeof value !== 'object') {
+    return '';
+  }
+
+  const maybe = value as {
+    get?: (() => Promise<unknown>) | (() => unknown);
+    value?: unknown;
+    secret?: unknown;
+  };
+
+  if (typeof maybe.get === 'function') {
+    const result = await maybe.get();
+    if (typeof result === 'string') {
+      return result.trim();
+    }
+  }
+
+  if (typeof maybe.value === 'string') {
+    return maybe.value.trim();
+  }
+
+  if (typeof maybe.secret === 'string') {
+    return maybe.secret.trim();
+  }
+
+  return '';
+};
+
+const resolveRuntimeEnv = async (env: AdminMotorEnv): Promise<ResolvedAdminMotorEnv> => ({
+  BIGDATA_DB: env.BIGDATA_DB,
+  GEMINI_API_KEY: await readSecretString(env.GEMINI_API_KEY),
+  CF_AI_GATEWAY: await readSecretString(env.CF_AI_GATEWAY),
+  CLOUDFLARE_PW: await readSecretString(env.CLOUDFLARE_PW),
+  CF_ACCOUNT_ID: await readSecretString(env.CF_ACCOUNT_ID),
+  SUMUP_API_KEY_PRIVATE: await readSecretString(env.SUMUP_API_KEY_PRIVATE),
+  SUMUP_MERCHANT_CODE: await readSecretString(env.SUMUP_MERCHANT_CODE),
+  MP_ACCESS_TOKEN: await readSecretString(env.MP_ACCESS_TOKEN),
+  RESEND_API_KEY: await readSecretString(env.RESEND_API_KEY),
+  CLOUDFLARE_DNS: await readSecretString(env.CLOUDFLARE_DNS),
+  CLOUDFLARE_CACHE: await readSecretString(env.CLOUDFLARE_CACHE),
+  GCP_SA_KEY: await readSecretString(env.GCP_SA_KEY),
+  GCP_PROJECT_ID: await readSecretString(env.GCP_PROJECT_ID),
+  JINA_API_KEY: await readSecretString(env.JINA_API_KEY),
+  ADMINHUB_BEARER_TOKEN: await readSecretString(env.ADMINHUB_BEARER_TOKEN),
+  APPHUB_BEARER_TOKEN: await readSecretString(env.APPHUB_BEARER_TOKEN),
+});
+
+const handleAiStatusHealth = async (request: Request, env: ResolvedAdminMotorEnv): Promise<Response> => {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) {
     return json({ ok: false, error: 'GEMINI_API_KEY não configurada.', keyConfigured: false }, 503);
@@ -134,7 +246,7 @@ const handleAiStatusHealth = async (request: Request, env: AdminMotorEnv): Promi
   }
 };
 
-const handleMainsiteModelos = async (request: Request, env: AdminMotorEnv): Promise<Response> => {
+const handleMainsiteModelos = async (request: Request, env: ResolvedAdminMotorEnv): Promise<Response> => {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) {
     return json({ ok: false, error: 'GEMINI_API_KEY não configurada.' }, 500);
@@ -211,54 +323,147 @@ export default {
     const url = new URL(request.url);
     const pathname = url.pathname;
     const method = request.method.toUpperCase();
+    const runtimeEnv = await resolveRuntimeEnv(env);
     if (method === 'GET' && pathname === '/api/ai-status/health') {
-      return handleAiStatusHealth(request, env);
+      return handleAiStatusHealth(request, runtimeEnv);
     }
 
     if (method === 'GET' && pathname === '/api/ai-status/models') {
-      return handleAiStatusModelsGet({ request, env });
+      return handleAiStatusModelsGet({ request, env: runtimeEnv });
+    }
+
+    if (method === 'GET' && pathname === '/api/ai-status/gcp-monitoring') {
+      return handleAiStatusGcpMonitoringGet({ request, env: runtimeEnv } as any);
     }
 
     if (method === 'GET' && pathname === '/api/mainsite/modelos') {
-      return handleMainsiteModelos(request, env);
+      return handleMainsiteModelos(request, runtimeEnv);
     }
 
     if (method === 'GET' && pathname === '/api/oraculo/modelos') {
-      return handleOraculoModelosGet({ request, env });
+      return handleOraculoModelosGet({ request, env: runtimeEnv });
+    }
+
+    if (method === 'GET' && pathname === '/api/astrologo/modelos') {
+      return handleOraculoModelosGet({ request, env: runtimeEnv });
     }
 
     if (pathname === '/api/oraculo/cron') {
-      if (method === 'GET') return handleOraculoCronGet({ request, env });
-      if (method === 'PUT') return handleOraculoCronPut({ request, env });
+      if (method === 'GET') return handleOraculoCronGet({ request, env: runtimeEnv });
+      if (method === 'PUT') return handleOraculoCronPut({ request, env: runtimeEnv });
     }
 
     if (method === 'POST' && pathname === '/api/astrologo/enviar-email') {
-      return handleAstrologoEnviarEmailPost({ request, env });
+      return handleAstrologoEnviarEmailPost({ request, env: runtimeEnv });
+    }
+
+    if (method === 'GET' && pathname === '/api/cfdns/zones') {
+      return handleCfdnsZonesGet({ request, env: runtimeEnv });
+    }
+
+    if (method === 'GET' && pathname === '/api/cfdns/records') {
+      return handleCfdnsRecordsGet({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'GET' && pathname === '/api/cfpw/overview') {
+      return handleCfpwOverviewGet({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'POST' && pathname === '/api/cfpw/ops') {
+      return handleCfpwOpsPost({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'GET' && pathname === '/api/cfpw/page-details') {
+      return handleCfpwPageDetailsGet({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'GET' && pathname === '/api/cfpw/worker-details') {
+      return handleCfpwWorkerDetailsGet({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'POST' && pathname === '/api/cfpw/delete-page') {
+      return handleCfpwDeletePagePost({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'POST' && pathname === '/api/cfpw/delete-worker') {
+      return handleCfpwDeleteWorkerPost({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'POST' && pathname === '/api/cfpw/cleanup-cache-project') {
+      return handleCfpwCleanupCacheProjectPost({ request, env: runtimeEnv } as any);
     }
 
     if (pathname === '/api/cfpw/cleanup-deployments') {
-      if (method === 'GET') return handleCleanupDeploymentsGet({ request, env });
-      if (method === 'POST') return handleCleanupDeploymentsPost({ request, env });
+      if (method === 'GET') return handleCleanupDeploymentsGet({ request, env: runtimeEnv });
+      if (method === 'POST') return handleCleanupDeploymentsPost({ request, env: runtimeEnv });
     }
 
     if (method === 'GET' && pathname === '/api/financeiro/insights') {
-      return handleFinanceiroInsightsGet({ request, env });
+      return handleFinanceiroInsightsGet({ request, env: runtimeEnv });
+    }
+
+    if (method === 'GET' && pathname === '/api/financeiro/mp-balance') {
+      return handleMpBalanceGet({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'GET' && pathname === '/api/financeiro/sumup-balance') {
+      return handleSumupBalanceGet({ request, env: runtimeEnv } as any);
     }
 
     if (method === 'POST' && pathname === '/api/financeiro/sumup-refund') {
-      return handleSumupRefundPost({ request, env });
+      return handleSumupRefundPost({ request, env: runtimeEnv });
     }
 
     if (method === 'POST' && pathname === '/api/financeiro/sumup-cancel') {
-      return handleSumupCancelPost({ request, env });
+      return handleSumupCancelPost({ request, env: runtimeEnv });
     }
 
     if (method === 'POST' && pathname === '/api/financeiro/mp-refund') {
-      return handleMpRefundPost({ request, env });
+      return handleMpRefundPost({ request, env: runtimeEnv });
     }
 
     if (method === 'POST' && pathname === '/api/financeiro/mp-cancel') {
-      return handleMpCancelPost({ request, env });
+      return handleMpCancelPost({ request, env: runtimeEnv });
+    }
+
+    if (pathname === '/api/mainsite/post-summaries') {
+      if (method === 'GET') return handlePostSummariesGet({ request, env: runtimeEnv } as any);
+      if (method === 'POST') return handlePostSummariesPost({ request, env: runtimeEnv } as any);
+    }
+
+    if (pathname === '/api/mainsite/gemini-import') {
+      if (method === 'POST') return handleGeminiImportPost({ request, env: runtimeEnv } as any);
+      if (method === 'OPTIONS') return handleGeminiImportOptions({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'POST' && pathname === '/api/mainsite/ai/transform') {
+      return handleMainsiteAiTransformPost({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'GET' && pathname === '/api/mtasts/zones') {
+      return handleMtastsZonesGet({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'GET' && pathname === '/api/mtasts/policy') {
+      return handleMtastsPolicyGet({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'POST' && pathname === '/api/mtasts/orchestrate') {
+      return handleMtastsOrchestratePost({ request, env: runtimeEnv } as any);
+    }
+
+    if (method === 'GET' && pathname === '/api/news/discover') {
+      return handleNewsDiscoverGet({ request, env: runtimeEnv } as any);
+    }
+
+    if (pathname === '/api/adminhub/config') {
+      if (method === 'GET') return handleAdminhubConfigGet({ request, env: runtimeEnv } as any);
+      if (method === 'PUT') return handleAdminhubConfigPut({ request, env: runtimeEnv } as any);
+    }
+
+    if (pathname === '/api/apphub/config') {
+      if (method === 'GET') return handleApphubConfigGet({ request, env: runtimeEnv } as any);
+      if (method === 'PUT') return handleApphubConfigPut({ request, env: runtimeEnv } as any);
     }
 
     return notFound();
