@@ -1359,8 +1359,21 @@ function GcpLogsTab() {
       <div className="form-card" style={{ textAlign: 'center', padding: 32 }}>
         <CloudOff size={36} style={{ color: '#6b7280', opacity: 0.5, marginBottom: 12 }} />
         <p style={{ color: '#6b7280', fontWeight: 500 }}>Nenhum log encontrado ou retornado pela API.</p>
-        <button type="button" className="ghost-button" onClick={fetchLogs} style={{ marginTop: 16, padding: '10px 20px' }}>
-          <RefreshCw size={14} /> Atualizar
+        
+        <div style={{ marginTop: 24, textAlign: 'left', padding: '16px 20px', borderRadius: 8, background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: '#b45309', fontWeight: 600, fontSize: '0.85rem' }}>
+            <AlertTriangle size={16} /> Por que aistudio.google.com está cheio e aqui está vazio?
+          </div>
+          <p style={{ fontSize: '0.8rem', color: '#78350f', lineHeight: 1.5, margin: 0 }}>
+            Seus logs só aparecerão aqui se a **Chave de API do Gemini** (GEMINI_API_KEY) e a conta de serviço (**GCP_SA_KEY**) pertencerem ao <strong>mesmo Google Cloud Project</strong>. 
+            <br/><br/>
+            Frequentemente, o AI Studio cria um projeto "oculto" (shadow project) para gerar chaves de API pela interface rápida. Se os disparos aconteceram nele, a API Logging não conseguirá extraí-los pesquisando o projeto da sua GCP_SA_KEY.
+            Certifique-se de que a API Key em uso nos APPs foi originada explicitamente dentro do seu <code>GCP_PROJECT_ID</code> atual.
+          </p>
+        </div>
+
+        <button type="button" className="ghost-button" onClick={fetchLogs} style={{ marginTop: 20, padding: '10px 20px' }}>
+          <RefreshCw size={14} /> Atualizar Agora
         </button>
       </div>
     )

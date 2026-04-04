@@ -18,7 +18,7 @@ export const onRequestGet = async (context: { env: Record<string, string>; data?
     const url = `https://logging.googleapis.com/v2/entries:list`
     const body = {
       resourceNames: [`projects/${projectId}`],
-      filter: 'protoPayload.serviceName="generativelanguage.googleapis.com"',
+      filter: 'logName:"cloudaudit.googleapis.com%2Fdata_access" OR protoPayload.serviceName="generativelanguage.googleapis.com" OR resource.type="aiplatform.googleapis.com/Endpoint"',
       pageSize: 50,
       orderBy: "timestamp desc"
     }
@@ -38,16 +38,26 @@ export const onRequestGet = async (context: { env: Record<string, string>; data?
       return json({ ok: false, error: `${res.status}: ${errText.slice(0, 300)}` }, res.status)
     }
 
-    const data = await res.json()
+    const data = await res.json() as any
+    
+    // Fallback debug: se não vier entries (mesmo 200 OK), expõe o payload original e alerta
+    if (!data.entries) {
+      return new Response(JSON.stringify({ 
+        entries: [], 
+        debug_payload: data,
+        message: "O Google Cloud Logging respondeu com sucesso, mas a chave 'entries' não estava presente ou o array é vazio. Validar payload de debug." 
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
 
-    return json({
-      ok: true,
-      projectId,
-      entries: data.entries || []
+    return new Response(JSON.stringify({ entries: data.entries }), {
+      headers: { 'Content-Type': 'application/json' }
     })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erro ao consultar Cloud Logging.'
-    console.error('[ai-status/gcp-logs] request:error', { projectId, error: message })
-    return json({ ok: false, error: message }, 500)
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message, stack: err.stack }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
   }
 }
