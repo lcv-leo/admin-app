@@ -2,7 +2,7 @@
 // Descrição: Catálogo completo de modelos Gemini com metadados (token limits, thinking, etc).
 
 
-interface Env { GEMINI_API_KEY: string }
+interface Env { GEMINI_API_KEY: string; CF_AI_GATEWAY?: string; }
 interface Ctx { env: Env }
 
 function json(data: unknown, status = 200) {
@@ -45,7 +45,17 @@ export const onRequestGet = async ({ env }: Ctx) => {
       tier: string
     }>()
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const gatewayUrl = 'https://gateway.ai.cloudflare.com/v1/d65b76a0e64c3791e932edd9163b1c71/workspace-gateway/google-ai-studio';
+    const baseUrl = env.CF_AI_GATEWAY ? gatewayUrl : 'https://generativelanguage.googleapis.com';
+
+    const requestHeaders: Record<string, string> = {};
+    if (env.CF_AI_GATEWAY) {
+      requestHeaders['cf-aig-authorization'] = `Bearer ${env.CF_AI_GATEWAY}`;
+    }
+
+    const res = await fetch(`${baseUrl}/v1beta/models?key=${apiKey}`, {
+      headers: requestHeaders
+    });
     if (!res.ok) throw new Error(`API Error: ${res.status}`);
     
     interface ModelOutput { name: string; displayName: string; description: string; inputTokenLimit: number; outputTokenLimit: number; supportedGenerationMethods: string[]; temperature?: number; topP?: number; maxTemperature?: number }
@@ -56,7 +66,7 @@ export const onRequestGet = async ({ env }: Ctx) => {
       
       const id = m.name.replace('models/', '');
       const lower = id.toLowerCase();
-      const rawModel = m as Record<string, unknown>;
+      const rawModel = m as unknown as Record<string, unknown>;
       // Filtrar só Gemini
       if (!lower.startsWith('gemini')) continue;
 

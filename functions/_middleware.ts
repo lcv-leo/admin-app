@@ -13,6 +13,31 @@ export async function onRequest(context: { request: Request; env: Record<string,
     return Response.redirect(url.toString(), 301);
   }
 
+  // ========== ENVIRONMENT KEYS FALLBACK ==========
+  // Se o usuário configurar no dashboard com o padrão antigo do secrets_store
+  if (context.env) {
+    const mappings: Record<string, string> = {
+      'gemini-api-key': 'GEMINI_API_KEY',
+      'pix-key': 'PIX_KEY',
+      'pix-name': 'PIX_NAME',
+      'pix-city': 'PIX_CITY',
+      'cf-ai-gateway': 'CF_AI_GATEWAY',
+      'cloudflare-pw': 'CLOUDFLARE_PW',
+      'mp-access-token': 'MP_ACCESS_TOKEN',
+      'mercado-pago-webhook-secret': 'MERCADO_PAGO_WEBHOOK_SECRET',
+      'resend-api-key': 'RESEND_API_KEY',
+      'resend-appkey': 'RESEND_APPKEY',
+      'sumup-api-key-private': 'SUMUP_API_KEY_PRIVATE',
+      'sumup-merchant-code': 'SUMUP_MERCHANT_CODE',
+      'gcp-sa-key': 'GCP_SA_KEY'
+    };
+    for (const [lowerKey, upperKey] of Object.entries(mappings)) {
+      if (!context.env[upperKey] && context.env[lowerKey]) {
+        context.env[upperKey] = context.env[lowerKey];
+      }
+    }
+  }
+
   // ========== SECRET STORE RESOLVER MIDDLEWARE ==========
   if (context.env) {
     await Promise.all(

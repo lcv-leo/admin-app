@@ -38,17 +38,27 @@ function json(data: unknown, status = 200) {
   })
 }
 
-export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
+interface Ctx { env: Env }
+
+export const onRequestGet = async ({ env }: Ctx) => {
   const apiKey = env?.GEMINI_API_KEY
   if (!apiKey) return json({ ok: false, error: 'GEMINI_API_KEY não configurada.', keyConfigured: false }, 503)
 
   const activeModel = await resolveModel(env.BIGDATA_DB);
-  const baseUrl = env.CF_AI_GATEWAY || 'https://generativelanguage.googleapis.com';
+  const gatewayUrl = 'https://gateway.ai.cloudflare.com/v1/d65b76a0e64c3791e932edd9163b1c71/workspace-gateway/google-ai-studio';
+  const baseUrl = env.CF_AI_GATEWAY ? gatewayUrl : 'https://generativelanguage.googleapis.com';
+
+  const requestHeaders = toHeaders() as Record<string, string>;
+  if (env.CF_AI_GATEWAY) {
+    requestHeaders['cf-aig-authorization'] = `Bearer ${env.CF_AI_GATEWAY}`;
+  }
 
   try {
     const start = Date.now()
     
-    const res = await fetch(`${baseUrl}/v1beta/models/${activeModel}?key=${apiKey}`);
+    const res = await fetch(`${baseUrl}/v1beta/models/${activeModel}?key=${apiKey}`, {
+      headers: requestHeaders
+    });
     const model = res.ok;
     const latencyMs = Date.now() - start
 
