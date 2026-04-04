@@ -52,6 +52,11 @@
       "binding": "RESEND_API_KEY",
       "store_id": "df90c0935ba1460899c3c2c457548a90",
       "secret_name": "resend-api-key"
+    },
+    {
+      "binding": "GCP_PROJECT_ID",
+      "store_id": "df90c0935ba1460899c3c2c457548a90",
+      "secret_name": "gcp-project-id"
     }
   ],
   "d1_databases": [
