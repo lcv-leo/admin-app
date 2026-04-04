@@ -19,7 +19,7 @@ export const onRequestPost = async (context: CancelContext) => {
 
   if (!id) return Response.json({ success: false, error: 'ID do pagamento ausente.' }, { status: 400 })
 
-  const token = context.env.SUMUP_API_KEY_PRIVATE
+  const token = ((context as any).data?.env || context.env).SUMUP_API_KEY_PRIVATE
   if (!token) return Response.json({ success: false, error: 'SUMUP_API_KEY_PRIVATE ausente.' }, { status: 503 })
 
   try {

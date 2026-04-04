@@ -12,7 +12,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return new Response(JSON.stringify({ ok: false, error: 'Text required' }), { status: 400 });
     }
 
-    const response = await context.env.AI.run('@cf/huggingface/distilbert-sst-2-int8', {
+    const response = await ((context as any).data?.env || context.env).AI.run('@cf/huggingface/distilbert-sst-2-int8', {
       text: data.text
     });
 

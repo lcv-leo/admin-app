@@ -77,7 +77,8 @@ const mapPolicyRow = (row: MtastsPolicyRow) => {
 }
 
 export async function onRequestGet(context: Context) {
-  const { request, env } = context
+  const {  } = context;
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
   const trace = createResponseTrace(request)
   const url = new URL(request.url)
 

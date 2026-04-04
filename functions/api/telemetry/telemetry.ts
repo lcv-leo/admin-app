@@ -12,7 +12,7 @@ type Context = { request: Request; env: Env }
 const headers = () => ({ 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
 
 export async function onRequestGet(context: Context) {
-  const { env } = context
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
   const trace = createResponseTrace(context.request)
   const db = env.BIGDATA_DB
 

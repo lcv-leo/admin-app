@@ -16,7 +16,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   try {
-    const object = await context.env.MEDIA_BUCKET.get(filename)
+    const object = await ((context as any).data?.env || context.env).MEDIA_BUCKET.get(filename)
     if (!object) {
       return new Response('Arquivo não encontrado.', { status: 404 })
     }

@@ -96,7 +96,7 @@ export async function onRequestGet(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const db = requireDb(context.env)
+    const db = requireDb(((context as any).data?.env || context.env))
     const settings = await readPublicSettings(db)
 
     return new Response(JSON.stringify({
@@ -109,9 +109,9 @@ export async function onRequestGet(context: MainsiteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao consultar settings públicos do MainSite'
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'mainsite',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -134,7 +134,7 @@ export async function onRequestPut(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const db = requireDb(context.env)
+    const db = requireDb(((context as any).data?.env || context.env))
     const body = await context.request.json() as Partial<MainsitePublicSettings>
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
 
@@ -179,9 +179,9 @@ export async function onRequestPut(context: MainsiteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao salvar settings públicos do MainSite'
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'mainsite',
           source: 'bigdata_db',
           fallbackUsed: false,

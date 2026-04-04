@@ -62,17 +62,5 @@ export async function onRequest(context: { request: Request; env: Record<string,
   mutableData.env = envClone;
   mutableContext.data = mutableData;
 
-  // Substitui env no context via Object.defineProperty para contornar object sealing (Cloudflare Pages)
-  try {
-    context.env = envClone;
-  } catch {
-    Object.defineProperty(context, 'env', {
-      value: envClone,
-      writable: true,
-      enumerable: true,
-      configurable: true
-    });
-  }
-
   return context.next();
 }

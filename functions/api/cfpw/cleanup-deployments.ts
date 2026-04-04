@@ -137,8 +137,8 @@ const resolveMainActiveIds = (
  */
 export async function onRequestGet(context: Context) {
   try {
-    const { accountId } = await resolveCloudflarePwAccount(context.env)
-    const projects = await listCloudflarePagesProjects(context.env, accountId)
+    const { accountId } = await resolveCloudflarePwAccount(((context as any).data?.env || context.env))
+    const projects = await listCloudflarePagesProjects(((context as any).data?.env || context.env), accountId)
 
     let totalDeployments = 0
     let totalObsolete = 0
@@ -158,8 +158,8 @@ export async function onRequestGet(context: Context) {
 
         try {
           const [projectDetails, deployments] = await Promise.all([
-            getCloudflarePagesProject(context.env, accountId, projectName).catch(() => null),
-            listCloudflarePagesDeployments(context.env, accountId, projectName),
+            getCloudflarePagesProject(((context as any).data?.env || context.env), accountId, projectName).catch(() => null),
+            listCloudflarePagesDeployments(((context as any).data?.env || context.env), accountId, projectName),
           ])
 
           // Ordenação cronológica estrita (mais recente primeiro)
@@ -253,7 +253,7 @@ export async function onRequestPost(context: Context) {
       return jsonResponse({ error: 'projectName e deploymentId são obrigatórios.' }, 400)
     }
 
-    const { accountId } = await resolveCloudflarePwAccount(context.env)
+    const { accountId } = await resolveCloudflarePwAccount(((context as any).data?.env || context.env))
     let targetDeployment: {
       environment?: string
       deployment_trigger?: { metadata?: { branch?: string; commit_ref?: string } }
@@ -263,8 +263,8 @@ export async function onRequestPost(context: Context) {
     // Se não for possível validar com segurança, bloqueia a exclusão.
     try {
       const [project, deployments] = await Promise.all([
-        getCloudflarePagesProject(context.env, accountId, projectName),
-        listCloudflarePagesDeployments(context.env, accountId, projectName),
+        getCloudflarePagesProject(((context as any).data?.env || context.env), accountId, projectName),
+        listCloudflarePagesDeployments(((context as any).data?.env || context.env), accountId, projectName),
       ])
 
       const target = deployments.find((d) => String(d.id ?? '').trim() === deploymentId)
@@ -312,7 +312,7 @@ export async function onRequestPost(context: Context) {
     }
 
     const forceDelete = targetDeployment ? isPreviewDeployment(targetDeployment) : false
-    await deleteCloudflarePagesDeployment(context.env, accountId, projectName, deploymentId, forceDelete)
+    await deleteCloudflarePagesDeployment(((context as any).data?.env || context.env), accountId, projectName, deploymentId, forceDelete)
 
     return jsonResponse({
       ok: true,

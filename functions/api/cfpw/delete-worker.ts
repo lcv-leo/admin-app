@@ -55,12 +55,12 @@ export async function onRequestPost(context: Context) {
   }
 
   try {
-    const accountInfo = await resolveCloudflarePwAccount(context.env)
-    await deleteCloudflareWorker(context.env, accountInfo.accountId, scriptName)
+    const accountInfo = await resolveCloudflarePwAccount(((context as any).data?.env || context.env))
+    await deleteCloudflareWorker(((context as any).data?.env || context.env), accountInfo.accountId, scriptName)
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -87,9 +87,9 @@ export async function onRequestPost(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : `Falha ao remover Worker ${scriptName}.`
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,

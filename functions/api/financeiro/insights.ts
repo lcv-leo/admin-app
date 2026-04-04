@@ -41,8 +41,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   // ── SumUp Insights ──
   if (provider === 'sumup') {
-    const token = context.env.SUMUP_API_KEY_PRIVATE
-    const merchantCode = context.env.SUMUP_MERCHANT_CODE
+    const token = ((context as any).data?.env || context.env).SUMUP_API_KEY_PRIVATE
+    const merchantCode = ((context as any).data?.env || context.env).SUMUP_MERCHANT_CODE
     if (!token || !merchantCode) return Response.json({ error: 'SUMUP_API_KEY_PRIVATE ou SUMUP_MERCHANT_CODE ausentes.' }, { status: 503 })
 
     const client = new SumUp({ apiKey: token })
@@ -167,7 +167,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   // ── Mercado Pago Insights (via REST API v1 — SDK incompatível com Workers runtime) ──
   if (provider === 'mp') {
-    const token = context.env.MP_ACCESS_TOKEN
+    const token = ((context as any).data?.env || context.env).MP_ACCESS_TOKEN
     if (!token) return Response.json({ error: 'MP_ACCESS_TOKEN ausente.' }, { status: 503 })
 
     const mpHeaders: Record<string, string> = { Authorization: `Bearer ${token}` }

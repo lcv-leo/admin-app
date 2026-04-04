@@ -38,7 +38,7 @@ export async function onRequestPost(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const db = context.env.BIGDATA_DB
+    const db = ((context as any).data?.env || context.env).BIGDATA_DB
     if (!db) {
       return buildErrorResponse('BIGDATA_DB não configurado no runtime.', trace, 503)
     }
@@ -68,7 +68,7 @@ export async function onRequestPost(context: MainsiteContext) {
     }
 
     try {
-      await logModuleOperationalEvent(context.env.BIGDATA_DB as Parameters<typeof logModuleOperationalEvent>[0], {
+      await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB as Parameters<typeof logModuleOperationalEvent>[0], {
         module: 'mainsite',
         source: 'bigdata_db',
         fallbackUsed: false,

@@ -103,7 +103,7 @@ export async function onRequestGet(context: MainsiteContext) {
   const id = parseId(url.searchParams.get('id'))
 
   try {
-    const db = requireDb(context.env)
+    const db = requireDb(((context as any).data?.env || context.env))
 
     if (id) {
       await ensureAuthorColumn(db)
@@ -143,9 +143,9 @@ export async function onRequestGet(context: MainsiteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao consultar posts do MainSite'
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'mainsite',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -168,7 +168,7 @@ export async function onRequestPost(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const db = requireDb(context.env)
+    const db = requireDb(((context as any).data?.env || context.env))
     await ensureAuthorColumn(db)
     const body = await context.request.json() as { title?: unknown; content?: unknown; author?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
@@ -225,9 +225,9 @@ export async function onRequestPost(context: MainsiteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao criar post do MainSite'
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'mainsite',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -250,7 +250,7 @@ export async function onRequestPut(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const db = requireDb(context.env)
+    const db = requireDb(((context as any).data?.env || context.env))
     await ensureAuthorColumn(db)
     const body = await context.request.json() as { id?: unknown; title?: unknown; content?: unknown; author?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
@@ -308,9 +308,9 @@ export async function onRequestPut(context: MainsiteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao atualizar post do MainSite'
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'mainsite',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -333,7 +333,7 @@ export async function onRequestDelete(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const db = requireDb(context.env)
+    const db = requireDb(((context as any).data?.env || context.env))
     const body = await context.request.json() as { id?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
     const id = parseId(body.id)
@@ -373,9 +373,9 @@ export async function onRequestDelete(context: MainsiteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao excluir post do MainSite'
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'mainsite',
           source: 'bigdata_db',
           fallbackUsed: false,

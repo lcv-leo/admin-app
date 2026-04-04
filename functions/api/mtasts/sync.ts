@@ -29,7 +29,7 @@ const toHeaders = () => ({
 })
 
 export async function onRequestPost(context: Context) {
-  const { env } = context
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
 
   if (!env.BIGDATA_DB) {
     return new Response(JSON.stringify({

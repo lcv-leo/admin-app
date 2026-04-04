@@ -20,7 +20,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const extension = file.name.split('.').pop() || 'bin'
     const uniqueName = `${crypto.randomUUID()}.${extension}`
 
-    await context.env.MEDIA_BUCKET.put(uniqueName, await file.arrayBuffer(), {
+    await ((context as any).data?.env || context.env).MEDIA_BUCKET.put(uniqueName, await file.arrayBuffer(), {
       httpMetadata: { contentType: file.type },
     })
 

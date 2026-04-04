@@ -35,7 +35,7 @@ const toResponseHeaders = () => ({
 })
 
 export async function onRequestGet(context: Context) {
-  const { env } = context
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
   const trace = createResponseTrace(context.request)
 
   if (!env.BIGDATA_DB) {

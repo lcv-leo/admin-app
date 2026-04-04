@@ -226,14 +226,14 @@ async function handleGeminiImport(
     )
   }
 
-  if (!context.env.GEMINI_API_KEY) {
+  if (!((context as any).data?.env || context.env).GEMINI_API_KEY) {
     return new Response(
       JSON.stringify({ error: 'Falta variável GEMINI_API_KEY no deploy.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 
-  const activeModel = await resolveModel(context.env.BIGDATA_DB);
+  const activeModel = await resolveModel(((context as any).data?.env || context.env).BIGDATA_DB);
 
   const _telemetryStart = Date.now();
   let finalMarkdown = '';
@@ -241,7 +241,7 @@ async function handleGeminiImport(
 
   try {
     // 1. Fetch page content as clean markdown via Jina Reader
-    const pageContent = await fetchSharePageContent(url, context.env.JINA_API_KEY);
+    const pageContent = await fetchSharePageContent(url, ((context as any).data?.env || context.env).JINA_API_KEY);
 
     // 2. Prompt Gemini Flash to extract structured conversation from markdown
     const systemInstructionConfig = `Você é um sistema de extração inteligente. Analise o conteúdo markdown de uma página de compartilhamento do Gemini.
@@ -272,8 +272,8 @@ Regras:
           }
         };
 
-        const baseUrl = context.env.CF_AI_GATEWAY || 'https://generativelanguage.googleapis.com'
-        const url = `${baseUrl}/v1beta/models/${activeModel}:generateContent?key=${context.env.GEMINI_API_KEY}`
+        const baseUrl = ((context as any).data?.env || context.env).CF_AI_GATEWAY || 'https://generativelanguage.googleapis.com'
+        const url = `${baseUrl}/v1beta/models/${activeModel}:generateContent?key=${((context as any).data?.env || context.env).GEMINI_API_KEY}`
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -297,7 +297,7 @@ Regras:
             cachedTokens: data.usageMetadata?.cachedContentTokenCount || 0,
           };
 
-          logAiUsage(context.env.BIGDATA_DB, {
+          logAiUsage(((context as any).data?.env || context.env).BIGDATA_DB, {
             module: 'mainsite_gemini_import',
             model: activeModel,
             input_tokens: usageMetadata.promptTokens,
@@ -322,7 +322,7 @@ Regras:
 
   } catch (err) {
     // Telemetria de erro
-    logAiUsage(context.env.BIGDATA_DB, {
+    logAiUsage(((context as any).data?.env || context.env).BIGDATA_DB, {
       module: 'mainsite_gemini_import',
       model: activeModel,
       input_tokens: 0,

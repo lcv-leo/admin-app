@@ -54,7 +54,7 @@ export async function onRequestPost(context: MainsiteContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const db = requireDb(context.env)
+    const db = requireDb(((context as any).data?.env || context.env))
     const body = await context.request.json() as { id?: unknown }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
     const id = parseId(body.id)
@@ -106,9 +106,9 @@ export async function onRequestPost(context: MainsiteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao alternar fixação do post do MainSite'
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'mainsite',
           source: 'bigdata_db',
           fallbackUsed: false,

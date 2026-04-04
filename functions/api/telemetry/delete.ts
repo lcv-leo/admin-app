@@ -18,7 +18,7 @@ const ALLOWED_TABLES = [
 ] as const
 
 export async function onRequestDelete(context: Context) {
-  const { env } = context
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
   const trace = createResponseTrace(context.request)
   const db = env.BIGDATA_DB
 

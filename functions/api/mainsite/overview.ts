@@ -107,7 +107,8 @@ const queryBigdata = async (db: D1Database, limit: number): Promise<MainsiteOver
 }
 
 export async function onRequestGet(context: Context) {
-  const { request, env } = context
+  const {  } = context;
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
   const trace = createResponseTrace(request)
   const url = new URL(request.url)
   const limit = parseLimit(url.searchParams.get('limit'))

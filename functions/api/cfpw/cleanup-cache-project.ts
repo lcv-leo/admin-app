@@ -36,10 +36,10 @@ export async function onRequestPost(context: Context) {
       return jsonResponse({ error: 'projectName é obrigatório.' }, 400)
     }
 
-    const { accountId } = await resolveCloudflarePwAccount(context.env)
+    const { accountId } = await resolveCloudflarePwAccount(((context as any).data?.env || context.env))
 
     // 1. Obter domínios atrelados ao projeto
-    const pagesDomains = await listCloudflarePagesDomains(context.env, accountId, projectName)
+    const pagesDomains = await listCloudflarePagesDomains(((context as any).data?.env || context.env), accountId, projectName)
     
     // Filtrar apenas domínios customizados e ignorar o default da Cloudflare
     const customDomains = pagesDomains
@@ -57,7 +57,7 @@ export async function onRequestPost(context: Context) {
     }
 
     // 2. Obter todas as zonas da conta
-    const zones = await listCloudflareZones(context.env)
+    const zones = await listCloudflareZones(((context as any).data?.env || context.env))
     
     // 3. Mapear domínios para seus respectivos Zone IDs
     const zoneToDomains = new Map<string, string[]>()
@@ -94,7 +94,7 @@ export async function onRequestPost(context: Context) {
 
     // 4. Executar limpeza de cache seletiva (smart host purge) apenas nas zonas e subdomínios corretos
     const purgePromises = Array.from(zoneToDomains.entries()).map(([zoneId, hosts]) => 
-      purgeCloudflareZoneCache(context.env, zoneId, { hosts })
+      purgeCloudflareZoneCache(((context as any).data?.env || context.env), zoneId, { hosts })
         .catch(err => {
           throw new Error(`Falha ao limpar Zona ${zoneId}: ` + (err instanceof Error ? err.message : String(err)))
         })

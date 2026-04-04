@@ -110,7 +110,7 @@ function validateInputTokens(tokenCount: number) {
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-  if (!context.env.GEMINI_API_KEY) {
+  if (!((context as any).data?.env || context.env).GEMINI_API_KEY) {
     structuredLog('error', 'GEMINI_API_KEY missing');
     return new Response(JSON.stringify({ error: "GEMINI_API_KEY não configurada." }), { status: 500 });
   }
@@ -118,8 +118,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const _telemetryStart = Date.now();
   structuredLog('info', 'transform API call starting', { endpoint: 'transform' });
 
-  const activeModel = await resolveModel(context.env.BIGDATA_DB);
-  const baseUrl = context.env.CF_AI_GATEWAY || 'https://generativelanguage.googleapis.com';
+  const activeModel = await resolveModel(((context as any).data?.env || context.env).BIGDATA_DB);
+  const baseUrl = ((context as any).data?.env || context.env).CF_AI_GATEWAY || 'https://generativelanguage.googleapis.com';
 
   try {
     const body = await context.request.json() as { action: string, text: string, instruction?: string };
@@ -145,7 +145,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const fullPrompt = `${promptInfo}\n\nTexto:\n${text}`;
 
     // 1 & 10. Token Counting & Input Validation
-    const inputTokens = await estimateTokenCount(fullPrompt, context.env.GEMINI_API_KEY, baseUrl, activeModel);
+    const inputTokens = await estimateTokenCount(fullPrompt, ((context as any).data?.env || context.env).GEMINI_API_KEY, baseUrl, activeModel);
     const validation = validateInputTokens(inputTokens);
     if (validation.shouldReject) {
       structuredLog('warn', 'Input rejected due to token count', { tokens: inputTokens });
@@ -180,7 +180,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
         };
 
-        const response = await fetch(`${baseUrl}/v1beta/models/${activeModel}:generateContent?key=${context.env.GEMINI_API_KEY}`, {
+        const response = await fetch(`${baseUrl}/v1beta/models/${activeModel}:generateContent?key=${((context as any).data?.env || context.env).GEMINI_API_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -206,7 +206,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           });
 
           // Telemetria → ai_usage_logs (fire-and-forget)
-          logAiUsage(context.env.BIGDATA_DB, {
+          logAiUsage(((context as any).data?.env || context.env).BIGDATA_DB, {
             module: 'mainsite',
             model: activeModel,
             input_tokens: usageMetadata.promptTokens,
@@ -250,7 +250,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   } catch (error) {
     // Telemetria de erro
-    logAiUsage(context.env.BIGDATA_DB, {
+    logAiUsage(((context as any).data?.env || context.env).BIGDATA_DB, {
       module: 'mainsite',
       model: activeModel,
       input_tokens: 0,

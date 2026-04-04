@@ -66,7 +66,7 @@ const normalizeTlsRptEmail = (value: unknown) => {
 export async function onRequestPost(context: Context) {
   const trace = createResponseTrace(context.request)
 
-  if (!context.env.BIGDATA_DB) {
+  if (!((context as any).data?.env || context.env).BIGDATA_DB) {
     return toError('BIGDATA_DB não configurado no runtime.', trace, 503)
   }
 
@@ -87,14 +87,14 @@ export async function onRequestPost(context: Context) {
 
     const [mtaStsDnsResult, tlsRptDnsResult] = await Promise.all([
       upsertCloudflareTxtRecord(
-        context.env,
+        ((context as any).data?.env || context.env),
         zoneId,
         `_mta-sts.${domain}`,
         `v=STSv1; id=${id}`,
       ),
       tlsrptEmail
         ? upsertCloudflareTxtRecord(
-          context.env,
+          ((context as any).data?.env || context.env),
           zoneId,
           `_smtp._tls.${domain}`,
           `v=TLSRPTv1; rua=mailto:${tlsrptEmail}`,
@@ -102,7 +102,7 @@ export async function onRequestPost(context: Context) {
         : Promise.resolve(null),
     ])
 
-    await context.env.BIGDATA_DB.prepare(`
+    await ((context as any).data?.env || context.env).BIGDATA_DB.prepare(`
       INSERT INTO mtasts_mta_sts_policies (domain, policy_text, tlsrpt_email, updated_at)
       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(domain) DO UPDATE SET
@@ -113,7 +113,7 @@ export async function onRequestPost(context: Context) {
       .bind(domain, policyText, tlsrptEmail)
       .run()
 
-    await context.env.BIGDATA_DB.prepare(`
+    await ((context as any).data?.env || context.env).BIGDATA_DB.prepare(`
       INSERT INTO mtasts_history (gerado_em, domain, data_criacao)
       VALUES (?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(gerado_em) DO UPDATE SET
@@ -123,7 +123,7 @@ export async function onRequestPost(context: Context) {
       .run()
 
     try {
-      await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+      await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
         module: 'mtasts',
         source: 'bigdata_db',
         fallbackUsed: false,
@@ -161,9 +161,9 @@ export async function onRequestPost(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha inesperada na orquestração MTA-STS'
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'mtasts',
           source: 'bigdata_db',
           fallbackUsed: false,

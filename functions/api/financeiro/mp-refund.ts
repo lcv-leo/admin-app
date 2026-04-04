@@ -16,7 +16,7 @@ export const onRequestPost = async (context: RefundContext) => {
 
   if (!id) return Response.json({ error: 'ID do pagamento ausente.' }, { status: 400 })
 
-  const token = context.env.MP_ACCESS_TOKEN
+  const token = ((context as any).data?.env || context.env).MP_ACCESS_TOKEN
   if (!token) return Response.json({ error: 'MP_ACCESS_TOKEN ausente.' }, { status: 503 })
 
   try {

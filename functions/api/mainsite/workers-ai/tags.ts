@@ -17,7 +17,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       { role: 'user', content: data.text }
     ];
 
-    const response = await context.env.AI.run('@cf/meta/llama-3-8b-instruct', {
+    const response = await ((context as any).data?.env || context.env).AI.run('@cf/meta/llama-3-8b-instruct', {
       messages
     });
 

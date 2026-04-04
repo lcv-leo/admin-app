@@ -47,11 +47,11 @@ export async function onRequestGet(context: Context) {
   }
 
   try {
-    const accountInfo = await resolveCloudflarePwAccount(context.env)
+    const accountInfo = await resolveCloudflarePwAccount(((context as any).data?.env || context.env))
 
     const [workerResult, deploymentsResult] = await Promise.allSettled([
-      getCloudflareWorker(context.env, accountInfo.accountId, scriptName),
-      listCloudflareWorkerDeployments(context.env, accountInfo.accountId, scriptName),
+      getCloudflareWorker(((context as any).data?.env || context.env), accountInfo.accountId, scriptName),
+      listCloudflareWorkerDeployments(((context as any).data?.env || context.env), accountInfo.accountId, scriptName),
     ])
 
     const warnings: PartialWarning[] = []
@@ -73,9 +73,9 @@ export async function onRequestGet(context: Context) {
       throw new Error(fatal)
     }
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -108,9 +108,9 @@ export async function onRequestGet(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : `Falha ao carregar detalhes do Worker ${scriptName}.`
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,

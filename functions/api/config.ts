@@ -176,7 +176,8 @@ export async function onRequest(context: {
   env: Record<string, unknown>
   params: Record<string, string>
 }): Promise<Response> {
-  const { request, env } = context
+  const {  } = context;
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
 
   // Set CORS headers
   if (request.method === 'OPTIONS') {

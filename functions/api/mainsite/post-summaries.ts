@@ -207,7 +207,7 @@ const json = (data: unknown, status = 200) =>
 export async function onRequestGet(context: SummaryContext) {
   const trace = createResponseTrace(context.request)
   try {
-    const db = context.env.BIGDATA_DB
+    const db = ((context as any).data?.env || context.env).BIGDATA_DB
     if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.', ...trace }, 500)
 
     await ensureTable(db)
@@ -259,7 +259,7 @@ async function resolveSummaryModel(db: D1Database, reqModel?: string): Promise<s
 export async function onRequestPost(context: SummaryContext) {
   const trace = createResponseTrace(context.request)
   try {
-    const db = context.env.BIGDATA_DB
+    const db = ((context as any).data?.env || context.env).BIGDATA_DB
     if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.', ...trace }, 500)
 
     await ensureTable(db)
@@ -273,7 +273,7 @@ export async function onRequestPost(context: SummaryContext) {
       model?: string // modelo Gemini selecionado pelo usuário
     }
 
-    const apiKey = context.env.GEMINI_API_KEY
+    const apiKey = ((context as any).data?.env || context.env).GEMINI_API_KEY
 
     // ── Generate All ──
     if (body.action === 'generate-all') {
@@ -328,7 +328,7 @@ export async function onRequestPost(context: SummaryContext) {
         }
 
         try {
-          const result = await generateShareSummary(post.title, post.content, apiKey, context.env.CF_AI_GATEWAY, resolvedModel)
+          const result = await generateShareSummary(post.title, post.content, apiKey, ((context as any).data?.env || context.env).CF_AI_GATEWAY, resolvedModel)
           if ('error' in result) {
             failed++
             details.push({ postId: post.id, title: post.title, status: result.error })
@@ -381,7 +381,7 @@ export async function onRequestPost(context: SummaryContext) {
 
       const resolvedModel = await resolveSummaryModel(db, body.model)
 
-      const result = await generateShareSummary(post.title, post.content, apiKey, context.env.CF_AI_GATEWAY, resolvedModel)
+      const result = await generateShareSummary(post.title, post.content, apiKey, ((context as any).data?.env || context.env).CF_AI_GATEWAY, resolvedModel)
       if ('error' in result) return json({ ok: false, error: result.error, ...trace }, 502)
 
       const contentHash = await hashContent(stripHtml(post.content))

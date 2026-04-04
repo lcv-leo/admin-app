@@ -11,7 +11,7 @@ type BalanceContext = { request: Request; env: Env }
 const FINANCIAL_CUTOFF = '2026-03-01'
 
 export const onRequestGet = async (context: BalanceContext) => {
-  const token = context.env.MP_ACCESS_TOKEN
+  const token = ((context as any).data?.env || context.env).MP_ACCESS_TOKEN
   if (!token) return Response.json({ available_balance: 0, unavailable_balance: 0 })
 
   const url = new URL(context.request.url)

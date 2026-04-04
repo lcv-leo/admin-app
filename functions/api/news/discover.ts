@@ -521,12 +521,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   // Layer 3: Gemini AI (se API key disponível e query ≥3 chars)
-  const apiKey = context.env.GEMINI_API_KEY
-  const baseUrl = context.env.CF_AI_GATEWAY || 'https://generativelanguage.googleapis.com';
+  const apiKey = ((context as any).data?.env || context.env).GEMINI_API_KEY
+  const baseUrl = ((context as any).data?.env || context.env).CF_AI_GATEWAY || 'https://generativelanguage.googleapis.com';
   if (apiKey && query.length >= 3) {
     try {
       const geminiResults = await Promise.race([
-        discoverWithGemini(query, apiKey, baseUrl, context.env.BIGDATA_DB as unknown as D1Binding),
+        discoverWithGemini(query, apiKey, baseUrl, ((context as any).data?.env || context.env).BIGDATA_DB as unknown as D1Binding),
         new Promise<RssSuggestion[]>((resolve) => setTimeout(() => resolve([]), 6000)),
       ])
       addUnique(geminiResults)

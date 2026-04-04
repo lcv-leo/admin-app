@@ -12,7 +12,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return new Response(JSON.stringify({ ok: false, error: 'Text required' }), { status: 400 });
     }
 
-    const response = await context.env.AI.run('@cf/meta/m2m100-1.2b', {
+    const response = await ((context as any).data?.env || context.env).AI.run('@cf/meta/m2m100-1.2b', {
       text: data.text,
       source_lang: data.source_lang || 'en',
       target_lang: data.target_lang || 'pt'

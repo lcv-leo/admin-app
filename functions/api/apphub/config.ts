@@ -42,9 +42,9 @@ export async function onRequestGet(context: Context) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const resolved = await resolveHubConfig(context.env, 'apphub')
+    const resolved = await resolveHubConfig(((context as any).data?.env || context.env), 'apphub')
 
-    await logHubEvent(context.env.BIGDATA_DB, {
+    await logHubEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
       module: 'apphub',
       action: 'config-read',
       source: resolved.source,
@@ -69,7 +69,7 @@ export async function onRequestGet(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao carregar configuração do apphub'
 
-    await logHubEvent(context.env.BIGDATA_DB, {
+    await logHubEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
       module: 'apphub',
       action: 'config-read',
       source: 'bigdata_db',
@@ -86,12 +86,12 @@ export async function onRequestPut(context: Context) {
   const trace = createResponseTrace(context.request)
 
   // Validate authentication for PUT operations
-  const authContext = validatePutAuth(context.request, context.env.APPHUB_BEARER_TOKEN)
+  const authContext = validatePutAuth(context.request, ((context as any).data?.env || context.env).APPHUB_BEARER_TOKEN)
   if (!authContext.isAuthenticated) {
     return unauthorizedResponse(authContext.error || 'No authentication provided')
   }
 
-  if (!context.env.BIGDATA_DB) {
+  if (!((context as any).data?.env || context.env).BIGDATA_DB) {
     return buildErrorResponse('BIGDATA_DB não configurado no runtime.', trace, 503)
   }
 
@@ -99,9 +99,9 @@ export async function onRequestPut(context: Context) {
     const body = await context.request.json() as { cards?: HubCard[] }
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>)
     const cards = parseCardsFromBody(body)
-    const updated = await saveCardsToDb(context.env.BIGDATA_DB, 'apphub', cards, adminActor)
+    const updated = await saveCardsToDb(((context as any).data?.env || context.env).BIGDATA_DB, 'apphub', cards, adminActor)
 
-    await logHubEvent(context.env.BIGDATA_DB, {
+    await logHubEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
       module: 'apphub',
       action: 'config-save',
       source: 'bigdata_db',
@@ -124,7 +124,7 @@ export async function onRequestPut(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao salvar configuração do apphub'
 
-    await logHubEvent(context.env.BIGDATA_DB, {
+    await logHubEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
       module: 'apphub',
       action: 'config-save',
       source: 'bigdata_db',

@@ -21,7 +21,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
   headers: toHeaders(),
 })
 
-const resolveDb = (context: Context) => context.env.BIGDATA_DB
+const resolveDb = (context: Context) => ((context as any).data?.env || context.env).BIGDATA_DB
 const resolveOperationalSource = () => 'bigdata_db' as const
 
 export async function onRequestPost(context: Context) {
@@ -65,9 +65,9 @@ export async function onRequestPost(context: Context) {
       return json({ ok: false, error: 'Mapa não encontrado.', ...trace }, 404)
     }
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'astrologo',
           source,
           fallbackUsed: false,
@@ -92,9 +92,9 @@ export async function onRequestPost(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao ler mapa do Astrólogo'
 
-    if (context.env.BIGDATA_DB) {
+    if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(context.env.BIGDATA_DB, {
+        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
           module: 'astrologo',
           source,
           fallbackUsed: false,

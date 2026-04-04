@@ -14,8 +14,8 @@ type BalanceContext = { request: Request; env: Env }
 const FINANCIAL_CUTOFF = '2026-03-01'
 
 export const onRequestGet = async (context: BalanceContext) => {
-  const token = context.env.SUMUP_API_KEY_PRIVATE
-  const merchantCode = context.env.SUMUP_MERCHANT_CODE
+  const token = ((context as any).data?.env || context.env).SUMUP_API_KEY_PRIVATE
+  const merchantCode = ((context as any).data?.env || context.env).SUMUP_MERCHANT_CODE
   if (!token || !merchantCode) return Response.json({ available_balance: 0, unavailable_balance: 0 })
 
   const url = new URL(context.request.url)

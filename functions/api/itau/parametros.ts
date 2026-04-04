@@ -8,11 +8,11 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
   headers: toHeaders(),
 })
 
-const resolveParametrosDb = (context: Context) => context.env.BIGDATA_DB
+const resolveParametrosDb = (context: Context) => ((context as any).data?.env || context.env).BIGDATA_DB
 const resolveOperationalSource = () => 'bigdata_db' as const
 
 export async function onRequestGet(context: Context) {
-  const { env } = context
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
   const trace = createResponseTrace(context.request)
   const adminActor = resolveAdminActorFromRequest(context.request)
   const db = resolveParametrosDb(context)
@@ -84,7 +84,7 @@ export async function onRequestGet(context: Context) {
 }
 
 export async function onRequestPost(context: Context) {
-  const { env } = context
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
   const trace = createResponseTrace(context.request)
   const db = resolveParametrosDb(context)
   const source = resolveOperationalSource(context)

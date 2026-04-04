@@ -31,7 +31,7 @@ export async function onRequestGet(context: FeesContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const db = context.env.BIGDATA_DB
+    const db = ((context as any).data?.env || context.env).BIGDATA_DB
     if (!db) throw new Error('BIGDATA_DB não configurado.')
 
     const row = await db.prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1')
@@ -62,7 +62,7 @@ export async function onRequestPost(context: FeesContext) {
   const trace = createResponseTrace(context.request)
 
   try {
-    const db = context.env.BIGDATA_DB
+    const db = ((context as any).data?.env || context.env).BIGDATA_DB
     if (!db) throw new Error('BIGDATA_DB não configurado.')
 
     const body = await context.request.json() as Partial<FeeConfig>

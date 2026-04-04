@@ -21,7 +21,8 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 const isValidEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 
 export async function onRequestPost(context: Context) {
-  const { request, env } = context
+  const {  } = context;
+  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
   const trace = createResponseTrace(request)
 
   try {
