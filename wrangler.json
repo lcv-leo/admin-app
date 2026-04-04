@@ -20,6 +20,10 @@
     {
       "binding": "TLSRPT_MOTOR",
       "service": "tlsrpt-motor"
+    },
+    {
+      "binding": "ADMIN_MOTOR",
+      "service": "admin-motor"
     }
   ],
   "compatibility_flags": [
@@ -27,9 +31,6 @@
   ],
   "ai": {
     "binding": "AI"
-  },
-  "observability": {
-    "enabled": true
   },
   "placement": {
     "mode": "smart"

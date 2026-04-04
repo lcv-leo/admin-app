@@ -1,0 +1,255 @@
+import {
+  resolveCloudflarePwAccount,
+  listCloudflarePagesProjects,
+  listCloudflarePagesDeployments,
+  deleteCloudflarePagesDeployment,
+  getCloudflarePagesProject,
+} from '../../../functions/api/_lib/cfpw-api';
+
+type CleanupEnv = {
+  CLOUDFLARE_PW?: string;
+  CF_ACCOUNT_ID?: string;
+};
+
+type CleanupContext = {
+  request: Request;
+  env: CleanupEnv;
+};
+
+type ScanProject = {
+  name: string;
+  totalDeployments: number;
+  latestDeployment: {
+    id: string;
+    created_on: string;
+    environment: string;
+    url: string;
+  } | null;
+  obsoleteDeployments: Array<{
+    id: string;
+    short_id: string;
+    created_on: string;
+    environment: string;
+    url: string;
+  }>;
+};
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+const isActiveStageStatus = (status: string) => status.trim().toLowerCase() === 'active';
+const TARGET_BRANCHES = new Set(['production', 'main', 'preview']);
+
+const getDeploymentBranch = (deployment: {
+  deployment_trigger?: { metadata?: { branch?: string; commit_ref?: string } };
+}) => {
+  const byBranch = String(deployment.deployment_trigger?.metadata?.branch ?? '').trim().toLowerCase();
+  if (byBranch) return byBranch;
+  return String(deployment.deployment_trigger?.metadata?.commit_ref ?? '').trim().toLowerCase();
+};
+
+const isInCleanupScope = (deployment: {
+  environment?: string;
+  deployment_trigger?: { metadata?: { branch?: string; commit_ref?: string } };
+}) => {
+  const environment = String(deployment.environment ?? '').trim().toLowerCase();
+  if (environment === 'preview') return true;
+  return TARGET_BRANCHES.has(getDeploymentBranch(deployment));
+};
+
+const isPreviewDeployment = (deployment: {
+  environment?: string;
+  deployment_trigger?: { metadata?: { branch?: string; commit_ref?: string } };
+}) => {
+  const environment = String(deployment.environment ?? '').trim().toLowerCase();
+  if (environment === 'preview') return true;
+  return getDeploymentBranch(deployment) === 'preview';
+};
+
+const resolveMainActiveIds = (
+  canonicalId: string,
+  deployments: Array<{
+    id?: string;
+    deployment_trigger?: { metadata?: { branch?: string; commit_ref?: string } };
+    latest_stage?: { status?: string };
+    created_on?: string;
+  }>,
+) => {
+  const inMain = deployments.filter((d) => getDeploymentBranch(d) === 'main');
+  const protectedIds = new Set<string>();
+
+  if (canonicalId && inMain.some((d) => String(d.id ?? '').trim() === canonicalId)) {
+    protectedIds.add(canonicalId);
+    return protectedIds;
+  }
+
+  for (const deployment of inMain) {
+    const id = String(deployment.id ?? '').trim();
+    if (!id) continue;
+    if (isActiveStageStatus(String(deployment.latest_stage?.status ?? ''))) {
+      protectedIds.add(id);
+    }
+  }
+
+  if (protectedIds.size > 0) return protectedIds;
+
+  const sortedMain = [...inMain].sort((a, b) => {
+    const dateA = new Date(a.created_on ?? '').getTime() || 0;
+    const dateB = new Date(b.created_on ?? '').getTime() || 0;
+    return dateB - dateA;
+  });
+
+  const fallbackMainId = String(sortedMain[0]?.id ?? '').trim();
+  if (fallbackMainId) protectedIds.add(fallbackMainId);
+
+  return protectedIds;
+};
+
+export const handleCleanupDeploymentsGet = async (context: CleanupContext) => {
+  try {
+    const { accountId } = await resolveCloudflarePwAccount(context.env as any);
+    const projects = await listCloudflarePagesProjects(context.env as any, accountId);
+
+    let totalDeployments = 0;
+    let totalObsolete = 0;
+
+    const scanResults: ScanProject[] = await Promise.all(
+      projects.map(async (project) => {
+        const projectName = String(project.name ?? '').trim();
+        if (!projectName) {
+          return {
+            name: '(sem nome)',
+            totalDeployments: 0,
+            latestDeployment: null,
+            obsoleteDeployments: [],
+          };
+        }
+
+        try {
+          const [projectDetails, deployments] = await Promise.all([
+            getCloudflarePagesProject(context.env as any, accountId, projectName).catch(() => null),
+            listCloudflarePagesDeployments(context.env as any, accountId, projectName),
+          ]);
+
+          const sorted = [...deployments].sort((a, b) => {
+            const dateA = new Date(a.created_on ?? '').getTime() || 0;
+            const dateB = new Date(b.created_on ?? '').getTime() || 0;
+            return dateB - dateA;
+          });
+
+          const scopedDeployments = sorted.filter((d) => isInCleanupScope(d));
+          const canonicalDeploymentId = String(projectDetails?.canonical_deployment?.id ?? '').trim();
+          const protectedIds = resolveMainActiveIds(canonicalDeploymentId, scopedDeployments);
+
+          const activeForDisplayId = Array.from(protectedIds)[0] ?? '';
+          const latestForDisplay = activeForDisplayId
+            ? scopedDeployments.find((d) => String(d.id) === activeForDisplayId) ?? scopedDeployments[0] ?? null
+            : scopedDeployments[0] ?? null;
+
+          const obsolete = protectedIds.size > 0
+            ? scopedDeployments.filter((d) => !protectedIds.has(String(d.id ?? '')))
+            : [];
+
+          totalDeployments += scopedDeployments.length;
+          totalObsolete += obsolete.length;
+
+          return {
+            name: projectName,
+            totalDeployments: scopedDeployments.length,
+            latestDeployment: latestForDisplay
+              ? {
+                  id: String(latestForDisplay.id ?? ''),
+                  created_on: String(latestForDisplay.created_on ?? ''),
+                  environment: String(latestForDisplay.environment ?? ''),
+                  url: String(latestForDisplay.url ?? ''),
+                }
+              : null,
+            obsoleteDeployments: obsolete.map((d) => ({
+              id: String(d.id ?? ''),
+              short_id: String(d.short_id ?? String(d.id ?? '').slice(0, 8)),
+              created_on: String(d.created_on ?? ''),
+              environment: String(d.environment ?? ''),
+              url: String(d.url ?? ''),
+            })),
+          };
+        } catch {
+          return {
+            name: projectName,
+            totalDeployments: 0,
+            latestDeployment: null,
+            obsoleteDeployments: [],
+          };
+        }
+      }),
+    );
+
+    return jsonResponse({
+      accountId,
+      projects: scanResults,
+      totalProjects: scanResults.length,
+      totalDeployments,
+      totalObsolete,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro desconhecido ao escanear infraestrutura.';
+    return jsonResponse({ error: message }, 500);
+  }
+};
+
+export const handleCleanupDeploymentsPost = async (context: CleanupContext) => {
+  try {
+    const body = (await context.request.json()) as { projectName?: string; deploymentId?: string };
+    const projectName = String(body.projectName ?? '').trim();
+    const deploymentId = String(body.deploymentId ?? '').trim();
+
+    if (!projectName || !deploymentId) {
+      return jsonResponse({ error: 'projectName e deploymentId são obrigatórios.' }, 400);
+    }
+
+    const { accountId } = await resolveCloudflarePwAccount(context.env as any);
+
+    const [project, deployments] = await Promise.all([
+      getCloudflarePagesProject(context.env as any, accountId, projectName),
+      listCloudflarePagesDeployments(context.env as any, accountId, projectName),
+    ]);
+
+    const target = deployments.find((d) => String(d.id ?? '').trim() === deploymentId);
+    if (!target) {
+      return jsonResponse({ error: `Deployment ${deploymentId} não encontrado no projeto ${projectName}.`, ok: false }, 404);
+    }
+
+    if (!isInCleanupScope(target)) {
+      return jsonResponse({ error: `Deployment ${deploymentId} fora do escopo de expurgo.`, ok: false }, 403);
+    }
+
+    const scopedDeployments = deployments.filter((d) => isInCleanupScope(d));
+    const canonicalId = String(project?.canonical_deployment?.id ?? '').trim();
+    const protectedActiveIds = resolveMainActiveIds(canonicalId, scopedDeployments);
+
+    if (protectedActiveIds.size === 0) {
+      return jsonResponse({ error: 'Não foi possível identificar deployment ativo do branch main.', ok: false }, 503);
+    }
+
+    if (protectedActiveIds.has(deploymentId)) {
+      return jsonResponse({ error: `Deployment ${deploymentId} é o deployment ATIVO.`, ok: false }, 403);
+    }
+
+    const forceDelete = isPreviewDeployment(target);
+    await deleteCloudflarePagesDeployment(context.env as any, accountId, projectName, deploymentId, forceDelete);
+
+    return jsonResponse({
+      ok: true,
+      projectName,
+      deploymentId,
+      message: forceDelete
+        ? `Deployment ${deploymentId} removido com sucesso (preview com confirmação programática).`
+        : `Deployment ${deploymentId} removido com sucesso.`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro desconhecido ao remover deployment.';
+    return jsonResponse({ error: message, ok: false }, 500);
+  }
+};

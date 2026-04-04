@@ -38,6 +38,13 @@ jobs:
         run: npm ci
         working-directory: ./
 
+      - name: Deploy Admin Motor
+        run: npx wrangler@${WRANGLER_VERSION} deploy --config admin-motor/wrangler.json
+        working-directory: ./
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets['CLOUDFLARE_API_TOKEN'] }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets['CLOUDFLARE_ACCOUNT_ID'] }}
+
       - run: npm run build
         working-directory: ./
 

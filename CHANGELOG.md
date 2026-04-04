@@ -1,5 +1,19 @@
 # Changelog — Admin App
 
+## [v01.77.35] - 2026-04-04
+### Adicionado
+- `admin-motor/`: Criado Worker nativo interno ao `admin-app` para concentrar rotas que dependem de `Secrets Store`, com bindings reais para Gemini, AI Gateway, Cloudflare PW, SumUp, Mercado Pago e Resend.
+- `functions/api/_lib/admin-motor-proxy.ts`: Introduzido proxy por service binding `ADMIN_MOTOR` para preservar o contrato público do Pages enquanto a lógica sensível roda no Worker.
+- `.github/dependabot.yml`: Adicionado monitoramento de dependências npm e GitHub Actions do `admin-app`, cobrindo também o novo `admin-motor` por compartilhar o mesmo `package.json` raiz.
+
+### Alterado
+- `wrangler.json`: `admin-app` agora expõe o service binding `ADMIN_MOTOR`; a opção `observability` foi mantida exclusivamente no `admin-motor`, já que Pages não suporta esse bloco.
+- `functions/api/ai-status/health.ts`, `functions/api/mainsite/modelos.ts`, `functions/api/cfpw/cleanup-deployments.ts` e `functions/api/financeiro/insights.ts` foram convertidos em fachadas mínimas, delegando a execução ao Worker `admin-motor`.
+- `.github/workflows/deploy.yml`: Pipeline passou a publicar `admin-motor` antes do deploy do Pages app.
+
+### Controle de versão
+- `admin-app`: APP v01.77.34 -> APP v01.77.35
+
 ## [v01.77.34] - 2026-04-03
 ### Corrigido
 - `functions/_middleware.ts`: Removida variável ociosa `SECRET_KEYS` para satisfazer validação de tipos após a refatoração do Proxy Interceptor da Cloudflare.
