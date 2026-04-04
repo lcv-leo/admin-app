@@ -139,15 +139,23 @@ REGRAS:
             messages,
             max_tokens: 500,
             temperature: 0.3,
-          },
-          { gateway: { id: 'workspace-gateway' } },
+          }
         )
 
-        const rawText = (response as { response?: string }).response
+        let rawText = (response as { response?: unknown }).response
+        if (rawText === undefined) rawText = response // Fallback caso tenha vindo solto ou em outro formato
+
         if (!rawText) return { error: 'AI sem texto útil.' }
 
-        const jsonStr = extractJsonFromText(rawText)
-        const parsed = JSON.parse(jsonStr) as { summary_og?: string; summary_ld?: string }
+        let parsed: { summary_og?: string; summary_ld?: string }
+        
+        if (typeof rawText === 'object') {
+          parsed = rawText as { summary_og?: string; summary_ld?: string }
+        } else {
+          const jsonStr = extractJsonFromText(String(rawText))
+          parsed = JSON.parse(jsonStr) as { summary_og?: string; summary_ld?: string }
+        }
+
         if (!parsed.summary_og) {
           return { error: 'JSON sem summary_og.' }
         }
@@ -344,7 +352,16 @@ export async function onRequestPost(context: SummaryContext) {
       const details: Array<{ postId: number; title: string; status: string }> = []
       const resolvedModel = await resolveSummaryModel(db, body.model)
 
+      const TIMEOUT_LIMIT = 40000 // 40 seconds max to prevent 524 Timeout
+      const startTime = Date.now()
+
       for (const post of allPosts) {
+        if (Date.now() - startTime > TIMEOUT_LIMIT) {
+          details.push({ postId: post.id, title: post.title, status: 'skipped_timeout_protection' })
+          skipped++
+          break // Quebra o loop pacificamente garantindo a entrega do payload JSON em vez de falha 524 HTML
+        }
+
         const cleanContent = stripHtml(post.content)
         const newHash = await hashContent(cleanContent)
         const existing = summaryMap.get(post.id)
