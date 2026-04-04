@@ -182,10 +182,18 @@ const resolveRuntimeEnv = async (env: AdminMotorEnv): Promise<ResolvedAdminMotor
   APPHUB_BEARER_TOKEN: await readSecretString(env.APPHUB_BEARER_TOKEN),
 });
 
-const handleAiStatusHealth = async (request: Request, env: ResolvedAdminMotorEnv): Promise<Response> => {
+const handleAiStatusHealth = async (request: Request, env: ResolvedAdminMotorEnv, unparsedEnv: AdminMotorEnv): Promise<Response> => {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) {
-    return json({ ok: false, error: 'GEMINI_API_KEY não configurada.', keyConfigured: false }, 503);
+    const rawKeys = Object.keys(unparsedEnv);
+    const resolvedMap = Object.entries(env).map(([k, v]) => `${k}:${v ? 'EXISTE' : 'FALTA'}`);
+    return json({ 
+      ok: false, 
+      error: 'GEMINI_API_KEY não configurada no runtime do admin-motor.', 
+      keyConfigured: false,
+      debugRawEnvKeys: rawKeys,
+      debugResolved: resolvedMap
+    }, 503);
   }
 
   const activeModel = await resolveModel(env.BIGDATA_DB as D1Like | undefined);
@@ -349,7 +357,7 @@ export default {
       const runtimeEnv = await resolveRuntimeEnv(env);
       const routeContext = <T>() => ({ request, env: runtimeEnv } as unknown as T);
       if (method === 'GET' && pathname === '/api/ai-status/health') {
-        return handleAiStatusHealth(request, runtimeEnv);
+        return handleAiStatusHealth(request, runtimeEnv, env);
       }
 
     if (method === 'GET' && pathname === '/api/ai-status/models') {
