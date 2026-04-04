@@ -1,6 +1,6 @@
 import { getAccessToken, json } from './gcp-monitoring';
 
-export const onRequestGet = async (context: any) => {
+export const onRequestGet = async (context: { env: Record<string, string>; data?: { env?: Record<string, string> } }) => {
   const env = context.data?.env || context.env;
   const saKey = env?.GCP_SA_KEY
   const projectId = env?.GCP_PROJECT_ID
@@ -17,8 +17,8 @@ export const onRequestGet = async (context: any) => {
 
     const url = `https://logging.googleapis.com/v2/entries:list`
     const body = {
-      projectIds: [projectId],
-      filter: 'resource.type="audited_resource" AND serviceName="generativelanguage.googleapis.com"',
+      resourceNames: [`projects/${projectId}`],
+      filter: 'protoPayload.serviceName="generativelanguage.googleapis.com"',
       pageSize: 50,
       orderBy: "timestamp desc"
     }
@@ -43,7 +43,7 @@ export const onRequestGet = async (context: any) => {
     return json({
       ok: true,
       projectId,
-      logs: data.entries || []
+      entries: data.entries || []
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro ao consultar Cloud Logging.'
