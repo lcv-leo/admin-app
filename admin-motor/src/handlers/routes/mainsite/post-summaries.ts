@@ -85,7 +85,15 @@ const SUMMARY_SAFETY_SETTINGS = [
 ]
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim()
+  return html
+    // Remove tags HTML
+    .replace(/<[^>]*>?/gm, ' ')
+    // Remove base64 URIs embutidos (markdown images que escapam do HTML tag regex)
+    .replace(/data:image\/[a-zA-Z]*;base64,[^\s"']+/g, '')
+    // Remove markdown image syntax e links para evitar lixo no contexto
+    .replace(/!\[.*?\]\(.*?\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 async function hashContent(text: string): Promise<string> {
