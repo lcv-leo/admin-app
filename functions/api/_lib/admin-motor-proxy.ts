@@ -23,13 +23,11 @@ export const proxyToAdminMotor = async (context: ProxyContext): Promise<Response
     });
   }
 
-  try {
-    const originalUrl = new URL(context.request.url);
-    const targetUrl = new URL(originalUrl.pathname + originalUrl.search, 'https://admin-motor.internal');
-    
-    // Evita bug de clonar request em GETs ou streams travados clonando apenas as propriedades essenciais, ou ignorando erro.
-    const requestToService = new Request(targetUrl.toString(), context.request);
+  const originalUrl = new URL(context.request.url);
+  const targetUrl = new URL(originalUrl.pathname + originalUrl.search, 'https://admin-motor.internal');
+  const requestToService = new Request(targetUrl.toString(), context.request);
 
+  try {
     const response = await service.fetch(requestToService);
     if (response.status >= 500) {
       console.error('[admin-motor-proxy] upstream:5xx', {
@@ -41,13 +39,13 @@ export const proxyToAdminMotor = async (context: ProxyContext): Promise<Response
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao encaminhar requisição para o admin-motor.';
     console.error('[admin-motor-proxy] request:error', {
-      path: context.request.url,
+      path: originalUrl.pathname,
       error: message,
     });
     return json(502, {
       ok: false,
       error: message,
-      path: context.request.url,
+      path: originalUrl.pathname,
     });
   }
 };
