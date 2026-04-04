@@ -108,7 +108,9 @@ function parseCSV(csvText: string): ParseResult {
   return { titulos: results, totalLines: lines.length, sampleRow }
 }
 
-export const onRequestGet = async ({ env, request }: Ctx) => {
+export const onRequestGet = async (context: any) => {
+  const { request } = context;
+  const env = context.data?.env || context.env;
   const db = env?.BIGDATA_DB
   if (!db || typeof db.prepare !== 'function')
     return json({ ok: false, error: 'BIGDATA_DB indisponível.' }, 503)

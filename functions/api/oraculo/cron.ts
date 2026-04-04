@@ -18,7 +18,8 @@ function resolveToken(env: Env): string {
 
 // ─── GET: Lê o cron schedule atual do worker ─────────────────────────────────
 
-export const onRequestGet = async ({ env }: Ctx) => {
+export const onRequestGet = async (context: any) => {
+  const env = context.data?.env || context.env;
   console.log('[oraculo/cron] GET — Lendo schedule atual do worker cron-taxa-ipca')
   const token = resolveToken(env)
   const accountId = env.CF_ACCOUNT_ID?.trim()
@@ -50,7 +51,9 @@ export const onRequestGet = async ({ env }: Ctx) => {
 
 // ─── PUT: Atualiza o cron schedule do worker ─────────────────────────────────
 
-export const onRequestPut = async ({ env, request }: Ctx) => {
+export const onRequestPut = async (context: any) => {
+  const { request } = context;
+  const env = context.data?.env || context.env;
   const token = resolveToken(env)
   const accountId = env.CF_ACCOUNT_ID?.trim()
 

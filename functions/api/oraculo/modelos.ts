@@ -26,7 +26,8 @@ function formatModelName(id: string): string {
            .trim();
 }
 
-export const onRequestGet = async ({ env }: Ctx) => {
+export const onRequestGet = async (context: any) => {
+  const env = context.data?.env || context.env;
   const apiKey = env?.GEMINI_API_KEY
   if (!apiKey) return json({ ok: false, error: 'GEMINI_API_KEY não configurada.' }, 500)
 

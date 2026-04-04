@@ -20,7 +20,9 @@ interface Context {
   request: Request
 }
 
-export const onRequestGet = async ({ env, request }: Context) => {
+export const onRequestGet = async (context: any) => {
+  const { request } = context;
+  const env = context.data?.env || context.env;
   const url = new URL(request.url)
   const tipo = url.searchParams.get('tipo') ?? 'tesouro-ipca'
   const limit = parseInt(url.searchParams.get('limit') ?? '50', 10)

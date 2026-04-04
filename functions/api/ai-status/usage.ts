@@ -61,7 +61,8 @@ interface ModelRow {
   output_tokens: number
 }
 
-export const onRequestGet = async ({ env }: Ctx) => {
+export const onRequestGet = async (context: any) => {
+  const env = context.data?.env || context.env;
   const db = env?.BIGDATA_DB
   if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.' }, 503)
 
@@ -139,7 +140,9 @@ export const onRequestGet = async ({ env }: Ctx) => {
 }
 
 // POST: Registrar um novo log de uso (chamado internamente pelos endpoints de AI)
-export const onRequestPost = async ({ env, request }: Ctx) => {
+export const onRequestPost = async (context: any) => {
+  const { request } = context;
+  const env = context.data?.env || context.env;
   const db = env?.BIGDATA_DB
   if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.' }, 503)
 

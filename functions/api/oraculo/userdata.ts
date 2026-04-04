@@ -18,7 +18,9 @@ function jsonResponse(data: unknown, status = 200): Response {
   })
 }
 
-export const onRequestGet = async ({ env, request }: Ctx) => {
+export const onRequestGet = async (context: any) => {
+  const { request } = context;
+  const env = context.data?.env || context.env;
   const db = env?.BIGDATA_DB
   if (!db || typeof db.prepare !== 'function') {
     return jsonResponse({ ok: false, error: 'BIGDATA_DB indisponível.' }, 503)
@@ -70,7 +72,9 @@ export const onRequestGet = async ({ env, request }: Ctx) => {
   }
 }
 
-export const onRequestDelete = async ({ env, request }: Ctx) => {
+export const onRequestDelete = async (context: any) => {
+  const { request } = context;
+  const env = context.data?.env || context.env;
   const db = env?.BIGDATA_DB
   if (!db || typeof db.prepare !== 'function') {
     return jsonResponse({ ok: false, error: 'BIGDATA_DB indisponível.' }, 503)

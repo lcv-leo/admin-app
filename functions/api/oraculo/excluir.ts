@@ -8,7 +8,9 @@ interface Context {
   request: Request
 }
 
-export const onRequestPost = async ({ env, request }: Context) => {
+export const onRequestPost = async (context: any) => {
+  const { request } = context;
+  const env = context.data?.env || context.env;
   const adminActor = request.headers.get('X-Admin-Actor')
   if (!adminActor) {
     return new Response(JSON.stringify({ ok: false, error: 'Requer cabeçalho X-Admin-Actor.' }), {

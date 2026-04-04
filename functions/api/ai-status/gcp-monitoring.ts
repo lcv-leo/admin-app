@@ -196,7 +196,8 @@ interface MonitoringResponse {
   error?: { code: number; message: string }
 }
 
-export const onRequestGet = async ({ env }: Ctx) => {
+export const onRequestGet = async (context: any) => {
+  const env = context.data?.env || context.env;
   const saKey = env?.GCP_SA_KEY
   const projectId = env?.GCP_PROJECT_ID
 
