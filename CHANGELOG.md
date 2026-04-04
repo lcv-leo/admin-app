@@ -1539,3 +1539,4 @@
 
 ### Adicionado
 - `AGENTS.md` na raiz do workspace com política obrigatória de integração interna Cloudflare e defesa em profundidade (Access + CSP).
+

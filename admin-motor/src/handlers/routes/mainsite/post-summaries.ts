@@ -71,7 +71,7 @@ function structuredLog(level: 'INFO' | 'WARN' | 'ERROR', message: string, contex
 const GEMINI_CONFIG = {
   model: 'gemini-2.5-flash',
   apiVersion: 'v1beta',
-  maxOutputTokens: 500,
+  maxOutputTokens: 4096,
   temperature: 0.3
 }
 
