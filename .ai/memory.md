@@ -1,5 +1,15 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-04 — Crash no FinanceiroModule Modal Corrigido
+### Scope
+Resolvido um erro fatal que ocorria ao tentar abrir o modal de estorno no ambiente financeiro (`TypeError: Cannot read properties of undefined (reading 'toLocaleString')`).
+
+### Resolved
+- **Tratamento de undefined nas Moedas**: O frontend estava tentando invocar o método nativo `.toLocaleString('pt-BR')` diretamente no atributo `modal.tx.amount` na renderização do campo Input (em `FinanceiroModule.tsx:670`). Se nulo, colapsava todo o DOM da aplicação (White Screen of Death). A correção introduziu um cast forte e coeso usando `Number(modal.tx.amount ?? 0)`.
+
+### Controle de versão
+- `admin-app`: APP v01.77.36 -> APP v01.77.37
+
 ## 2026-04-03 — Cloudflare Runtime & Secrets Parity + Proxy Strict Typings
 ### Scope
 Resolução imediata de anomalia de middleware (em dmin-app/_middleware.ts) que causou a falha sistemática 500 em todo ecossistema administrativo por não propagar secrets (bindings limitados/deep frozen pelo Cloudflare Pages router handler lifecycle). Adicionalmente, sanados os 5 erros críticos de incompatibilidade DOM vs Worker-type em mainsite-frontend/functions/api/[[path]].ts.

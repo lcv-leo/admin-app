@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.77.37] - 2026-04-04
+### Corrigido
+- `src/modules/financeiro/FinanceiroModule.tsx`: Resolvido crash na renderização do modal de estorno (`TypeError: Cannot read properties of undefined (reading 'toLocaleString')`). O valor de `modal.tx.amount` agora é tratado de forma segura com fallback usando `Number(modal.tx.amount ?? 0)`.
+
+### Controle de versão
+- `admin-app`: APP v01.77.36 -> APP v01.77.37
+
 ## [v01.77.36] - 2026-04-04
 ### Corrigido
 - `admin-motor/src/handlers/routes/mainsite/ai/transform.ts`: Causa raiz do HTTP 500 silencioso em `/api/mainsite/ai/transform` eliminada — `DEFAULT_MODEL = ''` substituído por `FALLBACK_MODEL = 'gemini-2.5-flash'`, tornando a URL da API Gemini sempre válida mesmo quando nenhum modelo está configurado no D1.

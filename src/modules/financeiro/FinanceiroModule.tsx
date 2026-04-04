@@ -667,7 +667,7 @@ export function FinanceiroModule() {
                     id="fin-refund-amount"
                     type="text"
                     inputMode="decimal"
-                    placeholder={`Máximo: ${modal.tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    placeholder={`Máximo: ${Number(modal.tx.amount ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     value={refundAmount}
                     onChange={e => {
                       let raw = e.target.value.replace(/[^\d.,]/g, '')
