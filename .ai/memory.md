@@ -1,5 +1,15 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-04 — Admin-Motor Post Summaries AI Binding Issue
+### Scope
+Resolução do erro `AI binding não configurado` que ocorria no disparo em background (via POST `/api/mainsite/post-summaries`) responsável pelas auto-summarizações (SEO e LD) dos artigos novos criados pelo LCV Admin. O Binding não fluía de forma propagada na topologia interna Worker->Service.
+
+### Resolved
+- **Injeção do Binding `AI`**: O objeto proxy local responsável por carregar o setup do ambiente e injetar the secrets dentro do `admin-app/admin-motor` (no file `index.ts`, func `resolveRuntimeEnv`) antes rejeitava (drop) a existência da injeção nativa de AI no `AdminMotorEnv` devido ao object reconstruction. O AI binding foi inserido nos mappings da interface `AdminMotorEnv`, `ResolvedAdminMotorEnv` e no próprio callback garantindo `AI: env.AI`.
+
+### Controle de versão
+- `admin-app`: APP v01.77.37 -> APP v01.77.38
+
 ## 2026-04-04 — Crash no FinanceiroModule Modal Corrigido
 ### Scope
 Resolvido um erro fatal que ocorria ao tentar abrir o modal de estorno no ambiente financeiro (`TypeError: Cannot read properties of undefined (reading 'toLocaleString')`).

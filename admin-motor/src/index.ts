@@ -66,6 +66,7 @@ if (typeof Headers !== 'undefined' && !('raw' in Headers.prototype)) {
 
 type AdminMotorEnv = {
   BIGDATA_DB?: D1Like;
+  AI?: unknown;
   GEMINI_API_KEY?: unknown;
   CF_AI_GATEWAY?: unknown;
   CLOUDFLARE_PW?: unknown;
@@ -85,6 +86,7 @@ type AdminMotorEnv = {
 
 type ResolvedAdminMotorEnv = {
   BIGDATA_DB?: D1Like;
+  AI?: unknown;
   GEMINI_API_KEY?: string;
   CF_AI_GATEWAY?: string;
   CLOUDFLARE_PW?: string;
@@ -159,6 +161,7 @@ const readSecretString = async (value: unknown): Promise<string> => {
 
 const resolveRuntimeEnv = async (env: AdminMotorEnv): Promise<ResolvedAdminMotorEnv> => ({
   BIGDATA_DB: env.BIGDATA_DB,
+  AI: env.AI,
   GEMINI_API_KEY: await readSecretString(env.GEMINI_API_KEY),
   CF_AI_GATEWAY: await readSecretString(env.CF_AI_GATEWAY),
   CLOUDFLARE_PW: await readSecretString(env.CLOUDFLARE_PW),
