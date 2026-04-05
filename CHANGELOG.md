@@ -1,6 +1,16 @@
 # Changelog — Admin App
 
-## [v01.77.39] - 2026-04-04
+## [v01.77.41] - 2026-04-05
+### Corrigido
+- **Gemini Import — Resiliência Jina Reader**: Corrigidos os erros intermitentes (`429 Rate Limit` e `timeout 15s`) na importação de conversas Gemini via PostEditor.
+  - **Root cause 1 (429)**: `JINA_API_KEY` estava ausente no `wrangler.json` do `admin-motor`, submetendo todas as chamadas ao limite de 20 RPM por IP compartilhado da Cloudflare. Secret `jina-api-key` criado no Cloudflare Secrets Store e binding `JINA_API_KEY` adicionado ao worker.
+  - **Root cause 2 (timeout)**: Timeout local de 15s era inferior ao tempo de carregamento de páginas pesadas do Gemini. Aumentado para 35s local e adicionado header `X-Timeout: 30` para instruir o servidor Jina a aguardar até 30s pelo carregamento da página-alvo.
+  - **Retry com exponential backoff**: `fetchSharePageContent` agora realiza até 3 tentativas com backoff de 1.5s e 3s entre cada uma, para 429 (respeitando `Retry-After` se presente, com cap de 12s), timeouts e erros de rede transitórios.
+  - **Gemini API retries**: `GEMINI_CONFIG.maxRetries` ajustado de 1 para 2 tentativas efetivas, com delay de 1.5s entre tentativas.
+
+### Controle de versão
+- `admin-app`: APP v01.77.40 → APP v01.77.41
+
 ### Alterado
 - **Gemini v1beta Modernization**: O endpoint de geração de resumos (`admin-motor/src/handlers/routes/mainsite/post-summaries.ts`) foi unificado com a arquitetura moderna nativa da API Gemini usando diretamente o SDK `@google/genai`. 
 - Incorporadas todas as 10 features obrigatórias das diretrizes de infraestrutura: Token Counting API pré-requisição para previnir processamento fútil, limitadores definidos via `GEMINI_CONFIG` e context length, Type safety nativo, Logging estrutural, Fallback parse array pra handling de Thinking Models e Usage logging Metadata.

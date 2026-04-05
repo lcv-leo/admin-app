@@ -36,8 +36,8 @@ interface ImportRequest {
 
 const GEMINI_CONFIG = {
   temperature: 0.1,
-  maxRetries: 1,
-  retryDelayMs: 1000
+  maxRetries: 2,       // 2 tentativas efetivas na API Gemini
+  retryDelayMs: 1500
 };
 
 const FALLBACK_MODEL = 'gemini-2.5-flash';
@@ -58,44 +58,99 @@ async function resolveModel(db: D1Database | undefined): Promise<string> {
 // Jina.ai Reader API — fetches page content as clean markdown
 // (direct fetch from Cloudflare Worker IPs ALWAYS triggers Google CAPTCHA)
 const JINA_READER_PREFIX = 'https://r.jina.ai/';
-const JINA_TIMEOUT_MS = 15_000; // 15s max for Jina fetch
+// Tempo local máximo: 5s acima do X-Timeout enviado ao Jina (35 = 30 + 5 de margem)
+const JINA_TIMEOUT_MS       = 35_000;
+// Jina aguarda até 30s pelo carregamento da página-alvo
+const JINA_SERVER_TIMEOUT_S = 30;
+// Retry: 3 tentativas com backoff exponencial (0 → ~1.5s → ~3s)
+const JINA_MAX_RETRIES         = 3;
+const JINA_RETRY_BASE_DELAY_MS = 1_500;
 
 /**
  * Fetch Gemini share page content as markdown via Jina Reader.
- * Returns clean markdown (much lighter than HTML — saves tokens and time).
+ * Implementa retry com exponential backoff para lidar com 429 (rate limit)
+ * e timeouts transitórios — os erros mais frequentes nesta rota.
+ *
+ * Limites Jina (ref: https://jina.ai/reader/):
+ *  - Sem API key:      20 RPM por IP
+ *  - Com API key free: 500 RPM por key
+ * Solução: sempre usar JINA_API_KEY — key gratuita provê 25× mais capacidade.
  */
 async function fetchSharePageContent(url: string, jinaApiKey?: string): Promise<string> {
   const jinaUrl = `${JINA_READER_PREFIX}${url}`;
   const jinaHeaders: Record<string, string> = {
     'Accept': 'text/markdown',
     'X-Return-Format': 'markdown',
+    // Instrui o servidor Jina a aguardar até 30s pelo carregamento da página
+    'X-Timeout': String(JINA_SERVER_TIMEOUT_S),
   };
   if (jinaApiKey) {
     jinaHeaders['Authorization'] = `Bearer ${jinaApiKey}`;
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), JINA_TIMEOUT_MS);
+  let lastError: Error = new Error('Falha desconhecida ao buscar via Jina Reader.');
 
-  try {
-    const jinaRes = await fetch(jinaUrl, {
-      headers: jinaHeaders,
-      signal: controller.signal,
-    });
-
-    if (!jinaRes.ok) {
-      throw new Error(`Jina Reader retornou status ${jinaRes.status}.`);
+  for (let attempt = 0; attempt < JINA_MAX_RETRIES; attempt++) {
+    // Backoff antes das tentativas 2 e 3 (não na primeira)
+    if (attempt > 0) {
+      const backoffMs = JINA_RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1); // 1.5s, 3s
+      await new Promise(r => setTimeout(r, backoffMs));
     }
 
-    return jinaRes.text();
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('Jina Reader timeout (15s). A página pode ser muito pesada.');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), JINA_TIMEOUT_MS);
+
+    try {
+      const jinaRes = await fetch(jinaUrl, {
+        headers: jinaHeaders,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      // Rate limit (429): respeita Retry-After se presente, senão usa backoff
+      if (jinaRes.status === 429) {
+        const retryAfterHeader = jinaRes.headers.get('Retry-After');
+        const waitMs = retryAfterHeader
+          ? Math.min(parseInt(retryAfterHeader, 10) * 1000, 12_000)
+          : JINA_RETRY_BASE_DELAY_MS * Math.pow(2, attempt); // 1.5s, 3s, 6s
+
+        lastError = new Error(`Jina Reader retornou status 429 (tente novamente em breve).`);
+        structuredLog('warn', 'Jina 429 – aguardando antes do retry', { attempt, waitMs });
+
+        if (attempt < JINA_MAX_RETRIES - 1) {
+          await new Promise(r => setTimeout(r, waitMs));
+          continue;
+        }
+        // Última tentativa esgotada: mantém a mensagem amigável original
+        throw new Error('Jina Reader retornou status 429.');
+      }
+
+      if (!jinaRes.ok) {
+        throw new Error(`Jina Reader retornou status ${jinaRes.status}.`);
+      }
+
+      return await jinaRes.text();
+
+    } catch (err) {
+      clearTimeout(timeoutId);
+
+      if (err instanceof Error && err.name === 'AbortError') {
+        lastError = new Error(`Jina Reader timeout (${JINA_SERVER_TIMEOUT_S}s). A página pode ser muito pesada.`);
+        structuredLog('warn', 'Jina timeout – retentando', { attempt });
+        if (attempt < JINA_MAX_RETRIES - 1) continue;
+        throw lastError;
+      }
+
+      // Outros erros de rede: retry imediato (pode ser falha transitória)
+      lastError = err instanceof Error ? err : new Error(String(err));
+      structuredLog('warn', 'Jina erro de rede – retentando', { attempt, detail: lastError.message });
+      if (attempt < JINA_MAX_RETRIES - 1) continue;
+      throw lastError;
     }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError;
 }
 
 // Log estruturado
