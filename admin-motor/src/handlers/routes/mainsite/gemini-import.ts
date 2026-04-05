@@ -57,82 +57,156 @@ async function resolveModel(db: D1Database | undefined): Promise<string> {
 
 // Jina.ai Reader API — fetches page content as clean markdown
 // (direct fetch from Cloudflare Worker IPs ALWAYS triggers Google CAPTCHA)
-const JINA_READER_PREFIX = 'https://r.jina.ai/';
-// Timeouts aumentados para acomodar:
-//   X-Engine: 'browser'      → renderização Chromium (+5-10s)
-//   X-Respond-With: readerlm-v2 → processamento AI Jina (+5-10s)
-// Margem local: 7s acima do X-Timeout server-side
-const JINA_TIMEOUT_MS       = 52_000;
-// Jina aguarda até 45s pelo carregamento + extração ReaderLM da página-alvo
-const JINA_SERVER_TIMEOUT_S = 45;
-// Retry: 3 tentativas com backoff exponencial (0 → ~1.5s → ~3s)
-const JINA_MAX_RETRIES         = 3;
+//
+// Tier 1: POST para a URL base (https://r.jina.ai/) com JSON body
+// Tier 2: GET com URL no path  (https://r.jina.ai/{url})
+const JINA_BASE_URL = 'https://r.jina.ai/';
+
+// ── Tier 1: cf-browser-rendering + readerlm-v2 (config oficial jina.ai, qualidade máxima)
+// X-Engine: cf-browser-rendering — engine Cloudflare-nativo (diferente do genérico 'browser')
+// readerlm-v2 é modelo serverless com cold-start e capacidade limitada → pode retornar 503
+const JINA_TIMEOUT_MS_T1        = 55_000; // margem 7s acima do X-Timeout server
+const JINA_SERVER_TIMEOUT_T1_S  = 48;     // Jina aguarda browser render + ReaderLM
+
+// ── Tier 2: browser-only (fallback quando readerlm-v2 está em capacidade)
+// Confirmado via teste live (2026-04-05): X-Engine: 'browser' sem readerlm-v2 retorna 200 OK
+const JINA_TIMEOUT_MS_T2        = 38_000;
+const JINA_SERVER_TIMEOUT_T2_S  = 30;
+
+// Retry por tier (2×T1 + 2×T2 = até 4 tentativas totais)
+const JINA_MAX_RETRIES         = 2;
 const JINA_RETRY_BASE_DELAY_MS = 1_500;
 
 /**
  * Fetch Gemini share page content as markdown via Jina Reader.
- * Implementa retry com exponential backoff para lidar com 429 (rate limit)
- * e timeouts transitórios — os erros mais frequentes nesta rota.
+ *
+ * Estratégia de 2 tiers (confirmada via teste ao vivo em 2026-04-05):
+ *   Tier 1 — cf-browser-rendering + readerlm-v2 (config oficial jina.ai):
+ *             POST com JSON body, Accept: text/event-stream, resposta parseada via SSE.
+ *             readerlm-v2 retorna 503 "ServiceNodeResourceDrainError" quando superlotado.
+ *   Tier 2 — browser-only: fallback automático quando Tier 1 retorna 503;
+ *             GET clássico, Accept: text/markdown; confirmado 200 OK em testes live.
  *
  * Limites Jina (ref: https://jina.ai/reader/):
- *  - Sem API key:      20 RPM por IP
- *  - Com API key free: 500 RPM por key
- * Solução: sempre usar JINA_API_KEY — key gratuita provê 25× mais capacidade.
+ *  - Sem API key: 20 RPM por IP (IP compartilhado Cloudflare → risco alto)
+ *  - Com API key: 500 RPM por key
+ * Solução: JINA_API_KEY sempre presente via Cloudflare Secrets.
  */
 async function fetchSharePageContent(url: string, jinaApiKey?: string): Promise<string> {
-  const jinaUrl = `${JINA_READER_PREFIX}${url}`;
-  const jinaHeaders: Record<string, string> = {
-    // Retorna markdown puro (não SSE — precisamos do conteúdo completo antes de enviar ao Gemini)
-    'Accept': 'text/markdown',
-    'X-Return-Format': 'markdown',
-    // Usa Chromium headless para renderizar JS — CRÍTICO para SPAs como o Gemini Share
-    // (sem isso o Jina lê apenas o shell HTML estático, sem o conteúdo da conversa)
-    'X-Engine': 'browser',
-    // ReaderLM v2: modelo AI da Jina para extração de conteúdo principal
-    // Limpa automaticamente elementos de UI (nav, botões, menus) antes de enviar ao Gemini
-    'X-Respond-With': 'readerlm-v2',
-    // Instrui o servidor Jina a aguardar até 45s (browser render + ReaderLM)
-    'X-Timeout': String(JINA_SERVER_TIMEOUT_S),
-  };
-  if (jinaApiKey) {
-    jinaHeaders['Authorization'] = `Bearer ${jinaApiKey}`;
+  // Diagnóstico de API key — não expõe o valor, apenas presença
+  structuredLog('info', 'Jina fetch iniciado', {
+    hasApiKey: Boolean(jinaApiKey && jinaApiKey.length > 0),
+    url: url.substring(0, 80),
+  });
+
+  try {
+    // Tier 1: cf-browser-rendering + readerlm-v2 (qualidade máxima)
+    return await fetchJinaTier(url, jinaApiKey, true);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // 503 = readerlm-v2 at capacity → degrade automaticamente para Tier 2
+    if (msg.includes('503')) {
+      structuredLog('warn', 'Jina readerlm-v2 em capacidade – degradando para Tier 2 (browser-only)', {
+        url: url.substring(0, 80),
+        originalError: msg,
+      });
+      return await fetchJinaTier(url, jinaApiKey, false);
+    }
+    throw err;
   }
+}
+
+/**
+ * Executa fetch via Jina Reader com retry e exponential backoff.
+ *
+ * @param useReaderlm true = Tier 1 (POST + cf-browser-rendering + readerlm-v2 + SSE)
+ *                    false = Tier 2 (GET + browser + text/markdown)
+ */
+async function fetchJinaTier(
+  url: string,
+  jinaApiKey: string | undefined,
+  useReaderlm: boolean,
+): Promise<string> {
+  const serverTimeoutS  = useReaderlm ? JINA_SERVER_TIMEOUT_T1_S : JINA_SERVER_TIMEOUT_T2_S;
+  const clientTimeoutMs = useReaderlm ? JINA_TIMEOUT_MS_T1 : JINA_TIMEOUT_MS_T2;
+  const tierLabel       = useReaderlm ? 'T1(cf-browser+readerlm-v2)' : 'T2(browser-only)';
+
+  // ─ Tier 1: POST com JSON body (engine Cloudflare-nativo + readerlm-v2 + SSE)
+  // ─ Tier 2: GET com URL no path (engine browser genérico + markdown)
+  const authHeader: Record<string, string> = jinaApiKey
+    ? { 'Authorization': `Bearer ${jinaApiKey}` }
+    : {};
+
+  const fetchConfig: RequestInit = useReaderlm
+    ? {
+        method:  'POST',
+        headers: {
+          'Content-Type':         'application/json',
+          // SSE stream — Jina entrega conteúdo progressivamente;
+          // parseJinaSSEStream extrai o conteúdo final acumulado
+          'Accept':               'text/event-stream',
+          // Engine Cloudflare-nativo: mais estável que 'browser' genérico em Workers CF
+          'X-Engine':             'cf-browser-rendering',
+          // Extração AI de conteúdo principal (remove nav/menus/botões)
+          'X-Respond-With':       'readerlm-v2',
+          // Gera alt-text para imagens (melhora fidelidade do markdown)
+          'X-With-Generated-Alt':  'true',
+          // Preserva imagens como data URLs base64 inline no markdown
+          'X-Keep-Img-Data-Url':   'true',
+          // Bypassa cache Jina — evita 503 cacheados de tentativas anteriores
+          'X-No-Cache':           'true',
+          // Do Not Cache or Track
+          'DNT':                  '1',
+          'X-Timeout':            String(serverTimeoutS),
+          ...authHeader,
+        },
+        body: JSON.stringify({ url }),
+      }
+    : {
+        method:  'GET',
+        headers: {
+          'Accept':          'text/markdown',
+          'X-Return-Format': 'markdown',
+          // Chromium headless — CRÍTICO para SPAs como Gemini Share
+          'X-Engine':        'browser',
+          'X-No-Cache':      'true',
+          'DNT':             '1',
+          'X-Timeout':       String(serverTimeoutS),
+          ...authHeader,
+        },
+      };
+
+  // URL: POST usa base URL (body contém a URL alvo); GET usa URL no path
+  const jinaUrl = useReaderlm ? JINA_BASE_URL : `${JINA_BASE_URL}${url}`;
 
   let lastError: Error = new Error('Falha desconhecida ao buscar via Jina Reader.');
 
   for (let attempt = 0; attempt < JINA_MAX_RETRIES; attempt++) {
-    // Backoff antes das tentativas 2 e 3 (não na primeira)
+    // Backoff antes da 2ª tentativa do mesmo tier
     if (attempt > 0) {
-      const backoffMs = JINA_RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1); // 1.5s, 3s
+      const backoffMs = JINA_RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1); // 1.5s
       await new Promise(r => setTimeout(r, backoffMs));
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), JINA_TIMEOUT_MS);
+    const timeoutId  = setTimeout(() => controller.abort(), clientTimeoutMs);
 
     try {
-      const jinaRes = await fetch(jinaUrl, {
-        headers: jinaHeaders,
-        signal: controller.signal,
-      });
-
+      const jinaRes = await fetch(jinaUrl, { ...fetchConfig, signal: controller.signal });
       clearTimeout(timeoutId);
 
-      // Rate limit (429): respeita Retry-After se presente, senão usa backoff
+      // Rate limit: respeita Retry-After se presente
       if (jinaRes.status === 429) {
         const retryAfterHeader = jinaRes.headers.get('Retry-After');
         const waitMs = retryAfterHeader
           ? Math.min(parseInt(retryAfterHeader, 10) * 1000, 12_000)
-          : JINA_RETRY_BASE_DELAY_MS * Math.pow(2, attempt); // 1.5s, 3s, 6s
-
-        lastError = new Error(`Jina Reader retornou status 429 (tente novamente em breve).`);
-        structuredLog('warn', 'Jina 429 – aguardando antes do retry', { attempt, waitMs });
-
+          : JINA_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+        lastError = new Error('Jina Reader retornou status 429 (tente novamente em breve).');
+        structuredLog('warn', `Jina ${tierLabel} 429 – aguardando`, { attempt, waitMs });
         if (attempt < JINA_MAX_RETRIES - 1) {
           await new Promise(r => setTimeout(r, waitMs));
           continue;
         }
-        // Última tentativa esgotada: mantém a mensagem amigável original
         throw new Error('Jina Reader retornou status 429.');
       }
 
@@ -140,27 +214,111 @@ async function fetchSharePageContent(url: string, jinaApiKey?: string): Promise<
         throw new Error(`Jina Reader retornou status ${jinaRes.status}.`);
       }
 
-      return await jinaRes.text();
+      // Tier 1: parseia SSE stream e retorna conteúdo final acumulado
+      // Tier 2: leitura direta do body text (markdown puro)
+      const content = useReaderlm
+        ? await parseJinaSSEStream(jinaRes)
+        : await jinaRes.text();
+
+      structuredLog('info', `Jina sucesso via ${tierLabel}`, { attempt, url: url.substring(0, 80) });
+      return content;
 
     } catch (err) {
       clearTimeout(timeoutId);
 
       if (err instanceof Error && err.name === 'AbortError') {
-        lastError = new Error(`Jina Reader timeout (${JINA_SERVER_TIMEOUT_S}s). A página pode ser muito pesada.`);
-        structuredLog('warn', 'Jina timeout – retentando', { attempt });
+        lastError = new Error(`Jina Reader timeout (${serverTimeoutS}s). A página pode ser muito pesada.`);
+        structuredLog('warn', `Jina ${tierLabel} timeout – retentando`, { attempt });
         if (attempt < JINA_MAX_RETRIES - 1) continue;
         throw lastError;
       }
 
-      // Outros erros de rede: retry imediato (pode ser falha transitória)
       lastError = err instanceof Error ? err : new Error(String(err));
-      structuredLog('warn', 'Jina erro de rede – retentando', { attempt, detail: lastError.message });
+      structuredLog('warn', `Jina ${tierLabel} erro – retentando`, { attempt, detail: lastError.message });
       if (attempt < JINA_MAX_RETRIES - 1) continue;
       throw lastError;
     }
   }
 
   throw lastError;
+}
+
+/**
+ * Parseia stream SSE do Jina Reader (Accept: text/event-stream).
+ *
+ * O Jina entrega conteúdo progressivamente — cada evento 'data:' contém
+ * uma versão mais completa do markdown extraído. Retorna o conteúdo do
+ * último evento válido (resultado final acumulado).
+ *
+ * Formato SSE Jina:
+ *   data: {"url":"...","title":"...","content":"markdown...","tokens":N}\n\n
+ *   data: {"url":"...","title":"...","content":"markdown mais completo..."}\n\n
+ *   data: [DONE]\n\n
+ */
+async function parseJinaSSEStream(response: Response): Promise<string> {
+  if (!response.body) {
+    throw new Error('Jina SSE: resposta sem body stream.');
+  }
+
+  const reader  = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer      = '';
+  let lastContent = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Eventos SSE são separados por \n\n
+      const events = buffer.split('\n\n');
+      // Último elemento pode estar incompleto — mantém no buffer
+      buffer = events.pop() ?? '';
+
+      for (const event of events) {
+        for (const line of event.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw || raw === '[DONE]') continue;
+
+          try {
+            // Jina envia JSON com campo 'content' contendo o markdown
+            const payload = JSON.parse(raw) as { content?: string; text?: string };
+            const text = payload.content ?? payload.text ?? '';
+            if (text) lastContent = text;
+          } catch {
+            // Fallback: dado não-JSON — trata como markdown literal acumulado
+            if (raw.length > lastContent.length) lastContent = raw;
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  // Processa buffer residual após stream finalizar
+  if (buffer) {
+    for (const line of buffer.split('\n')) {
+      if (!line.startsWith('data: ')) continue;
+      const raw = line.slice(6).trim();
+      if (!raw || raw === '[DONE]') continue;
+      try {
+        const payload = JSON.parse(raw) as { content?: string; text?: string };
+        const text = payload.content ?? payload.text ?? '';
+        if (text) lastContent = text;
+      } catch {
+        if (raw.length > lastContent.length) lastContent = raw;
+      }
+    }
+  }
+
+  if (!lastContent) {
+    throw new Error('Jina SSE: sem conteúdo válido no stream de resposta.');
+  }
+  return lastContent;
 }
 
 // Log estruturado
