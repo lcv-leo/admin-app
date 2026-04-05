@@ -286,10 +286,15 @@ function postprocessHtml(html: string): string {
   
   // 2. Corrige parágrafos de placeholder de imagem marcados (removemos o recuo indesejado nelas)
   processed = processed.replace(/<p style="text-align: justify; text-indent: 1.5rem">(\s*)🖼️/g, '<p style="text-align: justify">$1🖼️');
+
+  // 3. Força alinhamento esquerdo nos headings (sem recuo de parágrafo)
+  // Sem isso, h3 pode herdar text-align de contextos CSS ancestrais
+  processed = processed.replace(/<h3>/g, '<h3 style="text-align: left">');
   
-  // 3. Insere um espaçamento vertical explícito (linha vazia) entre blocos de parágrafos
-  // <br> é reconhecido garantidamente pelo Tiptap como quebra de linha rígida
-  processed = processed.replace(/<\/p>\s*<p/g, '</p>\n<p><br></p>\n<p');
+  // NOTA: NÃO inserimos <p><br></p> entre parágrafos.
+  // O espaçamento entre parágrafos é controlado pelo CSS do PostReader:
+  //   .html-content p { margin: 0 0 1.2rem 0 }
+  // Inserir <p><br></p> adicional causa linhas em branco duplicadas.
   
   return processed;
 }
