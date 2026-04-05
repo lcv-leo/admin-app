@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.77.42] - 2026-04-05
+### Removido
+- **Modelo do Leitor (ConfigModule)**: Seletor de modelo "Modelo do Leitor (Tradução/Resumo Público)" removido do fieldset de Modelos de IA em `ConfigModule.tsx`. O campo `reader` foi removido do estado `msAiModels`, do tipo do callback `saveAiModelsImmediately`, da union do `handleAiModelChange` e do loader de configurações, em paridade com a remoção dos botões de IA públicos no `mainsite-frontend`.
+
+### Controle de versão
+- `admin-app`: APP v01.77.41 → APP v01.77.42
+
 ## [v01.77.41] - 2026-04-05
 ### Corrigido
 - **Gemini Import — Resiliência Jina Reader**: Corrigidos os erros intermitentes (`429 Rate Limit` e `timeout 15s`) na importação de conversas Gemini via PostEditor.

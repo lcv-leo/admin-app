@@ -1,6 +1,28 @@
 # AI Memory Log — Admin-App
 
-## 2026-04-04 — Gemini v1beta Modernization in Post Summaries
+## 2026-04-05 — Remoção dos Botões de IA Públicos e Modelo do Leitor (v01.77.42)
+### Scope
+Remoção completa dos botões "Resumo por IA" e "Traduzir Para" do `mainsite-frontend/PostReader.tsx` e do seletor "Modelo do Leitor (Tradução/Resumo Público)" do `admin-app/ConfigModule.tsx`.
+### Removido
+- **PostReader.tsx**: estados `postSummary`, `translatedContent`, `isSummarizing`, `isTranslating`, `aiError`; handlers `handleSummarize`, `handleTranslate`; todo o CSS das classes `.ai-btn`, `.ai-select`, `.ai-error-msg`, `.ai-summary-box`, `.ai-actions-container`, `.processing-active`; JSX dos botões e summary box; imports órfãos (`ChangeEvent`, `useEffect`, `useState`, `AlignLeft`, `Languages`, `X`, `AlertTriangle`, `Sparkles`); prop `API_URL` da interface e do uso em `App.tsx`.
+- **mainsite-worker/ai.ts**: rotas `POST /api/ai/public/summarize` e `POST /api/ai/public/translate`.
+- **mainsite-worker/genai.ts**: campo `reader?` em `MainsiteConfig`; entradas `summarize` e `translate` em `ENDPOINT_CONFIGS`.
+- **ConfigModule.tsx**: fieldset "Modelo do Leitor (Tradução/Resumo Público)"; campo `reader` em `msAiModels` state, no tipo de `saveAiModelsImmediately`, na union do `handleAiModelChange` e no loader de configurações.
+### Controle de versão
+- `admin-app`: APP v01.77.41 → APP v01.77.42
+- `mainsite-frontend`: APP v03.04.03 → APP v03.04.04
+
+## 2026-04-05 — Gemini Import Resiliência Jina Reader (v01.77.41)
+### Scope
+Correção dos erros intermitentes 429/timeout no `admin-motor/src/handlers/routes/mainsite/gemini-import.ts`.
+### Root Causes Resolvidos
+- **JINA_API_KEY ausente**: sem a key, chamadas iam para limite 20 RPM/IP compartilhado CF. Secret `jina-api-key` criado no Secrets Store (`df90c0935...`, scope: workers) e binding `JINA_API_KEY` adicionado ao `admin-motor/wrangler.json`.
+- **Timeout insuficiente**: 15s → 35s local + header `X-Timeout: 30` para o servidor Jina aguardar mais tempo pelo carregamento da página-alvo.
+- **Sem retry Jina**: adicionado loop de 3 tentativas com exponential backoff (1.5s, 3s), honrando `Retry-After` no 429 (cap 12s).
+- **Gemini maxRetries 1→2**, retryDelayMs 1000→1500.
+### Controle de versão
+- `admin-app`: APP v01.77.40 → APP v01.77.41
+
 ### Scope
 Extensão da Modernização do Gemini API (v1beta) com aplicação de suas 10 features estruturais diretamente no middleware / pipeline de resumos de SEO e Linked Data do mainsite (`admin-motor/src/handlers/routes/mainsite/post-summaries.ts`).
 ### Resolved
