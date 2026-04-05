@@ -58,10 +58,13 @@ async function resolveModel(db: D1Database | undefined): Promise<string> {
 // Jina.ai Reader API — fetches page content as clean markdown
 // (direct fetch from Cloudflare Worker IPs ALWAYS triggers Google CAPTCHA)
 const JINA_READER_PREFIX = 'https://r.jina.ai/';
-// Tempo local máximo: 5s acima do X-Timeout enviado ao Jina (35 = 30 + 5 de margem)
-const JINA_TIMEOUT_MS       = 35_000;
-// Jina aguarda até 30s pelo carregamento da página-alvo
-const JINA_SERVER_TIMEOUT_S = 30;
+// Timeouts aumentados para acomodar:
+//   X-Engine: 'browser'      → renderização Chromium (+5-10s)
+//   X-Respond-With: readerlm-v2 → processamento AI Jina (+5-10s)
+// Margem local: 7s acima do X-Timeout server-side
+const JINA_TIMEOUT_MS       = 52_000;
+// Jina aguarda até 45s pelo carregamento + extração ReaderLM da página-alvo
+const JINA_SERVER_TIMEOUT_S = 45;
 // Retry: 3 tentativas com backoff exponencial (0 → ~1.5s → ~3s)
 const JINA_MAX_RETRIES         = 3;
 const JINA_RETRY_BASE_DELAY_MS = 1_500;
@@ -79,9 +82,16 @@ const JINA_RETRY_BASE_DELAY_MS = 1_500;
 async function fetchSharePageContent(url: string, jinaApiKey?: string): Promise<string> {
   const jinaUrl = `${JINA_READER_PREFIX}${url}`;
   const jinaHeaders: Record<string, string> = {
+    // Retorna markdown puro (não SSE — precisamos do conteúdo completo antes de enviar ao Gemini)
     'Accept': 'text/markdown',
     'X-Return-Format': 'markdown',
-    // Instrui o servidor Jina a aguardar até 30s pelo carregamento da página
+    // Usa Chromium headless para renderizar JS — CRÍTICO para SPAs como o Gemini Share
+    // (sem isso o Jina lê apenas o shell HTML estático, sem o conteúdo da conversa)
+    'X-Engine': 'browser',
+    // ReaderLM v2: modelo AI da Jina para extração de conteúdo principal
+    // Limpa automaticamente elementos de UI (nav, botões, menus) antes de enviar ao Gemini
+    'X-Respond-With': 'readerlm-v2',
+    // Instrui o servidor Jina a aguardar até 45s (browser render + ReaderLM)
     'X-Timeout': String(JINA_SERVER_TIMEOUT_S),
   };
   if (jinaApiKey) {
