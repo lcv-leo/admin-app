@@ -1,16 +1,8 @@
 import { logModuleOperationalEvent } from '../_lib/operational'
+import type { D1Database } from '../_lib/operational'
 import { createResponseTrace } from '../_lib/request-trace'
 
-type D1PreparedStatement = {
-  bind: (...values: Array<string | number | null>) => D1PreparedStatement
-  first: <T>() => Promise<T | null>
-  all: <T>() => Promise<{ results?: T[] }>
-  run: () => Promise<unknown>
-}
 
-type D1Database = {
-  prepare: (query: string) => D1PreparedStatement
-}
 
 type Env = {
   BIGDATA_DB?: D1Database
@@ -107,8 +99,8 @@ const queryBigdata = async (db: D1Database, limit: number): Promise<MainsiteOver
 }
 
 export async function onRequestGet(context: Context) {
-  const {  } = context;
-  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
+  const { request } = context;
+  const env = (context as Context & { data?: { env?: Env } }).data?.env || context.env;
   const trace = createResponseTrace(request)
   const url = new URL(request.url)
   const limit = parseLimit(url.searchParams.get('limit'))

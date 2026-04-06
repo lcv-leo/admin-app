@@ -142,8 +142,8 @@ const existsObservabilidade = async (db: D1Database, row: ObservabilidadeRow) =>
 }
 
 export async function onRequestPost(context: Context) {
-  const {  } = context;
-  const env = (context as any).data?.env || ((context as any).data?.env || context.env);
+  const { request } = context;
+  const env = (context as Context & { data?: { env?: Env } }).data?.env || context.env;
 
   if (!env.BIGDATA_DB) {
     return new Response(JSON.stringify({
