@@ -302,6 +302,45 @@ export function MtastsModule() {
     void runIntegrityAudit()
   }, [runIntegrityAudit])
 
+  // Callback reutilizável para carregar overview (histórico permanente)
+  const loadOverview = useCallback(async (shouldNotify = false) => {
+    const query = new URLSearchParams({
+      domain,
+      limit,
+    })
+
+    setOverviewLoading(true)
+    try {
+      const response = await fetch(`/api/mtasts/overview?${query.toString()}`)
+      const nextPayload = await parseApiPayload<MtastsPayload>(response, 'Falha ao consultar o módulo MTA-STS')
+
+      if (!response.ok || !nextPayload.ok) {
+        throw new Error(nextPayload.error ?? 'Falha ao consultar o módulo MTA-STS.')
+      }
+
+      setPayload(nextPayload)
+      if (shouldNotify) {
+        showNotification(`MTA-STS atualizado: ${nextPayload.resumo.totalHistorico} item(ns) de histórico.`, 'success')
+      }
+      if (Array.isArray(nextPayload.avisos) && nextPayload.avisos.length > 0) {
+        showNotification(nextPayload.avisos[0], 'info')
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível carregar o módulo MTA-STS.'
+      if (shouldNotify) {
+        showNotification(message, 'error')
+      }
+    } finally {
+      setOverviewLoading(false)
+    }
+  }, [domain, limit, showNotification])
+
+  // Auto-load overview (histórico permanente) na montagem do módulo
+  useEffect(() => {
+    void loadOverview()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     if (!hasUnsavedPolicyDraft) {
       return
@@ -341,32 +380,7 @@ export function MtastsModule() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-
-    const query = new URLSearchParams({
-      domain,
-      limit,
-    })
-
-    setOverviewLoading(true)
-    try {
-      const response = await fetch(`/api/mtasts/overview?${query.toString()}`)
-      const nextPayload = await parseApiPayload<MtastsPayload>(response, 'Falha ao consultar o módulo MTA-STS')
-
-      if (!response.ok || !nextPayload.ok) {
-        throw new Error(nextPayload.error ?? 'Falha ao consultar o módulo MTA-STS.')
-      }
-
-      setPayload(nextPayload)
-      showNotification(`MTA-STS atualizado: ${nextPayload.resumo.totalHistorico} item(ns) de histórico.`, 'success')
-      if (Array.isArray(nextPayload.avisos) && nextPayload.avisos.length > 0) {
-        showNotification(nextPayload.avisos[0], 'info')
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Não foi possível carregar o módulo MTA-STS.'
-      showNotification(message, 'error')
-    } finally {
-      setOverviewLoading(false)
-    }
+    await loadOverview(true)
   }
 
   const handleZoneChange = (nextDomain: string) => {
@@ -409,20 +423,7 @@ export function MtastsModule() {
       setLastGeneratedId(nextPayload.id ?? null)
       await Promise.all([
         loadPolicy(selectedDomain, selectedZoneId),
-        (async () => {
-          const query = new URLSearchParams({
-            domain,
-            limit,
-          })
-          const overviewResponse = await fetch(`/api/mtasts/overview?${query.toString()}`)
-          if (!overviewResponse.ok) {
-            return
-          }
-          const overviewPayload = await parseApiPayload<MtastsPayload>(overviewResponse, 'Falha ao atualizar overview MTA-STS após orquestração')
-          if (overviewPayload.ok) {
-            setPayload(overviewPayload)
-          }
-        })(),
+        loadOverview(),
       ])
 
       showNotification(withTrace(`MTA-STS sincronizado com sucesso para ${selectedDomain}.`, nextPayload), 'success')
