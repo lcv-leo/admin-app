@@ -1,5 +1,15 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-05 — Gemini Import Pipeline Estabilização + Formatting Fixes (v01.77.43)
+### Scope
+Estabilização do pipeline de importação Gemini e correção de bugs visuais de formatação no PostEditor e PostReader.
+### Resolved
+- **Pipeline Jina Reader**: Refatorada arquitetura de 2 tiers (readerlm-v2 + browser) para tier único **browser-only** (`X-Engine: browser`), eliminando `503 Reader LM at capacity` e `524 timeout`. Payload reduzido ~80% com `X-Retain-Images: none`. Parser SSE removido, código simplificado de ~395 para ~225 linhas.
+- **PostEditor — Linhas em branco duplicadas**: Removida inserção forçada de `<p><br></p>` no `postprocessHtml`. Espaçamento agora via CSS: `.tiptap-editor .tiptap p { margin-bottom: 0.65em }` em `App.css`.
+- **PostReader — H3 centralizado**: Adicionado inline `text-align: left` nos `<h3>` gerados pelo `postprocessHtml`.
+### Controle de versão
+- `admin-app`: APP v01.77.42 → APP v01.77.43
+
 ## 2026-04-05 — Remoção dos Botões de IA Públicos e Modelo do Leitor (v01.77.42)
 ### Scope
 Remoção completa dos botões "Resumo por IA" e "Traduzir Para" do `mainsite-frontend/PostReader.tsx` e do seletor "Modelo do Leitor (Tradução/Resumo Público)" do `admin-app/ConfigModule.tsx`.

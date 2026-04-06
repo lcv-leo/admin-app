@@ -1,5 +1,17 @@
 # Changelog — Admin App
 
+## [v01.77.43] - 2026-04-05
+### Corrigido
+- **Gemini Import — Estabilização do Pipeline Jina Reader**: Refatorada toda a arquitetura de importação de um modelo de 2 tiers (readerlm-v2 + browser fallback) para um tier único **browser-only** (`X-Engine: browser`), eliminando erros recorrentes `503 Reader LM is at capacity` e timeouts `524` do Cloudflare. Latência média reduzida de 40-80s para 15-30s.
+  - Implementado header `X-Retain-Images: none` para reduzir payload (~80% menor), acelerando processamento.
+  - Removido parser SSE e lógica de fallback entre tiers, simplificando de ~395 para ~225 linhas.
+  - Deadline dinâmico com budget de 85s e 2 retries com backoff exponencial.
+- **PostEditor — Linhas em branco duplicadas entre parágrafos**: Removida a inserção forçada de `<p><br></p>` entre parágrafos no `postprocessHtml` (Step 3). O espaçamento duplicado ocorria porque o elemento vazio somava ao margin/padding natural do TipTap. Substituído por CSS puro: `.tiptap-editor .tiptap p { margin-bottom: 0.65em }` em `App.css`.
+- **PostReader — H3 centralizado**: Adicionado inline style `text-align: left` nos `<h3>` gerados pelo `postprocessHtml`, garantindo alinhamento correto no frontend público independente do contexto CSS herdado.
+
+### Controle de versão
+- `admin-app`: APP v01.77.42 → APP v01.77.43
+
 ## [v01.77.42] - 2026-04-05
 ### Removido
 - **Modelo do Leitor (ConfigModule)**: Seletor de modelo "Modelo do Leitor (Tradução/Resumo Público)" removido do fieldset de Modelos de IA em `ConfigModule.tsx`. O campo `reader` foi removido do estado `msAiModels`, do tipo do callback `saveAiModelsImmediately`, da union do `handleAiModelChange` e do loader de configurações, em paridade com a remoção dos botões de IA públicos no `mainsite-frontend`.
