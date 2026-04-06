@@ -48,6 +48,43 @@ import {
   onRequestPut as handleApphubConfigPut,
 } from './handlers/routes/apphub/config';
 import { toHeaders } from '../../functions/api/_lib/mainsite-admin';
+// ── Novos handlers migrados de Pages Functions ──
+import { onRequestGet as handleAiStatusUsageGet, onRequestPost as handleAiStatusUsagePost } from './handlers/routes/ai-status/usage';
+import { onRequestPost as handleAstrologoExcluirPost } from './handlers/routes/astrologo/excluir';
+import { onRequestPost as handleAstrologoLerPost } from './handlers/routes/astrologo/ler';
+import { onRequestGet as handleAstrologoListarGet } from './handlers/routes/astrologo/listar';
+import { onRequestPost as handleAstrologoSyncPost } from './handlers/routes/astrologo/sync';
+import { onRequestGet as handleAstrologoUserdataGet, onRequestDelete as handleAstrologoUserdataDelete } from './handlers/routes/astrologo/userdata';
+import { onRequestDelete as handleCfdnsDeleteDelete } from './handlers/routes/cfdns/delete';
+import { onRequestPost as handleCfdnsUpsertPost } from './handlers/routes/cfdns/upsert';
+import { onRequest as handleConfigRequest } from './handlers/routes/config/config';
+import { onRequestGet as handleConfigStoreGet, onRequestPost as handleConfigStorePost } from './handlers/routes/config/config-store';
+import { onRequestGet as handleCalculadoraOverviewGet } from './handlers/routes/calculadora/overview';
+import { onRequestGet as handleCalculadoraParametrosGet, onRequestPost as handleCalculadoraParametrosPost } from './handlers/routes/calculadora/parametros';
+import { onRequestPost as handleCalculadoraSyncPost } from './handlers/routes/calculadora/sync';
+import { onRequestGet as handleMainsiteFeesGet, onRequestPost as handleMainsiteFeesPost } from './handlers/routes/mainsite/fees';
+import { onRequestGet as handleMainsiteOverviewGet } from './handlers/routes/mainsite/overview';
+import { onRequestGet as handleMainsitePostsGet, onRequestPost as handleMainsitePostsPost, onRequestPut as handleMainsitePostsPut, onRequestDelete as handleMainsitePostsDelete } from './handlers/routes/mainsite/posts';
+import { onRequestPost as handleMainsitePostsPinPost } from './handlers/routes/mainsite/posts-pin';
+import { onRequestPost as handleMainsitePostsReorderPost } from './handlers/routes/mainsite/posts-reorder';
+import { onRequestGet as handleMainsiteSettingsGet, onRequestPut as handleMainsiteSettingsPut } from './handlers/routes/mainsite/settings';
+import { onRequestPost as handleMainsiteSyncPost } from './handlers/routes/mainsite/sync';
+import { onRequestPost as handleMainsiteMigrateMediaPost } from './handlers/routes/mainsite/migrate-media-urls';
+import { onRequestPost as handleMainsiteUploadPost } from './handlers/routes/mainsite/upload';
+import { onRequestGet as handleMainsiteMediaGet } from './handlers/routes/mainsite/media/[filename]';
+import { onRequestPost as handleWorkersAiSentimentPost } from './handlers/routes/mainsite/workers-ai/sentiment';
+import { onRequestPost as handleWorkersAiTagsPost } from './handlers/routes/mainsite/workers-ai/tags';
+import { onRequestPost as handleWorkersAiTranslatePost } from './handlers/routes/mainsite/workers-ai/translate';
+import { onRequestGet as handleMtastsOverviewGet } from './handlers/routes/mtasts/overview';
+import { onRequestPost as handleMtastsSyncPost } from './handlers/routes/mtasts/sync';
+import { onRequestGet as handleNewsFeedGet } from './handlers/routes/news/feed';
+import { onRequestPost as handleOraculoExcluirPost } from './handlers/routes/oraculo/excluir';
+import { onRequestGet as handleOraculoListarGet } from './handlers/routes/oraculo/listar';
+import { onRequestGet as handleOraculoTaxacacheGet } from './handlers/routes/oraculo/taxacache';
+import { onRequestGet as handleOraculoUserdataGet, onRequestDelete as handleOraculoUserdataDelete } from './handlers/routes/oraculo/userdata';
+import { onRequestGet as handleOverviewOperationalGet } from './handlers/routes/overview/operational';
+import { onRequestDelete as handleTelemetryDeleteDelete } from './handlers/routes/telemetry/delete';
+import { onRequestGet as handleTelemetryGet } from './handlers/routes/telemetry/telemetry';
 
 // ========== MERCADO PAGO SDK POLYFILL ==========
 // O SDK do Mercado Pago usa node-fetch internamente, o que exige
@@ -67,6 +104,7 @@ if (typeof Headers !== 'undefined' && !('raw' in Headers.prototype)) {
 
 type AdminMotorEnv = {
   BIGDATA_DB?: D1Like;
+  MEDIA_BUCKET?: unknown;
   AI?: unknown;
   GEMINI_API_KEY?: unknown;
   CLOUDFLARE_PW?: unknown;
@@ -86,6 +124,7 @@ type AdminMotorEnv = {
 
 type ResolvedAdminMotorEnv = {
   BIGDATA_DB?: D1Like;
+  MEDIA_BUCKET?: unknown;
   AI?: unknown;
   GEMINI_API_KEY?: string;
   CLOUDFLARE_PW?: string;
@@ -174,6 +213,7 @@ const readSecretString = async (value: unknown): Promise<string> => {
 
 const resolveRuntimeEnv = async (env: AdminMotorEnv): Promise<ResolvedAdminMotorEnv> => ({
   BIGDATA_DB: env.BIGDATA_DB,
+  MEDIA_BUCKET: env.MEDIA_BUCKET,
   AI: env.AI,
   GEMINI_API_KEY: await readSecretString(env.GEMINI_API_KEY),
   CLOUDFLARE_PW: await readSecretString(env.CLOUDFLARE_PW),
@@ -543,6 +583,152 @@ export default {
         if (method === 'GET') return handleApphubConfigGet(routeContext<Parameters<typeof handleApphubConfigGet>[0]>());
         if (method === 'PUT') return handleApphubConfigPut(routeContext<Parameters<typeof handleApphubConfigPut>[0]>());
       }
+
+    // ── Rotas migradas de Pages Functions ──
+
+    // ai-status
+    if (pathname === '/api/ai-status/usage') {
+      if (method === 'GET') return handleAiStatusUsageGet(routeContext<Parameters<typeof handleAiStatusUsageGet>[0]>());
+      if (method === 'POST') return handleAiStatusUsagePost(routeContext<Parameters<typeof handleAiStatusUsagePost>[0]>());
+    }
+
+    // astrologo
+    if (method === 'POST' && pathname === '/api/astrologo/excluir') {
+      return handleAstrologoExcluirPost(routeContext<Parameters<typeof handleAstrologoExcluirPost>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/astrologo/ler') {
+      return handleAstrologoLerPost(routeContext<Parameters<typeof handleAstrologoLerPost>[0]>());
+    }
+    if (method === 'GET' && pathname === '/api/astrologo/listar') {
+      return handleAstrologoListarGet(routeContext<Parameters<typeof handleAstrologoListarGet>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/astrologo/sync') {
+      return handleAstrologoSyncPost(routeContext<Parameters<typeof handleAstrologoSyncPost>[0]>());
+    }
+    if (pathname === '/api/astrologo/userdata') {
+      if (method === 'GET') return handleAstrologoUserdataGet(routeContext<Parameters<typeof handleAstrologoUserdataGet>[0]>());
+      if (method === 'DELETE') return handleAstrologoUserdataDelete(routeContext<Parameters<typeof handleAstrologoUserdataDelete>[0]>());
+    }
+
+    // cfdns
+    if (method === 'DELETE' && pathname === '/api/cfdns/delete') {
+      return handleCfdnsDeleteDelete(routeContext<Parameters<typeof handleCfdnsDeleteDelete>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/cfdns/upsert') {
+      return handleCfdnsUpsertPost(routeContext<Parameters<typeof handleCfdnsUpsertPost>[0]>());
+    }
+
+    // config
+    if (pathname === '/api/config') {
+      return handleConfigRequest(routeContext<Parameters<typeof handleConfigRequest>[0]>());
+    }
+    if (pathname === '/api/config-store') {
+      if (method === 'GET') return handleConfigStoreGet(routeContext<Parameters<typeof handleConfigStoreGet>[0]>());
+      if (method === 'POST') return handleConfigStorePost(routeContext<Parameters<typeof handleConfigStorePost>[0]>());
+    }
+
+    // calculadora
+    if (method === 'GET' && pathname === '/api/calculadora/overview') {
+      return handleCalculadoraOverviewGet(routeContext<Parameters<typeof handleCalculadoraOverviewGet>[0]>());
+    }
+    if (pathname === '/api/calculadora/parametros') {
+      if (method === 'GET') return handleCalculadoraParametrosGet(routeContext<Parameters<typeof handleCalculadoraParametrosGet>[0]>());
+      if (method === 'POST') return handleCalculadoraParametrosPost(routeContext<Parameters<typeof handleCalculadoraParametrosPost>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/calculadora/sync') {
+      return handleCalculadoraSyncPost(routeContext<Parameters<typeof handleCalculadoraSyncPost>[0]>());
+    }
+
+    // mainsite
+    if (pathname === '/api/mainsite/fees') {
+      if (method === 'GET') return handleMainsiteFeesGet(routeContext<Parameters<typeof handleMainsiteFeesGet>[0]>());
+      if (method === 'POST') return handleMainsiteFeesPost(routeContext<Parameters<typeof handleMainsiteFeesPost>[0]>());
+    }
+    if (method === 'GET' && pathname === '/api/mainsite/overview') {
+      return handleMainsiteOverviewGet(routeContext<Parameters<typeof handleMainsiteOverviewGet>[0]>());
+    }
+    if (pathname === '/api/mainsite/posts') {
+      if (method === 'GET') return handleMainsitePostsGet(routeContext<Parameters<typeof handleMainsitePostsGet>[0]>());
+      if (method === 'POST') return handleMainsitePostsPost(routeContext<Parameters<typeof handleMainsitePostsPost>[0]>());
+      if (method === 'PUT') return handleMainsitePostsPut(routeContext<Parameters<typeof handleMainsitePostsPut>[0]>());
+      if (method === 'DELETE') return handleMainsitePostsDelete(routeContext<Parameters<typeof handleMainsitePostsDelete>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/mainsite/posts-pin') {
+      return handleMainsitePostsPinPost(routeContext<Parameters<typeof handleMainsitePostsPinPost>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/mainsite/posts-reorder') {
+      return handleMainsitePostsReorderPost(routeContext<Parameters<typeof handleMainsitePostsReorderPost>[0]>());
+    }
+    if (pathname === '/api/mainsite/settings') {
+      if (method === 'GET') return handleMainsiteSettingsGet(routeContext<Parameters<typeof handleMainsiteSettingsGet>[0]>());
+      if (method === 'PUT') return handleMainsiteSettingsPut(routeContext<Parameters<typeof handleMainsiteSettingsPut>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/mainsite/sync') {
+      return handleMainsiteSyncPost(routeContext<Parameters<typeof handleMainsiteSyncPost>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/mainsite/migrate-media-urls') {
+      return handleMainsiteMigrateMediaPost(routeContext<Parameters<typeof handleMainsiteMigrateMediaPost>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/mainsite/upload') {
+      return handleMainsiteUploadPost(routeContext<Parameters<typeof handleMainsiteUploadPost>[0]>());
+    }
+    if (method === 'GET' && pathname.startsWith('/api/mainsite/media/')) {
+      const filename = pathname.replace('/api/mainsite/media/', '');
+      const mediaCtx = { request, env: runtimeEnv, params: { filename } };
+      return handleMainsiteMediaGet(mediaCtx as Parameters<typeof handleMainsiteMediaGet>[0]);
+    }
+
+    // mainsite workers-ai
+    if (method === 'POST' && pathname === '/api/mainsite/workers-ai/sentiment') {
+      return handleWorkersAiSentimentPost(routeContext<Parameters<typeof handleWorkersAiSentimentPost>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/mainsite/workers-ai/tags') {
+      return handleWorkersAiTagsPost(routeContext<Parameters<typeof handleWorkersAiTagsPost>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/mainsite/workers-ai/translate') {
+      return handleWorkersAiTranslatePost(routeContext<Parameters<typeof handleWorkersAiTranslatePost>[0]>());
+    }
+
+    // mtasts
+    if (method === 'GET' && pathname === '/api/mtasts/overview') {
+      return handleMtastsOverviewGet(routeContext<Parameters<typeof handleMtastsOverviewGet>[0]>());
+    }
+    if (method === 'POST' && pathname === '/api/mtasts/sync') {
+      return handleMtastsSyncPost(routeContext<Parameters<typeof handleMtastsSyncPost>[0]>());
+    }
+
+    // news
+    if (method === 'GET' && pathname === '/api/news/feed') {
+      return handleNewsFeedGet(routeContext<Parameters<typeof handleNewsFeedGet>[0]>());
+    }
+
+    // oraculo
+    if (method === 'POST' && pathname === '/api/oraculo/excluir') {
+      return handleOraculoExcluirPost(routeContext<Parameters<typeof handleOraculoExcluirPost>[0]>());
+    }
+    if (method === 'GET' && pathname === '/api/oraculo/listar') {
+      return handleOraculoListarGet(routeContext<Parameters<typeof handleOraculoListarGet>[0]>());
+    }
+    if (method === 'GET' && pathname === '/api/oraculo/taxacache') {
+      return handleOraculoTaxacacheGet(routeContext<Parameters<typeof handleOraculoTaxacacheGet>[0]>());
+    }
+    if (pathname === '/api/oraculo/userdata') {
+      if (method === 'GET') return handleOraculoUserdataGet(routeContext<Parameters<typeof handleOraculoUserdataGet>[0]>());
+      if (method === 'DELETE') return handleOraculoUserdataDelete(routeContext<Parameters<typeof handleOraculoUserdataDelete>[0]>());
+    }
+
+    // overview
+    if (method === 'GET' && pathname === '/api/overview/operational') {
+      return handleOverviewOperationalGet(routeContext<Parameters<typeof handleOverviewOperationalGet>[0]>());
+    }
+
+    // telemetry
+    if (method === 'DELETE' && pathname === '/api/telemetry/delete') {
+      return handleTelemetryDeleteDelete(routeContext<Parameters<typeof handleTelemetryDeleteDelete>[0]>());
+    }
+    if (method === 'GET' && pathname === '/api/telemetry/telemetry') {
+      return handleTelemetryGet(routeContext<Parameters<typeof handleTelemetryGet>[0]>());
+    }
 
       logWarn('request:not-found', { method, pathname });
       return notFound();

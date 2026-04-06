@@ -1,5 +1,31 @@
 # Changelog — Admin App
 
+## [v01.78.01] - 2026-04-06
+### Adicionado
+- **Homepage Selector (Sidebar)**: Cada item do menu lateral agora possui um seletor de página inicial (ícone 🏠). Permite definir livremente qual módulo será a landing page ao abrir o admin-app. Seleção exclusiva, desselecionável (retorna à Visão Geral), auto-save com persistência D1 via `/api/config-store` (key: `admin-app/homepage`), zero localStorage.
+
+### Controle de versão
+- `admin-app`: APP v01.78.00 → APP v01.78.01
+
+## [v01.78.00] - 2026-04-06
+### Alterado (MAJOR)
+- **Migração Completa Pages Functions → Admin-Motor Worker**: 36 Pages Functions migradas para o `admin-motor` Worker nativo, consolidando 100% da lógica backend em um único Worker com plano pago Cloudflare.
+- **Arquitetura Catch-All**: 37+ proxy stubs individuais em `functions/api/` substituídos por um único `functions/api/[[path]].ts` que roteia TODAS as requisições `/api/*` para o `admin-motor` via Service Binding nativo (`ADMIN_MOTOR`) — eliminando overhead de proxy.
+- **Módulos Migrados**: `ai-status/usage`, `astrologo/*` (5 rotas), `cfdns/*` (2 rotas), `config/*` (2 rotas), `calculadora/*` (3 rotas), `mainsite/*` (14 rotas + workers-ai + media), `mtasts/*` (2 rotas), `news/feed`, `oraculo/*` (4 rotas), `overview/operational`, `telemetry/*` (2 rotas).
+- **Observability**: Habilitado observability completo no `admin-motor` com `head_sampling_rate: 1` (100% log sampling).
+
+### Removido
+- **37+ proxy stubs**: Todos os arquivos de proxy individual em `functions/api/` foram deletados.
+- **Dead code**: `admin-motor-proxy.ts`, `oraculo-admin.ts`, `rate-limit-common.ts` removidos de `functions/api/_lib/` e `admin-motor/src/handlers/routes/_lib/`.
+- **AI Gateway**: Confirmado 0 resquícios de `CF_AI_GATEWAY`, `cf-aig-authorization`, `gateway.ai.cloudflare.com`, e `workspace-gateway` em todo o workspace.
+
+### Verificado
+- **Cross-app Impact**: Auditoria completa em todos os 8 apps do workspace — zero impacto. Todos usam `BIGDATA_DB` (D1) como barramento de dados, sem chamadas HTTP externas inter-app.
+- **TypeScript**: 0 erros em `admin-motor` e `admin-app` (`npx tsc --noEmit --skipLibCheck`).
+
+### Controle de versão
+- `admin-app`: APP v01.77.44 → APP v01.78.00
+
 ## [v01.77.44] - 2026-04-06
 ### Corrigido
 - **AstrologoModule — DOMPurify style attributes**: Adicionado `'style'` ao `ALLOWED_ATTR` do `sanitizeRichHtml` no `AstrologoModule.tsx`, permitindo que atributos `text-align` e `text-indent` gerados pelo Gemini sejam renderizados corretamente na aba "Consultas Registradas" e "Dados de Usuários".

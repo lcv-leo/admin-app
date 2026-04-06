@@ -1,6 +1,34 @@
 # AI Memory Log — Admin-App
 
-## 2026-04-06 — Admin-App v01.77.44 — AstrologoModule DOMPurify Style Fix
+## 2026-04-06 — Admin-App v01.78.01 — Homepage Selector (Sidebar)
+### Scope
+Seletor de página inicial no menu lateral. Cada nav-item (exceto "Visão Geral") exibe ícone Home (Lucide) on hover. Click toggle define/remove homepage. Persistência 100% D1 via `/api/config-store` (key: `admin-app/homepage`), zero localStorage. On mount, useEffect carrega do D1 e navega automaticamente.
+### Arquitetura
+- `nav-item-row` wrapper div com `.homepage-toggle` button
+- State: `homepageModule: ModuleId | null`
+- Seleção exclusiva + desselecionável (fallback: overview)
+- CSS: opacity 0 → 1 on hover, dourado quando `.homepage-active`
+### Controle de versão
+- `admin-app`: APP v01.78.00 → APP v01.78.01
+
+## 2026-04-06 — Admin-App v01.78.00 — Pages Functions → Admin-Motor Full Migration
+### Scope
+Migração completa de **36 Pages Functions** para o `admin-motor` Worker nativo. Arquitetura consolidada de 37+ proxy stubs individuais para um único catch-all `[[path]].ts` usando Service Binding `ADMIN_MOTOR`.
+### Arquitetura
+- **Monolítico (recomendado)**: V8 isolates não penalizam bundles grandes; wrangler faz tree-shaking automático. Plano pago permite 10MB comprimido.
+- **Catch-all**: `functions/api/[[path]].ts` roteia TODAS as requisições `/api/*` para o motor via `ADMIN_MOTOR` binding.
+- **Retained**: `health.ts` (Pages direto), `tlsrpt/[[path]].ts` (Service Binding TLSRPT_MOTOR), `_middleware.ts`.
+### Dead Code Removido
+- `admin-motor-proxy.ts`, `oraculo-admin.ts`, `rate-limit-common.ts` (functions + motor copies)
+### Observability
+- `head_sampling_rate: 1` (100% log capture), `invocation_logs: true`
+### Cross-App Audit
+- Zero impacto em 8 apps do workspace — todos usam BIGDATA_DB diretamente, zero chamadas HTTP externas inter-app.
+### AI Gateway
+- Zero resquícios em todo o workspace.
+### Controle de versão
+- `admin-app`: APP v01.77.44 → APP v01.78.00
+
 ### Scope
 Adicionado `'style'` ao `ALLOWED_ATTR` do `sanitizeRichHtml` no `AstrologoModule.tsx`, permitindo que atributos de estilo (`text-align`, `text-indent`) gerados pelo Gemini sejam renderizados corretamente nas abas "Consultas Registradas" e "Dados de Usuários".
 ### Controle de versão

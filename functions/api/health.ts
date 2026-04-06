@@ -2,8 +2,8 @@ export async function onRequestGet() {
   return new Response(JSON.stringify({
     ok: true,
     app: 'admin-app',
-    version: 'APP v01.31.02',
-    phase: 'fase-1-shell',
+    version: 'APP v01.78.01',
+    phase: 'motor-consolidado',
     timestamp: new Date().toISOString(),
   }), {
     headers: {

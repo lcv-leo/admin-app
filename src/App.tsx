@@ -2,10 +2,11 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { Component, lazy, Suspense, useState, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useCallback, useEffect, useState, type ComponentType, type ErrorInfo, type ReactNode } from 'react'
 import {
   BarChart3,
   Brain,
+  Home,
   BrainCircuit,
   Database,
   DollarSign,
@@ -141,7 +142,7 @@ const NewsPanel = lazyWithAccessRecovery(() => import('./modules/news/NewsPanel'
 const TlsrptModule = lazyWithAccessRecovery(() => import('./modules/tlsrpt/TlsrptModule').then(m => ({ default: m.TlsrptModule })))
 const LicencasModule = lazyWithAccessRecovery(() => import('./modules/compliance/LicencasModule').then(m => ({ default: m.LicencasModule })))
 
-const APP_VERSION = 'APP v01.77.44'
+const APP_VERSION = 'APP v01.78.01'
 type ModuleId = 'overview' | 'ai-status' | 'astrologo' | 'cardhub' | 'cfdns' | 'cfpw' | 'config' | 'financeiro' | 'oraculo' | 'calculadora' | 'mainsite' | 'mtasts' | 'telemetria' | 'tlsrpt' | 'compliance'
 
 const MODULE_LABELS: Record<Exclude<ModuleId, 'overview'>, string> = {
@@ -169,8 +170,44 @@ const navItems: Array<{ id: ModuleId; label: string; icon: typeof PanelsTopLeft 
   { id: 'config', label: 'Configurações', icon: Wrench },
 ]
 
+const HOMEPAGE_CONFIG_KEY = 'admin-app/homepage'
+
 function App() {
   const [activeModule, setActiveModule] = useState<ModuleId>('overview')
+  const [homepageModule, setHomepageModule] = useState<ModuleId | null>(null)
+
+  // Carrega a homepage salva no D1 ao montar o componente
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/config-store?module=${encodeURIComponent(HOMEPAGE_CONFIG_KEY)}`)
+      .then(r => r.json())
+      .then((data: { ok?: boolean; config?: { moduleId?: string } | null }) => {
+        if (cancelled) return
+        const saved = data?.config?.moduleId as ModuleId | undefined
+        if (saved && saved !== 'overview') {
+          setHomepageModule(saved)
+          setActiveModule(saved)
+        }
+      })
+      .catch(() => { /* silently fallback to overview */ })
+    return () => { cancelled = true }
+  }, [])
+
+  // Persiste a seleção de homepage no D1 via config-store
+  const saveHomepage = useCallback((moduleId: ModuleId | null) => {
+    fetch('/api/config-store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ module: HOMEPAGE_CONFIG_KEY, config: { moduleId } }),
+    }).catch(err => console.error('[admin-app] homepage save failed', err))
+  }, [])
+
+  // Toggle: se já é homepage, desseleciona; se não, seleciona
+  const handleHomepageToggle = useCallback((moduleId: ModuleId) => {
+    const newValue = homepageModule === moduleId ? null : moduleId
+    setHomepageModule(newValue)
+    saveHomepage(newValue)
+  }, [homepageModule, saveHomepage])
 
   const handleModuleClick = (moduleId: ModuleId) => {
     // Chrome-first: View Transitions API for smooth crossfade between modules
@@ -212,17 +249,29 @@ function App() {
 
         <nav className="nav-list" aria-label="Módulos administrativos">
           {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              className={`nav-item ${activeModule === id ? 'nav-item-active' : ''}`}
-              onClick={() => handleModuleClick(id)}
-              aria-current={activeModule === id ? 'page' : undefined}
-              title={label}
-            >
-              <Icon size={18} />
-              <span className="sidebar-label">{label}</span>
-            </button>
+            <div key={id} className={`nav-item-row${homepageModule === id ? ' is-homepage' : ''}`}>
+              <button
+                type="button"
+                className={`nav-item ${activeModule === id ? 'nav-item-active' : ''}`}
+                onClick={() => handleModuleClick(id)}
+                aria-current={activeModule === id ? 'page' : undefined}
+                title={label}
+              >
+                <Icon size={18} />
+                <span className="sidebar-label">{label}</span>
+              </button>
+              {id !== 'overview' && (
+                <button
+                  type="button"
+                  className={`homepage-toggle sidebar-label${homepageModule === id ? ' homepage-active' : ''}`}
+                  title={homepageModule === id ? 'Remover como página inicial' : 'Definir como página inicial'}
+                  aria-label={homepageModule === id ? `Remover ${label} como página inicial` : `Definir ${label} como página inicial`}
+                  onClick={(e) => { e.stopPropagation(); handleHomepageToggle(id) }}
+                >
+                  <Home size={13} />
+                </button>
+              )}
+            </div>
           ))}
         </nav>
 
