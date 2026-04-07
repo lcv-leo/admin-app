@@ -1,4 +1,14 @@
 # AI Memory Log — Admin-App
+## 2026-04-07 — Admin-App v01.80.02 — Live Dedup Bugfix & Stabilization
+### Scope
+Resolução de bug crítico no mecanismo de deduplicação da aba Live do Observability, que classificava incorretamente todos os novos eventos iterados como duplicados, travando o stream realtime.
+### Corrigido
+- **Live Tab Deduping**: O script de deduplicação do polling tentava extrair de `evt['$metadata.id']`. Sendo `$metadata` um objeto nested, o dot-notation flat sempre resultava em `undefined`, mapeado para a string vazia `''`. Consecutivamente, o `Set` de retenção e as exclusões tratavam qualquer novo evento como duplicata. O mecanismo de unificação de IDs agora utiliza um helper `eventKey` acessando paths estruturados corretamente e utilizando o UUID explícito/timestamp como key real.
+### Lições Operacionais Adicionais
+- **CF Worker Event Keys**: Objetos nested vindos de `result.events.events` (`$workers`, `$metadata`) são estritamente objetos. Fuga deste isolamento (dot-notation access) deve ser feita destruturada (`(evt['$metadata'] as any)?.id`).
+### Controle de versão
+- `admin-app`: APP v01.80.01 → APP v01.80.02
+
 ## 2026-04-07 — Admin-App v01.80.01 — Observability Stabilization & Detail Panel
 ### Scope
 Estabilização completa do dashboard Workers Observability: correção de 5 bugs de integração com a API CF e adição de painel de detalhes inline clicável.

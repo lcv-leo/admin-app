@@ -1,4 +1,11 @@
 # Changelog — Admin App
+## [v01.80.02] - 2026-04-07
+### Corrigido
+- **Observability — Live Tab Deduping**: Corrigido bug onde aba Live não recebia novos eventos via polling. O mecanismo de deduplicação usava dot-notation flat em `evt['$metadata.id']` (resultando sempre em `undefined`), o que classificava incorretamente todos os novos eventos como duplicados dos imediatamente anteriores. Agora utiliza o helper `eventKey` acessando chaves nested com fallback para timestamp/requestId.
+
+### Controle de versão
+- `admin-app`: APP v01.80.01 → APP v01.80.02
+
 ## [v01.80.01] - 2026-04-07
 ### Corrigido
 - **Observability — Operador P50 inválido**: Substituído `P50` por `MEDIAN` na query de latência; a API CF Observability não aceita `P50` no enum de operadores.

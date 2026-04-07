@@ -412,9 +412,14 @@ export function ObservabilityBlock() {
         const newEvts = Array.isArray(rawEvts) ? rawEvts : []
         setLiveEvents(prev => {
           const safePrev = Array.isArray(prev) ? prev : []
-          // Merge: prepend new events, deduplicate by $metadata.id, cap at 200
-          const existing = new Set(safePrev.map(e => String(e['$metadata.id'] ?? '')))
-          const fresh = newEvts.filter(e => !existing.has(String(e['$metadata.id'] ?? '')))
+          // Helper to extract a stable unique key from nested event structure
+          const eventKey = (e: EventRow): string => {
+            const meta = (e['$metadata'] ?? {}) as Record<string, unknown>
+            return String(meta['id'] ?? meta['requestId'] ?? e['timestamp'] ?? Math.random())
+          }
+          // Merge: prepend new events, deduplicate by key, cap at 200
+          const existing = new Set(safePrev.map(eventKey))
+          const fresh = newEvts.filter(e => !existing.has(eventKey(e)))
           return [...fresh, ...safePrev].slice(0, 200)
         })
       }
