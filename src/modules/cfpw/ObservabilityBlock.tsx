@@ -622,14 +622,21 @@ export function ObservabilityBlock() {
   )
 
   const renderEventRow = (evt: EventRow, idx: number) => {
-    const ts = evt['$metadata.startTime'] as number | undefined
-    const service = String(evt['$workers.scriptName'] ?? evt['$metadata.service'] ?? '—')
-    const level = String(evt['$metadata.level'] ?? evt['level'] ?? 'log')
-    const message = String(evt['$metadata.message'] ?? evt['message'] ?? '—')
-    const error = evt['$metadata.error'] as string | undefined
-    const outcome = String(evt['$workers.outcome'] ?? '—')
-    const method = String(evt['$workers.event.request.method'] ?? evt['method'] ?? '')
-    const path = String(evt['$workers.event.request.path'] ?? evt['pathname'] ?? '')
+    // CF Observability retorna objetos nested: { timestamp, $workers: {...}, $metadata: {...}, source: {...} }
+    const workers = (evt['$workers'] ?? {}) as Record<string, unknown>
+    const meta = (evt['$metadata'] ?? {}) as Record<string, unknown>
+    const source = (evt['source'] ?? {}) as Record<string, unknown>
+    const workerEvent = (workers['event'] ?? {}) as Record<string, unknown>
+    const workerReq = (workerEvent['request'] ?? {}) as Record<string, unknown>
+
+    const ts = (evt['timestamp'] ?? meta['startTime']) as number | undefined
+    const service = String(workers['scriptName'] ?? meta['service'] ?? '—')
+    const level = String(meta['level'] ?? source['level'] ?? 'log')
+    const message = String(meta['message'] ?? source['message'] ?? '—')
+    const error = (meta['error'] ?? source['error']) as string | undefined
+    const outcome = String(workers['outcome'] ?? '—')
+    const method = String(workerReq['method'] ?? source['method'] ?? '')
+    const path = String(workerReq['path'] ?? source['pathname'] ?? '')
 
     return (
       <tr key={`${ts}-${idx}`} className={error ? 'cfpw-obs-row-error' : ''}>
