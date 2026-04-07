@@ -81,28 +81,20 @@ export const loadFilters = async (key: string): Promise<ProviderFilters> => {
         limit: Number(p?.limit) || 50,
       }
     }
-  } catch { /* D1 indisponível */ }
 
-  // Fallback: migração one-shot do localStorage
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) {
-      const p = JSON.parse(raw) as Partial<ProviderFilters>
-      const filters: ProviderFilters = {
-        statuses: Array.isArray(p?.statuses) ? p.statuses : [],
-        types: Array.isArray(p?.types) ? p.types : [],
-        limit: Number(p?.limit) || 50,
-      }
-      void saveFilters(key, filters)
-      localStorage.removeItem(key)
-      return filters
+    if (data.ok && !data.config) {
+      // API confirmou que a chave NÃO existe no D1 — first run genuíno
+      const defaults = defaultFilters()
+      void saveFilters(key, defaults)
+      return defaults
     }
-  } catch { /* ignorar */ }
 
-  // First run: D1 vazio + localStorage vazio — persiste defaults automaticamente
-  const defaults = defaultFilters()
-  void saveFilters(key, defaults)
-  return defaults
+    // !data.ok — erro do servidor: retornar defaults in-memory, NÃO gravar no D1
+    return defaultFilters()
+  } catch {
+    // Rede indisponível (deploy, cold start) — retornar defaults in-memory, NÃO gravar no D1
+    return defaultFilters()
+  }
 }
 
 export const saveFilters = async (key: string, f: ProviderFilters): Promise<void> => {

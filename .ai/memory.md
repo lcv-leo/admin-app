@@ -1,4 +1,17 @@
 # AI Memory Log — Admin-App
+## 2026-04-07 — Admin-App v01.81.02 — Config Persistence Safety (CRITICAL)
+### Scope
+Correção de bug crítico onde deploys apagavam configurações do News Feed e filtros financeiros no D1.
+### Root Cause
+Três módulos (`newsSettings.ts`, `useModuleConfig.ts`, `financeiro-helpers.ts`) tinham lógica destrutiva: se a API `/api/config-store` falhasse (rede, cold start durante deploy), faziam fallback para `localStorage` → vazio → **gravavam defaults no D1**, sobrescrevendo dados do usuário.
+### Corrigido
+- **Eliminação total de `localStorage`**: Removida toda referência a `localStorage` como fallback/migração nos 3 módulos.
+- **Regra de Segurança**: Defaults só são persistidos no D1 quando `data.ok === true && data.config === null` (chave genuinamente não existe). Em qualquer erro ou falha de rede, usa defaults in-memory SEM gravar no D1.
+- **Diretiva permanente**: `package.json` não precisa de bump de versão — controlado por `APP_VERSION` + CHANGELOG. Registrada no `version-control.md`.
+### Controle de versão
+- `admin-app`: APP v01.81.01 → APP v01.81.02
+
+
 ## 2026-04-07 — Admin-App v01.81.01 — Exigir Nome Toggle + Cache Removal
 ### Scope
 Renomeação do toggle "Permitir anônimos" para "Exigir nome" com lógica invertida, e remoção da mensagem de cache de 60s.

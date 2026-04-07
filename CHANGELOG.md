@@ -1,4 +1,11 @@
 # Changelog — Admin App
+## [v01.81.02] - 2026-04-07
+### Corrigido (CRÍTICO)
+- **Proteção contra reset de configurações em deploys**: Removido anti-pattern destrutivo onde `loadNewsSettings()`, `useModuleConfig()` e `loadFilters()` gravavam defaults no D1 quando a API falhava transitoriamente (deploy, cold start, rede), sobrescrevendo silenciosamente configurações salvas pelo usuário.
+- **localStorage removido**: Toda dependência de `localStorage` como fallback/migração foi eliminada dos 3 módulos (`newsSettings.ts`, `useModuleConfig.ts`, `financeiro-helpers.ts`). Agora somente D1 é fonte de verdade.
+- **Regra de segurança**: Defaults só são persistidos no D1 quando a API confirma explicitamente que a chave não existe (`data.ok === true && data.config === null`). Em qualquer outro cenário (erro, rede), defaults são usados apenas in-memory sem gravar.
+
+
 ## [v01.81.01] - 2026-04-07
 ### Alterado
 - **ModerationPanel**: Toggle "Permitir anônimos" renomeado para "Exigir nome" com lógica invertida (`!allowAnonymous`), paritário com "Exigir email".

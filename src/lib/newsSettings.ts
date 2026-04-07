@@ -53,40 +53,36 @@ export const DEFAULT_NEWS_SETTINGS: NewsSettings = {
 
 /**
  * Carrega settings do D1 via /api/config-store.
- * Fallback: localStorage (migração one-shot).
+ * Se a API falhar (deploy, cold start), retorna defaults in-memory SEM gravar no D1.
+ * Somente grava defaults no D1 se a API confirmar que a chave genuinamente não existe.
  */
 export async function loadNewsSettings(): Promise<NewsSettings> {
   try {
     const res = await fetch(`/api/config-store?module=${encodeURIComponent(NEWS_STORAGE_KEY)}`)
     const data = await res.json() as { ok: boolean; config?: NewsSettings | null }
+
     if (data.ok && data.config) {
+      // Configurações existem no D1 — usar como estão
       const parsed = data.config
       const sources = Array.isArray(parsed.sources) && parsed.sources.length > 0
         ? parsed.sources
         : [...BUILTIN_SOURCES]
       return { ...DEFAULT_NEWS_SETTINGS, ...parsed, sources }
     }
-  } catch { /* D1/rede indisponível — tentar fallback */ }
 
-  // Fallback: migração one-shot do localStorage
-  try {
-    const raw = localStorage.getItem(NEWS_STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<NewsSettings>
-      const sources = Array.isArray(parsed.sources) && parsed.sources.length > 0
-        ? parsed.sources
-        : [...BUILTIN_SOURCES]
-      const settings = { ...DEFAULT_NEWS_SETTINGS, ...parsed, sources }
-      void persistNewsSettingsToD1(settings)
-      localStorage.removeItem(NEWS_STORAGE_KEY)
-      return settings
+    if (data.ok && !data.config) {
+      // API confirmou que a chave NÃO existe no D1 — first run genuíno
+      const defaults = { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] }
+      void saveNewsSettings(defaults)
+      return defaults
     }
-  } catch { /* ignorar */ }
 
-  // First run: D1 vazio + localStorage vazio — persiste defaults automaticamente
-  const defaults = { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] }
-  void persistNewsSettingsToD1(defaults)
-  return defaults
+    // !data.ok — erro do servidor: retornar defaults in-memory, NÃO gravar no D1
+    return { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] }
+  } catch {
+    // Rede indisponível (deploy, cold start, etc) — retornar defaults in-memory, NÃO gravar no D1
+    return { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] }
+  }
 }
 
 /**
@@ -102,10 +98,6 @@ export async function saveNewsSettings(settings: NewsSettings): Promise<void> {
   } catch { /* Silencioso — não bloqueia UX */ }
 }
 
-/** Fire-and-forget D1 write (alias interno) */
-async function persistNewsSettingsToD1(settings: NewsSettings): Promise<void> {
-  await saveNewsSettings(settings)
-}
 
 /** Emite evento customizado para notificar NewsPanel sobre mudanças de config */
 export function dispatchNewsSettingsChange(): void {

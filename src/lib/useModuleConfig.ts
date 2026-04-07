@@ -5,7 +5,7 @@
 /**
  * useModuleConfig — Hook centralizado para persistência de configurações de módulo.
  * Lê/grava no D1 (BIGDATA_DB) via /api/config-store.
- * Fallback: lê localStorage como cache de último recurso.
+ * Se a API falhar, retorna defaults in-memory SEM gravar no D1.
  *
  * Uso:
  *   const [config, saveConfig, loading] = useModuleConfig<MyConfig>('my-module', DEFAULT, {
@@ -41,7 +41,7 @@ export function useModuleConfig<T extends Record<string, any>>(
   const optionsRef = useRef(options)
   optionsRef.current = options
 
-  // Carrega config do D1 no mount
+  // Carrega config do D1 no mount — NUNCA grava defaults se a API falhar
   useEffect(() => {
     let cancelled = false
 
@@ -50,31 +50,15 @@ export function useModuleConfig<T extends Record<string, any>>(
         const res = await fetch(`/api/config-store?module=${encodeURIComponent(moduleKey)}`)
         const data = await res.json() as ConfigStoreResponse
         if (!cancelled && data.ok && data.config) {
+          // Configurações existem no D1 — usar como estão
           setConfig(prev => ({ ...prev, ...data.config as Partial<T> }))
-        } else if (!cancelled && (!data.ok || !data.config)) {
-          // D1 vazio — tenta ler localStorage como migração one-shot
-          try {
-            const raw = localStorage.getItem(moduleKey)
-            if (raw) {
-              const parsed = JSON.parse(raw) as Partial<T>
-              const merged = { ...defaults, ...parsed }
-              setConfig(merged)
-              void persistToD1(moduleKey, merged, optionsRef.current)
-              localStorage.removeItem(moduleKey)
-            } else {
-              // First run: D1 vazio + localStorage vazio — persiste defaults automaticamente
-              void persistToD1(moduleKey, defaults)
-            }
-          } catch { /* localStorage indisponível ou corrompido — usar defaults */ }
+        } else if (!cancelled && data.ok && !data.config) {
+          // API confirmou que a chave NÃO existe no D1 — first run genuíno
+          void persistToD1(moduleKey, defaults, optionsRef.current)
         }
+        // Se !data.ok → erro do servidor — usar defaults in-memory, NÃO gravar no D1
       } catch {
-        // Rede falhou — fallback localStorage
-        try {
-          const raw = localStorage.getItem(moduleKey)
-          if (!cancelled && raw) {
-            setConfig(prev => ({ ...prev, ...JSON.parse(raw) as Partial<T> }))
-          }
-        } catch { /* ignorar */ }
+        // Rede indisponível (deploy, cold start) — usar defaults in-memory, NÃO gravar no D1
       } finally {
         if (!cancelled) setLoading(false)
       }
