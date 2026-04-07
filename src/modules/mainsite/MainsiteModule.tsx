@@ -6,9 +6,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Suspense, lazy } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  AlertTriangle, DollarSign,
+  AlertTriangle, Clock, DollarSign,
   FilePlus2, Globe, GripVertical,
-  Loader2, Pencil, Pin, RefreshCw,
+  Loader2, Pencil, Pin, RefreshCw, RotateCw,
   Save, Sparkles, Trash2, X,
   CheckCircle, XCircle,
 } from 'lucide-react'
@@ -125,6 +125,10 @@ export function MainsiteModule() {
   const [savingSummary, setSavingSummary] = useState(false)
   const [postsWithoutSummary, setPostsWithoutSummary] = useState<Array<{ id: number; title: string }>>([])
 
+  // ── Rotação status state ──
+  const [rotationInfo, setRotationInfo] = useState<{ enabled: boolean; interval: number; last_rotated_at: number } | null>(null)
+  const [countdown, setCountdown] = useState('')
+
 
 
 
@@ -167,6 +171,14 @@ export function MainsiteModule() {
       }
 
       setDisclaimers(nextPayload.settings.disclaimers as DisclaimersSettings ?? DEFAULT_DISCLAIMERS)
+
+      // Captura dados de rotação para a faixa de status
+      const rot = nextPayload.settings.rotation as { enabled?: boolean; interval?: number; last_rotated_at?: number } | undefined
+      setRotationInfo(rot ? {
+        enabled: Boolean(rot.enabled),
+        interval: Number(rot.interval) || 60,
+        last_rotated_at: Number(rot.last_rotated_at) || 0,
+      } : null)
 
       if (shouldNotify) {
         showNotification('Disclaimers do MainSite recarregados.', 'success')
@@ -304,6 +316,33 @@ export function MainsiteModule() {
     setEditOg(s.summary_og)
     setEditLd(s.summary_ld || '')
   }
+
+  // ── Derived: post fixado impede rotação ──
+  const hasPinnedPost = managedPosts.some(p => Number(p.is_pinned) === 1 || p.is_pinned === true)
+
+  // ── Countdown timer para próxima rotação ──
+  useEffect(() => {
+    if (!rotationInfo?.enabled || !rotationInfo.last_rotated_at) {
+      setCountdown('')
+      return
+    }
+
+    const intervalMs = (rotationInfo.interval || 60) * 60 * 1000
+    const nextAt = rotationInfo.last_rotated_at + intervalMs
+
+    const tick = () => {
+      const remaining = nextAt - Date.now()
+      if (remaining <= 0) { setCountdown('Iminente'); return }
+      const h = Math.floor(remaining / 3_600_000)
+      const m = Math.floor((remaining % 3_600_000) / 60_000)
+      const s = Math.floor((remaining % 60_000) / 1_000)
+      setCountdown(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`)
+    }
+
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [rotationInfo])
 
   useEffect(() => {
     void loadManagedPosts()
@@ -591,6 +630,57 @@ export function MainsiteModule() {
         <FilePlus2 size={18} />
         Novo Post
       </button>
+
+      {/* ── Faixa de Status da Rotação ── */}
+      {rotationInfo && (
+        <div className="rotation-status-bar" style={{
+          display: 'flex', alignItems: 'center', gap: '16px',
+          padding: '10px 16px', borderRadius: '10px',
+          background: rotationInfo.enabled
+            ? 'linear-gradient(135deg, rgba(66,133,244,0.08), rgba(52,168,83,0.08))'
+            : 'rgba(128,128,128,0.06)',
+          border: '1px solid rgba(128,128,128,0.12)',
+          fontSize: '13px', flexWrap: 'wrap',
+        }}>
+          <RotateCw size={16} style={{
+            color: rotationInfo.enabled ? 'var(--color-primary, #4285f4)' : 'var(--color-text-muted, #999)',
+            animation: rotationInfo.enabled && countdown === 'Iminente' ? 'spin 2s linear infinite' : 'none',
+            flexShrink: 0,
+          }} />
+
+          {!rotationInfo.enabled ? (
+            <span style={{ opacity: 0.6 }}>Rotação desativada</span>
+          ) : hasPinnedPost ? (
+            <span style={{ color: 'var(--color-warning, #f59e0b)' }}>
+              Rotação pausada — post fixado
+            </span>
+          ) : (
+            <>
+              <span>
+                <Clock size={13} style={{ verticalAlign: '-2px', marginRight: '4px', opacity: 0.5 }} />
+                <strong>Última Rotação</strong>{' '}
+                {rotationInfo.last_rotated_at
+                  ? new Date(rotationInfo.last_rotated_at).toLocaleString('pt-BR', {
+                      timeZone: 'America/Sao_Paulo',
+                      day: '2-digit', month: '2-digit', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit', second: '2-digit',
+                    })
+                  : 'Nunca executada'}
+              </span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span>
+                <strong>Próxima Rotação em</strong>{' '}
+                <span style={{
+                  fontFamily: 'monospace', fontWeight: 600,
+                  color: countdown === 'Iminente' ? 'var(--color-success, #34a853)' : 'inherit',
+                }}>
+                  {countdown || '—'}
+                </span>
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       <article className="result-card">
         <div className="result-toolbar">
