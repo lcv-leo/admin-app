@@ -1,4 +1,20 @@
 # Changelog — Admin App
+## [v01.80.00] - 2026-04-07
+### Adicionado
+- **Cloudflare Workers Observability (CF P&W)**: Novo bloco "Observability" completo integrado ao final do módulo CF P&W com 6 abas:
+  - **Dashboard**: KPIs em tempo real — total de eventos, erros, taxa de erro, workers ativos — com breakdown por Worker em tabela.
+  - **Live**: Modo de captura em tempo real com polling a cada 3 segundos. Botão Play/Stop no header (igual ao Dashboard Cloudflare), indicador com dot pulsante vermelho, deduplicação por `$metadata.id`, buffer rotativo de 200 eventos e botão "Limpar".
+  - **Eventos**: Busca full-text nos eventos com tabela paginada (timestamp, worker, level, detalhes com method+path).
+  - **Erros**: Drill-down filtrado por `$metadata.error EXISTS` com tabela dedicada e indicador verde quando sem erros.
+  - **Latência**: Percentis p50/p95/p99 e avg agrupados por Worker com alertas visuais (warn >1s, critical >3s).
+  - **Destinos**: CRUD completo de OTel export destinations (create/delete) com tutorial integrado para configuração via Cloudflare Dashboard.
+- **Controles de tempo alinhados ao Dashboard Cloudflare**: Seletor de ranges 15m, 1h, 24h, 3d, 7d (removido 6h, adicionados 15m e 3d).
+- **Backend Proxy (admin-motor)**: `observability-api.ts` e `observability.ts` com rotas `GET/POST /api/cfpw/observability` proxying para API Cloudflare Workers Observability v4 (telemetry/query, telemetry/keys, telemetry/values, destinations CRUD).
+- Auto-refresh a cada 60s nas abas não-Live; refresh manual com botão dedicado.
+
+### Controle de versão
+- `admin-app`: APP v01.79.01 → APP v01.80.00
+
 ## [v01.79.01] - 2026-04-07
 ### Corrigido
 - **Faixa de Rotação — Estado "pausada" mostra Última Rotação**: Quando há post fixado, a faixa agora exibe "Última Rotação: dd/mm/aaaa, hh:mm:ss | Próxima Rotação: pausada — post fixado" ao invés de suprimir completamente o timestamp da última rotação.

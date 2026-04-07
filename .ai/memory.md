@@ -1,4 +1,22 @@
 # AI Memory Log — Admin-App
+## 2026-04-07 — Admin-App v01.80.00 — Workers Observability + Live Mode
+### Scope
+Integração completa do dashboard Cloudflare Workers Observability no módulo CF P&W com 6 abas, incluindo modo Live com polling de 3 segundos.
+### Adicionado
+- **Backend (admin-motor)**: `observability-api.ts` (helpers Cloudflare Observability API v4) + `observability.ts` (route handler multiplexado: query, keys, values, create/delete destination). Rotas `GET/POST /api/cfpw/observability` registradas em `index.ts`.
+- **Frontend (admin-app)**: `ObservabilityBlock.tsx` (998 linhas) com 6 tabs:
+  - Dashboard: KPIs (total eventos, erros, taxa, workers ativos) + breakdown por worker.
+  - Live: Polling 3s com deduplicação por `$metadata.id`, buffer rotativo 200 eventos, botão Play/Stop, dot pulsante, botão Limpar.
+  - Eventos: Busca full-text com tabela de eventos.
+  - Erros: Drill-down `$metadata.error EXISTS`.
+  - Latência: p50/p95/p99/avg por worker com alertas warn/critical.
+  - Destinos: CRUD OTel destinations + tutorial.
+- **Time ranges**: Alinhado com CF Dashboard: 15m, 1h, 24h, 3d, 7d.
+- **CSS**: 160+ regras em `CfPwModule.css` (obs-block, tabs, kpis, tables, live-btn, live-header, pulsing dot).
+- **Integração**: Renderizado no `renderDashboard()` de `CfpwModule.tsx` via fragment wrapper.
+### Controle de versão
+- `admin-app`: APP v01.79.01 → APP v01.80.00
+
 ## 2026-04-07 — Admin-App v01.79.01 — Rotation Bar Review Fixes
 ### Scope
 Correções de code review na faixa de rotação: estado "pausada" agora mostra "Última Rotação" + re-fetch automático pós-"Iminente".

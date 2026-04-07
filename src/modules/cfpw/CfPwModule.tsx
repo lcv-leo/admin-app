@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, CheckCircle, Eye, EyeOff, Loader2, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import { useNotification } from '../../components/Notification'
+import { ObservabilityBlock } from './ObservabilityBlock'
 import './CfPwModule.css'
 
 type AccountSummary = {
@@ -706,6 +707,7 @@ export function CfPwModule() {
   }, [details])
 
   const renderDashboard = () => (
+    <>
     <div className="cfpw-dashboard">
       <div className="cfpw-overview-hero">
         <div>
@@ -813,6 +815,10 @@ export function CfPwModule() {
         </div>
       )}
     </div>
+
+    {/* ── Observability Block ── */}
+    <ObservabilityBlock />
+    </>
   )
 
   const renderDetailView = () => {

@@ -24,6 +24,7 @@ import { onRequestGet as handleCfpwWorkerDetailsGet } from './handlers/routes/cf
 import { onRequestPost as handleCfpwDeletePagePost } from './handlers/routes/cfpw/delete-page';
 import { onRequestPost as handleCfpwDeleteWorkerPost } from './handlers/routes/cfpw/delete-worker';
 import { onRequestPost as handleCfpwCleanupCacheProjectPost } from './handlers/routes/cfpw/cleanup-cache-project';
+import { onRequestGet as handleCfpwObservabilityGet, onRequestPost as handleCfpwObservabilityPost } from './handlers/routes/cfpw/observability';
 import { onRequestGet as handleMpBalanceGet } from './handlers/routes/financeiro/mp-balance';
 import { onRequestGet as handleSumupBalanceGet } from './handlers/routes/financeiro/sumup-balance';
 import {
@@ -468,6 +469,11 @@ export default {
 
     if (method === 'POST' && pathname === '/api/cfpw/cleanup-cache-project') {
       return handleCfpwCleanupCacheProjectPost(routeContext<Parameters<typeof handleCfpwCleanupCacheProjectPost>[0]>());
+    }
+
+    if (pathname === '/api/cfpw/observability') {
+      if (method === 'GET') return handleCfpwObservabilityGet(routeContext<Parameters<typeof handleCfpwObservabilityGet>[0]>());
+      if (method === 'POST') return handleCfpwObservabilityPost(routeContext<Parameters<typeof handleCfpwObservabilityPost>[0]>());
     }
 
     if (pathname === '/api/cfpw/cleanup-deployments') {
