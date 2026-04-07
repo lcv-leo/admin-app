@@ -152,6 +152,9 @@ export function ObservabilityBlock() {
   const [destinations, setDestinations] = useState<ObsDestination[]>([])
   const [destsLoading, setDestsLoading] = useState(false)
 
+  // Expanded event detail
+  const [expandedEventKey, setExpandedEventKey] = useState<string | null>(null)
+
   // Destination form
   const [newDestName, setNewDestName] = useState('')
   const [newDestUrl, setNewDestUrl] = useState('')
@@ -621,6 +624,22 @@ export function ObservabilityBlock() {
     </div>
   )
 
+  // Render nested object as flat key→value pairs for the detail panel
+  const flattenObject = (obj: unknown, prefix = ''): Array<[string, string]> => {
+    const entries: Array<[string, string]> = []
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+        const key = prefix ? `${prefix}.${k}` : k
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          entries.push(...flattenObject(v, key))
+        } else {
+          entries.push([key, String(v ?? '—')])
+        }
+      }
+    }
+    return entries
+  }
+
   const renderEventRow = (evt: EventRow, idx: number) => {
     // CF Observability retorna objetos nested: { timestamp, $workers: {...}, $metadata: {...}, source: {...} }
     const workers = (evt['$workers'] ?? {}) as Record<string, unknown>
@@ -638,18 +657,71 @@ export function ObservabilityBlock() {
     const method = String(workerReq['method'] ?? source['method'] ?? '')
     const path = String(workerReq['path'] ?? source['pathname'] ?? '')
 
+    const rowKey = String(meta['id'] ?? meta['requestId'] ?? `${ts}-${idx}`)
+    const isExpanded = expandedEventKey === rowKey
+
     return (
-      <tr key={`${ts}-${idx}`} className={error ? 'cfpw-obs-row-error' : ''}>
-        <td className="cfpw-obs-cell-ts">{ts ? formatDate(ts) : '—'}</td>
-        <td><code>{service}</code></td>
-        <td>
-          <span className={`cfpw-obs-level cfpw-obs-level-${level}`}>{level}</span>
-        </td>
-        <td className="cfpw-obs-cell-msg">
-          {method && path ? <span className="cfpw-obs-req-tag">{method} {path}</span> : null}
-          {error ? <span className="cfpw-obs-error-text">{error}</span> : message !== '—' ? message : `outcome: ${outcome}`}
-        </td>
-      </tr>
+      <>
+        <tr
+          key={rowKey}
+          className={`cfpw-obs-row-clickable ${error ? 'cfpw-obs-row-error' : ''} ${isExpanded ? 'cfpw-obs-row-expanded' : ''}`}
+          onClick={() => setExpandedEventKey(isExpanded ? null : rowKey)}
+        >
+          <td className="cfpw-obs-cell-ts">{ts ? formatDate(ts) : '—'}</td>
+          <td><code>{service}</code></td>
+          <td>
+            <span className={`cfpw-obs-level cfpw-obs-level-${level}`}>{level}</span>
+          </td>
+          <td className="cfpw-obs-cell-msg">
+            {method && path ? <span className="cfpw-obs-req-tag">{method} {path}</span> : null}
+            {error ? <span className="cfpw-obs-error-text">{error}</span> : message !== '—' ? message : `outcome: ${outcome}`}
+          </td>
+        </tr>
+        {isExpanded && (
+          <tr key={`${rowKey}-detail`} className="cfpw-obs-row-detail">
+            <td colSpan={4}>
+              <div className="cfpw-obs-detail-panel">
+                {/* Source */}
+                {Object.keys(source).length > 0 && (
+                  <div className="cfpw-obs-detail-section">
+                    <div className="cfpw-obs-detail-section-title">source</div>
+                    {flattenObject(source).map(([k, v]) => (
+                      <div key={k} className="cfpw-obs-detail-entry">
+                        <span className="cfpw-obs-detail-key">{k}</span>
+                        <span className="cfpw-obs-detail-value">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* $workers */}
+                {Object.keys(workers).length > 0 && (
+                  <div className="cfpw-obs-detail-section">
+                    <div className="cfpw-obs-detail-section-title">$workers</div>
+                    {flattenObject(workers).map(([k, v]) => (
+                      <div key={k} className="cfpw-obs-detail-entry">
+                        <span className="cfpw-obs-detail-key">{k}</span>
+                        <span className="cfpw-obs-detail-value">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* $metadata */}
+                {Object.keys(meta).length > 0 && (
+                  <div className="cfpw-obs-detail-section">
+                    <div className="cfpw-obs-detail-section-title">$metadata</div>
+                    {flattenObject(meta).map(([k, v]) => (
+                      <div key={k} className="cfpw-obs-detail-entry">
+                        <span className="cfpw-obs-detail-key">{k}</span>
+                        <span className="cfpw-obs-detail-value">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </td>
+          </tr>
+        )}
+      </>
     )
   }
 
