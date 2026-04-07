@@ -2,6 +2,9 @@
  * Route handler for Cloudflare Workers Observability.
  * GET  /api/cfpw/observability -> list destinations
  * POST /api/cfpw/observability -> multiplexed actions (query, keys, values, create-destination, delete-destination)
+ *
+ * IMPORTANTE: NÃO retornar status 502 — o Cloudflare Edge intercepta e substitui o body JSON
+ * pelo HTML error page padrão. Usar 500 para erros internos.
  */
 import { createResponseTrace } from '../_lib/request-trace'
 import { resolveCloudflarePwAccount } from '../_lib/cfpw-api'
@@ -50,7 +53,8 @@ export async function onRequestGet(context: Context) {
     }), { headers: toHeaders() })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao listar destinos de observability.'
-    return toError(message, trace, 502)
+    console.error('[observability] GET error:', message)
+    return toError(message, trace, 500)
   }
 }
 
@@ -122,6 +126,7 @@ export async function onRequestPost(context: Context) {
     }), { headers: toHeaders() })
   } catch (error) {
     const message = error instanceof Error ? error.message : `Falha ao executar ação de observability: ${action}.`
-    return toError(message, trace, 502)
+    console.error('[observability] POST error:', { action, message })
+    return toError(message, trace, 500)
   }
 }

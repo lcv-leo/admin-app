@@ -95,18 +95,26 @@ const generateQueryId = () => `obs-${Date.now()}-${Math.random().toString(36).sl
 
 // ── API calls ──
 
+async function safeJson<T>(res: Response): Promise<T> {
+  const ct = res.headers.get('content-type') || ''
+  if (!ct.includes('application/json')) {
+    throw new Error(`Observability API retornou HTTP ${res.status} (não-JSON).`)
+  }
+  return res.json() as Promise<T>
+}
+
 const obsPost = async (action: string, body?: Record<string, unknown>, slug?: string): Promise<ObsQueryResponse> => {
   const res = await fetch('/api/cfpw/observability', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, body, slug }),
   })
-  return res.json() as Promise<ObsQueryResponse>
+  return safeJson<ObsQueryResponse>(res)
 }
 
 const obsGet = async (): Promise<ObsDestinationsResponse> => {
   const res = await fetch('/api/cfpw/observability')
-  return res.json() as Promise<ObsDestinationsResponse>
+  return safeJson<ObsDestinationsResponse>(res)
 }
 
 // ── Component ──
