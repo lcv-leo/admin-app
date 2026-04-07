@@ -1,5 +1,15 @@
 # Changelog — Admin App
 
+## [v01.78.06] - 2026-04-07
+### Alterado
+- **Migração Total SDK Gemini**: 7 arquivos do `admin-motor` migrados de REST `fetch()` direto para SDK oficial `@google/genai ^1.48.0`:
+  - **Geração de Conteúdo** (3): `transform.ts` (generateContent + countTokens), `gemini-import.ts` (generateContent com responseSchema), `discover.ts` (generateContent com responseMimeType)
+  - **Listagem de Modelos** (4): `index.ts` (health check + model listing), `aiStatusModels.ts`, `oraculoModelos.ts` — todos usando `ai.models.list()` Pager
+- Eliminação total de chamadas REST manuais ao `generativelanguage.googleapis.com` — permanecem apenas referências legítimas em filtros GCP Logging/Monitoring.
+### Controle de versão
+- `admin-app`: APP v01.78.05 → APP v01.78.06
+
+
 ## [v01.78.05] - 2026-04-06
 ### Adicionado
 - **Cross-Service AI Telemetry**: Instrumentação completa de `logAiUsage` em `discover.ts` do admin-motor para registro de tokens, latência e status no `ai_usage_logs` (D1).

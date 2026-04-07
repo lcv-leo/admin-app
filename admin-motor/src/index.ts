@@ -48,6 +48,7 @@ import {
   onRequestPut as handleApphubConfigPut,
 } from './handlers/routes/apphub/config';
 import { toHeaders } from '../../functions/api/_lib/mainsite-admin';
+import { GoogleGenAI } from '@google/genai'
 // ── Novos handlers migrados de Pages Functions ──
 import { onRequestGet as handleAiStatusUsageGet, onRequestPost as handleAiStatusUsagePost } from './handlers/routes/ai-status/usage';
 import { onRequestPost as handleAstrologoExcluirPost } from './handlers/routes/astrologo/excluir';
@@ -244,58 +245,38 @@ const handleAiStatusHealth = async (request: Request, env: ResolvedAdminMotorEnv
       debugResolved: resolvedMap
     }, 503);
   }
-  const baseUrl = 'https://generativelanguage.googleapis.com';
-  const requestHeaders = toHeaders() as Record<string, string>;
+  const ai = new GoogleGenAI({ apiKey });
 
   try {
     const start = Date.now();
-    const res = await fetch(`${baseUrl}/v1beta/models?key=${apiKey}`, {
-      method: 'GET',
-      headers: requestHeaders,
-      signal: request.signal,
-    });
+    const pager = await ai.models.list({ config: { pageSize: 1 } });
+    // Consume at least one model to verify API reachability
+    let firstModel = '';
+    for await (const m of pager) {
+      firstModel = m.name || '';
+      break;
+    }
     const latencyMs = Date.now() - start;
 
-    if (res.ok) {
-      console.info('[ai-status/health] request:ok', {
-        endpoint: 'models:list',
-        latencyMs,
-        directGoogle: true,
-      });
-      return json({
-        ok: true,
-        keyConfigured: true,
-        apiReachable: true,
-        model: 'google-direct',
-        latencyMs,
-        httpStatus: 200,
-        checkedAt: new Date().toISOString(),
-      });
-    }
-
-    const upstreamBody = await res.text().catch(() => '');
-    console.error('[ai-status/health] upstream:error', {
+    console.info('[ai-status/health] request:ok', {
       endpoint: 'models:list',
-      status: res.status,
-      directGoogle: true,
-      bodyPreview: upstreamBody.slice(0, 300),
+      latencyMs,
+      sdk: true,
     });
-
     return json({
-      ok: false,
+      ok: true,
       keyConfigured: true,
       apiReachable: true,
-      model: 'google-direct',
+      model: firstModel || 'sdk-verified',
       latencyMs,
-      httpStatus: res.status,
-      errorDetail: 'Falha ao consultar a API do Google Gemini diretamente.',
+      httpStatus: 200,
       checkedAt: new Date().toISOString(),
     });
   } catch (err) {
     const errorBody = err instanceof Error ? err.message : String(err);
     console.error('[ai-status/health] request:error', {
       endpoint: 'models:list',
-      directGoogle: true,
+      sdk: true,
       error: errorBody,
     });
     return json(
@@ -322,34 +303,12 @@ const fetchMainsiteGeminiModels = async (
     throw new Error('GEMINI_API_KEY não configurada.');
   }
 
+  const ai = new GoogleGenAI({ apiKey });
+
   const allModels = new Map<string, ModelOption>();
-  const baseUrl = 'https://generativelanguage.googleapis.com';
 
-  const requestHeaders: Record<string, string> = {};
-
-  interface ModelOutput {
-    name: string;
-    displayName: string;
-  }
-
-  const res = await fetch(`${baseUrl}/v1beta/models?key=${apiKey}`, {
-    method: 'GET',
-    headers: requestHeaders,
-    signal: request.signal,
-  });
-
-  if (!res.ok) {
-    const upstreamBody = await res.text().catch(() => '');
-    console.error('[mainsite/modelos] upstream:error', {
-      status: res.status,
-      bodyPreview: upstreamBody.slice(0, 300),
-    });
-    throw new Error(`API Error: ${res.status}`);
-  }
-
-  const data = (await res.json()) as { models: ModelOutput[] };
-
-  for (const m of data.models || []) {
+  const pager = await ai.models.list({ config: { pageSize: 1000 } });
+  for await (const m of pager) {
     if (!m.name) continue;
 
     const id = m.name.replace('models/', '');

@@ -1,5 +1,17 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-07 — Admin-App v01.78.06 — Migração Total REST → SDK @google/genai
+### Scope
+Migração integral de 7 arquivos do `admin-motor` de REST `fetch()` direto para o SDK oficial `@google/genai ^1.48.0`.
+### Migrado
+- **Geração de Conteúdo**: `transform.ts`, `gemini-import.ts`, `discover.ts` — substituídos `fetch(generativelanguage.googleapis.com)` por `ai.models.generateContent()`
+- **Listagem de Modelos**: `index.ts` (health+models), `aiStatusModels.ts`, `oraculoModelos.ts` — substituídos REST por `ai.models.list()` com `for await` (AsyncPager)
+### Mantido
+- `gcp-logs.ts` e `gcp-monitoring.ts` usam REST direto para Cloud Logging/Monitoring APIs (SDKs GCP `@google-cloud/*` não compatíveis com Workers V8 isolate)
+### Controle de versão
+- `admin-app`: APP v01.78.05 → APP v01.78.06
+
+
 ## 2026-04-06 — Admin-App v01.78.03 — GCP Audit Logs UI Redesign
 ### Scope
 Redesign completo da aba "GCP Raw Logs" → "GCP Audit Logs" no módulo AI Status. JSON bruto substituído por painel visual com cards por evento, renderização inteligente por tipo de método, badges de status, e identidade estruturada.

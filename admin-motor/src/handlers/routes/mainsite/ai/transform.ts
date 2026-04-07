@@ -1,12 +1,11 @@
 /// <reference types="@cloudflare/workers-types" />
 
 /**
- * @typedef {Object} GeminiConfig
- * @property {string} version - Versão da API (ex: 'v1beta')
- * @property {number} maxTokensInput - Limite máximo tokens entrada (120000)
- * @property {number} maxRetries - Tentativas (2)
- * @property {number} retryDelayMs - Delay entre tentativas (800)
+ * POST /api/mainsite/ai/transform — Transformação de texto via Gemini SDK.
+ * Migrado de REST fetch direto para @google/genai SDK oficial.
  */
+
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai'
 
 export interface Env {
   GEMINI_API_KEY: string
@@ -21,11 +20,9 @@ interface D1Database {
 const FALLBACK_MODEL = 'gemini-2.5-pro';
 
 const GEMINI_CONFIG = {
-  version: 'v1beta',
   maxTokensInput: 120000,
   maxRetries: 2,
   retryDelayMs: 800,
-  defaultThinkingConfig: { thinkingLevel: 'HIGH' },
   endpoints: {
     transform: {
       temperature: 0.3,
@@ -37,9 +34,6 @@ const GEMINI_CONFIG = {
 
 /**
  * Log estruturado em formato JSON
- * @param {'info'|'warn'|'error'} level 
- * @param {string} message 
- * @param {Object} context 
  */
 function structuredLog(level: 'info' | 'warn' | 'error', message: string, context: Record<string, unknown> = {}) {
   const logStr = JSON.stringify({
@@ -75,24 +69,15 @@ async function resolveModel(db: D1Database | undefined): Promise<string> {
 }
 
 /**
- * Estima contagem de tokens via countTokens API
- * @param {string} text 
- * @param {string} apiKey 
- * @param {string} baseUrl
- * @param {string} model
- * @returns {Promise<number>}
+ * Estima contagem de tokens via SDK countTokens
  */
-async function estimateTokenCount(text: string, apiKey: string, baseUrl: string, model: string): Promise<number> {
+async function estimateTokenCount(ai: GoogleGenAI, text: string, model: string): Promise<number> {
   try {
-    const payload = { contents: [{ parts: [{ text }] }] };
-    const res = await fetch(`${baseUrl}/v1beta/models/${model}:countTokens?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    const resp = await ai.models.countTokens({
+      model,
+      contents: text
     });
-    if (!res.ok) return 0;
-    const data = await res.json() as { totalTokens?: number };
-    return data?.totalTokens || 0;
+    return resp.totalTokens ?? 0;
   } catch (error) {
     structuredLog('warn', 'Failed to count tokens', { error: (error as Error).message });
     return 0;
@@ -101,7 +86,6 @@ async function estimateTokenCount(text: string, apiKey: string, baseUrl: string,
 
 /**
  * Valida a entrada de tokens
- * @param {number} tokenCount 
  */
 function validateInputTokens(tokenCount: number) {
   if (tokenCount > GEMINI_CONFIG.maxTokensInput) {
@@ -113,6 +97,14 @@ function validateInputTokens(tokenCount: number) {
   }
   return { shouldReject: false };
 }
+
+// Safety settings via SDK enums
+const TRANSFORM_SAFETY_SETTINGS = [
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+];
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const resolvedEnv = ((context as { data?: { env?: Env } }).data?.env ?? context.env) as Env;
@@ -129,7 +121,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     structuredLog('error', 'transform: no model resolved');
     return new Response(JSON.stringify({ error: 'Modelo de IA não configurado. Configure em Configurações > Modelos de IA.' }), { status: 500 });
   }
-  const baseUrl: string = 'https://generativelanguage.googleapis.com';
+
+  const ai = new GoogleGenAI({ apiKey: resolvedEnv.GEMINI_API_KEY });
 
   try {
     const body = await context.request.json() as { action: string, text: string, instruction?: string };
@@ -154,68 +147,42 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const fullPrompt = `${promptInfo}\n\nTexto:\n${text}`;
 
-    // 1 & 10. Token Counting & Input Validation
-    const inputTokens = await estimateTokenCount(fullPrompt, resolvedEnv.GEMINI_API_KEY as string, baseUrl, activeModel);
+    // Token Counting via SDK
+    const inputTokens = await estimateTokenCount(ai, fullPrompt, activeModel);
     const validation = validateInputTokens(inputTokens);
     if (validation.shouldReject) {
       structuredLog('warn', 'Input rejected due to token count', { tokens: inputTokens });
       return new Response(JSON.stringify({ error: validation.error }), { status: validation.status });
     }
 
-    // 3. Improved Safety Settings
-    const safetySettings = [
-      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
-      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" }
-    ];
-
     let finalResponseText = '';
-    let usageMetadata = { promptTokens: 0, outputTokens: 0, cachedTokens: 0 };
+    let usageMetadata = { promptTokens: 0, outputTokens: 0 };
     
-    // 7. Detailed Retry Handling
+    // Retry loop
     for (let tentativa = 0; tentativa < GEMINI_CONFIG.maxRetries; tentativa++) {
       try {
         structuredLog('info', `Gemini request attempt ${tentativa + 1}`, {
           endpoint: 'transform', attempt: tentativa + 1, model: activeModel
         });
         
-        const payload = {
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          safetySettings,
-          generationConfig: {
+        const response = await ai.models.generateContent({
+          model: activeModel,
+          contents: fullPrompt,
+          config: {
+            safetySettings: TRANSFORM_SAFETY_SETTINGS,
             temperature: GEMINI_CONFIG.endpoints.transform.temperature,
             topP: GEMINI_CONFIG.endpoints.transform.topP,
-            maxOutputTokens: GEMINI_CONFIG.endpoints.transform.maxOutputTokens
+            maxOutputTokens: GEMINI_CONFIG.endpoints.transform.maxOutputTokens,
           }
-        };
-
-        const response = await fetch(`${baseUrl}/v1beta/models/${activeModel}:generateContent?key=${resolvedEnv.GEMINI_API_KEY as string}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-          const errBody = await response.text().catch(() => '');
-          structuredLog('error', 'Gemini API error response', {
-            endpoint: 'transform', attempt: tentativa + 1,
-            status: response.status, statusText: response.statusText,
-            body: errBody.substring(0, 300),
-            model: activeModel,
-          });
-          throw new Error(`API Error: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>, usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; cachedContentTokenCount?: number } };
-        const responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const responseText = response.text;
         
         if (responseText) {
-          // 5. Usage Metadata Tracking
+          // Usage Metadata Tracking
           usageMetadata = {
-            promptTokens: data.usageMetadata?.promptTokenCount || 0,
-            outputTokens: data.usageMetadata?.candidatesTokenCount || 0,
-            cachedTokens: data.usageMetadata?.cachedContentTokenCount || 0,
+            promptTokens: response.usageMetadata?.promptTokenCount || 0,
+            outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
           };
           
           structuredLog('info', 'Gemini request succeeded', {
@@ -276,7 +243,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       status: 'error',
       error_detail: error instanceof Error ? error.message : 'unknown',
     });
-    structuredLog('error', 'transform fatal error', { model: activeModel, baseUrl, error: error instanceof Error ? error.message : 'Erro desconhecido' });
+    structuredLog('error', 'transform fatal error', { model: activeModel, error: error instanceof Error ? error.message : 'Erro desconhecido' });
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido na geração por IA." }), { status: 500 });
   }
 };
@@ -319,4 +286,3 @@ function logAiUsage(db: D1Database | undefined, payload: TelemetryPayload) {
     }
   })();
 }
-

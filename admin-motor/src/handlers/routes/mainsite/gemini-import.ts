@@ -1,4 +1,6 @@
-import { marked } from 'marked'/**
+import { marked } from 'marked'
+import { GoogleGenAI } from '@google/genai'
+/**
  * gemini-import.ts — Cloudflare Pages Function
  * POST /api/mainsite/gemini-import
  * Fetches a Gemini share URL directly and utilizes Gemini SDK to cleanly parse its conversation.
@@ -403,48 +405,35 @@ Regras:
 
     let usageMetadata = { promptTokens: 0, outputTokens: 0, cachedTokens: 0 };
 
+    const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+
     for (let tentativa = 0; tentativa < GEMINI_CONFIG.maxRetries; tentativa++) {
       try {
-        const payload = {
-          contents: [{ parts: [{ text: `Extraia a conversa do conteúdo abaixo:\n\n${pageContent}` }] }],
-          systemInstruction: { parts: [{ text: systemInstructionConfig }] },
-          generationConfig: {
+        const response = await ai.models.generateContent({
+          model: activeModel,
+          contents: `Extraia a conversa do conteúdo abaixo:\n\n${pageContent}`,
+          config: {
+            systemInstruction: systemInstructionConfig,
             temperature: GEMINI_CONFIG.temperature,
-            responseMimeType: "application/json",
+            responseMimeType: 'application/json',
             responseSchema: {
-              type: "object",
+              type: 'OBJECT',
               properties: {
-                title: { type: "string", description: "Título da conversa" },
-                markdown: { type: "string", description: "Conteúdo em Markdown" }
+                title: { type: 'STRING', description: 'Título da conversa' },
+                markdown: { type: 'STRING', description: 'Conteúdo em Markdown' }
               },
-              required: ["title", "markdown"],
+              required: ['title', 'markdown'],
             }
           }
-        };
-
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${env?.GEMINI_API_KEY}`;
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json() as { 
-          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>, 
-          usageMetadata?: { promptTokenCount?: number, candidatesTokenCount?: number, cachedContentTokenCount?: number } 
-        };
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text = response.text;
 
         if (text) {
           usageMetadata = {
-            promptTokens: data.usageMetadata?.promptTokenCount || 0,
-            outputTokens: data.usageMetadata?.candidatesTokenCount || 0,
-            cachedTokens: data.usageMetadata?.cachedContentTokenCount || 0,
+            promptTokens: response.usageMetadata?.promptTokenCount || 0,
+            outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
+            cachedTokens: response.usageMetadata?.cachedContentTokenCount || 0,
           };
 
           logAiUsage(env?.BIGDATA_DB, {

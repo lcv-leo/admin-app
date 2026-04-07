@@ -1,3 +1,5 @@
+import { GoogleGenAI } from '@google/genai'
+
 type Env = {
   GEMINI_API_KEY?: string;
 };
@@ -31,21 +33,11 @@ export const handleOraculoModelosGet = async (context: Context) => {
   if (!apiKey) return json({ ok: false, error: 'GEMINI_API_KEY não configurada.' }, 500);
 
   try {
+    const ai = new GoogleGenAI({ apiKey });
     const allModels = new Map<string, { id: string; displayName: string; api: string; vision: boolean }>();
 
-    const baseUrl = 'https://generativelanguage.googleapis.com';
-
-    const res = await fetch(`${baseUrl}/v1beta/models?key=${apiKey}`);
-    if (!res.ok) throw new Error(`API Error: ${res.status}`);
-
-    interface ModelOutput {
-      name: string;
-      displayName: string;
-    }
-
-    const data = (await res.json()) as { models: ModelOutput[] };
-
-    for (const m of data.models || []) {
+    const pager = await ai.models.list({ config: { pageSize: 1000 } });
+    for await (const m of pager) {
       if (!m.name) continue;
       const id = m.name.replace('models/', '');
       const lower = id.toLowerCase();

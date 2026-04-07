@@ -1,4 +1,5 @@
 /// <reference types="@cloudflare/workers-types" />
+import { GoogleGenAI } from '@google/genai'
 
 
 /**
@@ -306,9 +307,10 @@ function buildGoogleNewsSuggestion(query: string): RssSuggestion | null {
 // Layer 3: Gemini AI — descoberta inteligente de feeds
 // ══════════════════════════════════════════════════════════
 
-async function discoverWithGemini(query: string, apiKey: string, baseUrl: string, db?: D1Binding): Promise<RssSuggestion[]> {
+async function discoverWithGemini(query: string, apiKey: string, db?: D1Binding): Promise<RssSuggestion[]> {
   const _telStart = Date.now();
   const activeModel = await resolveModel(db);
+  const ai = new GoogleGenAI({ apiKey });
   try {
     const prompt = `Você é um especialista em feeds RSS de notícias.
 O usuário está buscando fontes de notícias para o termo: "${query}"
@@ -324,25 +326,17 @@ REGRAS:
 - Priorize fontes brasileiras quando o termo for em português.
 - Se não conhecer feeds para o termo, retorne um array vazio [].`
 
-    const res = await fetch(`${baseUrl}/v1beta/models/${activeModel}:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json"
-        }
-      })
+    const response = await ai.models.generateContent({
+      model: activeModel,
+      contents: prompt,
+      config: {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        responseMimeType: 'application/json'
+      }
     });
     
-    if (!res.ok) {
-      throw new Error(`Gemini API Error: ${res.status}`);
-    }
-
-    const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>, usageMetadata?: { promptTokenCount?: number, candidatesTokenCount?: number } };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = response.text;
     if (!text) return [];
 
     const parsed = JSON.parse(text) as Array<{ name?: string; url?: string; category?: string }>;
@@ -360,7 +354,7 @@ REGRAS:
       }));
     // Telemetria fire-and-forget
     if (db) {
-      const usage = data?.usageMetadata || {};
+      const usage = response.usageMetadata || {};
       (async () => {
         try {
           await db.prepare(`
@@ -546,11 +540,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   // Layer 3: Gemini AI (se API key disponível e query ≥3 chars)
   const runtimeEnv = ((context as unknown as { data?: { env?: Env } }).data?.env || context.env)
   const apiKey = runtimeEnv.GEMINI_API_KEY
-  const baseUrl = 'https://generativelanguage.googleapis.com';
   if (apiKey && query.length >= 3) {
     try {
       const geminiResults = await Promise.race([
-        discoverWithGemini(query, apiKey, baseUrl, runtimeEnv.BIGDATA_DB as unknown as D1Binding),
+        discoverWithGemini(query, apiKey, runtimeEnv.BIGDATA_DB as unknown as D1Binding),
         new Promise<RssSuggestion[]>((resolve) => setTimeout(() => resolve([]), 6000)),
       ])
       addUnique(geminiResults)

@@ -1,3 +1,5 @@
+import { GoogleGenAI } from '@google/genai'
+
 type Env = { GEMINI_API_KEY?: string };
 
 type Context = { request: Request; env: Env };
@@ -30,6 +32,7 @@ export const handleAiStatusModelsGet = async (context: Context) => {
 
   try {
     const start = Date.now();
+    const ai = new GoogleGenAI({ apiKey });
     const allModels = new Map<
       string,
       {
@@ -48,38 +51,12 @@ export const handleAiStatusModelsGet = async (context: Context) => {
       }
     >();
 
-    const baseUrl = 'https://generativelanguage.googleapis.com';
-    const requestHeaders: Record<string, string> = {};
-
-    const res = await fetch(`${baseUrl}/v1beta/models?key=${apiKey}`, { headers: requestHeaders });
-    if (!res.ok) {
-      const upstreamBody = await res.text().catch(() => '');
-      console.error('[ai-status/models] upstream:error', {
-        status: res.status,
-        directGoogle: true,
-        bodyPreview: upstreamBody.slice(0, 300),
-      });
-      throw new Error(`API Error: ${res.status}`);
-    }
-
-    interface ModelOutput {
-      name: string;
-      displayName: string;
-      description: string;
-      inputTokenLimit: number;
-      outputTokenLimit: number;
-      temperature?: number;
-      maxTemperature?: number;
-    }
-
-    const data = (await res.json()) as { models: ModelOutput[] };
-
-    for (const m of data.models || []) {
+    const pager = await ai.models.list({ config: { pageSize: 1000 } });
+    for await (const m of pager) {
       if (!m.name) continue;
 
       const id = m.name.replace('models/', '');
       const lower = id.toLowerCase();
-      const rawModel = m as unknown as Record<string, unknown>;
       if (!lower.startsWith('gemini')) continue;
 
       let family = 'other';
@@ -91,13 +68,15 @@ export const handleAiStatusModelsGet = async (context: Context) => {
       if (lower.includes('preview')) tier = 'preview';
       else if (lower.includes('exp')) tier = 'experimental';
 
+      const rawModel = m as unknown as Record<string, unknown>;
+
       allModels.set(id, {
         id,
         displayName: m.displayName || formatModelName(id),
         description: m.description || '',
         api: 'sdk',
-        inputTokenLimit: (rawModel.inputTokenLimit as number) || 0,
-        outputTokenLimit: (rawModel.outputTokenLimit as number) || 0,
+        inputTokenLimit: (m.inputTokenLimit as number) || 0,
+        outputTokenLimit: (m.outputTokenLimit as number) || 0,
         thinking: (rawModel.thinking as boolean) || false,
         temperature: (rawModel.temperature as number) ?? null,
         maxTemperature: (rawModel.maxTemperature as number) ?? null,
@@ -123,12 +102,12 @@ export const handleAiStatusModelsGet = async (context: Context) => {
     console.info('[ai-status/models] request:ok', {
       total: models.length,
       latencyMs,
-      directGoogle: true,
+      sdk: true,
     });
     return json({ ok: true, models, total: models.length, latencyMs });
   } catch (err) {
     console.error('[ai-status/models] request:error', {
-      directGoogle: true,
+      sdk: true,
       error: err instanceof Error ? err.message : String(err),
     });
     return json({ ok: false, error: err instanceof Error ? err.message : 'Erro ao listar modelos.' }, 500);
