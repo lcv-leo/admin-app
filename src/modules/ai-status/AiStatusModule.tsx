@@ -236,7 +236,7 @@ export function AiStatusModule() {
           { id: 'models' as TabId, label: 'Modelos & Rate Limits', icon: Layers },
           { id: 'usage' as TabId, label: 'Uso & Telemetria', icon: BarChart3 },
           { id: 'gcp' as TabId, label: 'GCP Monitoring', icon: Cloud },
-          { id: 'gcp-logs' as TabId, label: 'GCP Raw Logs', icon: Settings }
+          { id: 'gcp-logs' as TabId, label: 'GCP Audit Logs', icon: BookOpen }
         ]).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -1297,19 +1297,104 @@ function GcpTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   TAB 4: GCP RAW LOGS
+   TAB 4: GCP AUDIT LOGS (fully visual, human-readable)
    ═══════════════════════════════════════════════════════════════ */
 
 interface GcpLogEntry {
   insertId: string
   timestamp: string
+  severity?: string
+  logName?: string
+  resource?: { type?: string; labels?: Record<string, string> }
   protoPayload?: {
+    '@type'?: string
+    serviceName?: string
+    methodName?: string
+    resourceName?: string
+    status?: { code?: number; message?: string }
+    authenticationInfo?: {
+      principalEmail?: string
+      serviceAccountKeyName?: string
+      principalSubject?: string
+    }
+    requestMetadata?: {
+      callerIp?: string
+      callerSuppliedUserAgent?: string
+      requestAttributes?: { time?: string; auth?: Record<string, unknown> }
+    }
     request?: Record<string, unknown>
     response?: Record<string, unknown>
-    authenticationInfo?: Record<string, unknown>
-    requestMetadata?: Record<string, unknown>
-    methodName?: string
+    metadata?: Record<string, unknown>
   }
+}
+
+/* ── Helper: Human-readable method names ── */
+const METHOD_LABELS: Record<string, { label: string; emoji: string; category: 'generate' | 'config' | 'model' | 'other' }> = {
+  GenerateContent: { label: 'Geração de Conteúdo', emoji: '✨', category: 'generate' },
+  StreamGenerateContent: { label: 'Streaming de Conteúdo', emoji: '🌊', category: 'generate' },
+  QueryEffectiveSetting: { label: 'Consulta de Configuração', emoji: '⚙️', category: 'config' },
+  GetModel: { label: 'Consulta de Modelo', emoji: '🤖', category: 'model' },
+  ListModels: { label: 'Listagem de Modelos', emoji: '📋', category: 'model' },
+  CountTokens: { label: 'Contagem de Tokens', emoji: '🔢', category: 'other' },
+  EmbedContent: { label: 'Embedding de Conteúdo', emoji: '📐', category: 'other' },
+  BatchEmbedContents: { label: 'Batch Embeddings', emoji: '📐', category: 'other' },
+  GetOperation: { label: 'Status de Operação', emoji: '🔄', category: 'other' },
+  CreateTunedModel: { label: 'Criação de Modelo Tuned', emoji: '🎯', category: 'model' },
+  GenerateAnswer: { label: 'Geração de Resposta', emoji: '💬', category: 'generate' },
+}
+
+/* ── Helper: Severity badge styling ── */
+function severityStyle(sev?: string): { bg: string; color: string; label: string } {
+  switch (sev?.toUpperCase()) {
+    case 'ERROR': return { bg: 'rgba(239,68,68,0.1)', color: '#dc2626', label: 'Erro' }
+    case 'WARNING': return { bg: 'rgba(245,158,11,0.1)', color: '#b45309', label: 'Aviso' }
+    case 'INFO': return { bg: 'rgba(16,185,129,0.1)', color: '#059669', label: 'OK' }
+    case 'DEBUG': return { bg: 'rgba(107,114,128,0.08)', color: '#6b7280', label: 'Debug' }
+    default: return { bg: 'rgba(16,185,129,0.1)', color: '#059669', label: sev || 'OK' }
+  }
+}
+
+/* ── Helper: Status code badge ── */
+function statusCodeStyle(code?: number): { bg: string; color: string } {
+  if (!code || code === 0) return { bg: 'rgba(16,185,129,0.1)', color: '#059669' } // success
+  if (code >= 400 && code < 500) return { bg: 'rgba(245,158,11,0.1)', color: '#b45309' }
+  return { bg: 'rgba(239,68,68,0.1)', color: '#dc2626' }
+}
+
+/* ── Helper: Mask sensitive strings (partial reveal) ── */
+function maskSensitive(val: string, showChars = 12): string {
+  if (val.length <= showChars + 4) return val
+  return val.slice(0, showChars) + '•••' + val.slice(-4)
+}
+
+/* ── Helper: user-agent → clean name ── */
+function cleanUserAgent(ua?: string): string {
+  if (!ua) return 'Desconhecido'
+  if (ua.includes('stubby')) return 'Google Stubby (Internal)'
+  if (ua.includes('grpc')) return 'gRPC Client'
+  if (ua.includes('google-api-nodejs')) return 'Node.js SDK'
+  if (ua.includes('google-api-python')) return 'Python SDK'
+  if (ua.includes('gax')) return 'Google API Extension'
+  if (ua.length > 50) return ua.slice(0, 47) + '…'
+  return ua
+}
+
+/* ── Sub-component: Property row for key-value display ── */
+function PropRow({ icon, label, value, mono }: { icon: string; label: string; value: string; mono?: boolean }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+      borderRadius: 8, background: 'rgba(0,0,0,0.02)',
+    }}>
+      <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 500, flexShrink: 0, minWidth: 90 }}>{label}</span>
+      <span style={{
+        fontSize: '0.82rem', color: '#1e293b', fontWeight: 500,
+        fontFamily: mono ? "'JetBrains Mono', 'Fira Code', monospace" : 'inherit',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{value}</span>
+    </div>
+  )
 }
 
 function GcpLogsTab() {
@@ -1365,9 +1450,9 @@ function GcpLogsTab() {
             <AlertTriangle size={16} /> Por que aistudio.google.com está cheio e aqui está vazio?
           </div>
           <p style={{ fontSize: '0.8rem', color: '#78350f', lineHeight: 1.5, margin: 0 }}>
-            Seus logs só aparecerão aqui se a **Chave de API do Gemini** (GEMINI_API_KEY) e a conta de serviço (**GCP_SA_KEY**) pertencerem ao <strong>mesmo Google Cloud Project</strong>. 
+            Seus logs só aparecerão aqui se a <strong>Chave de API do Gemini</strong> (GEMINI_API_KEY) e a conta de serviço (<strong>GCP_SA_KEY</strong>) pertencerem ao <strong>mesmo Google Cloud Project</strong>. 
             <br/><br/>
-            Frequentemente, o AI Studio cria um projeto "oculto" (shadow project) para gerar chaves de API pela interface rápida. Se os disparos aconteceram nele, a API Logging não conseguirá extraí-los pesquisando o projeto da sua GCP_SA_KEY.
+            Frequentemente, o AI Studio cria um projeto &quot;oculto&quot; (shadow project) para gerar chaves de API pela interface rápida. Se os disparos aconteceram nele, a API Logging não conseguirá extraí-los pesquisando o projeto da sua GCP_SA_KEY.
             Certifique-se de que a API Key em uso nos APPs foi originada explicitamente dentro do seu <code>GCP_PROJECT_ID</code> atual.
           </p>
         </div>
@@ -1379,164 +1464,433 @@ function GcpLogsTab() {
     )
   }
 
+  /* ── Stats summary ── */
+  const stats = (() => {
+    const methods: Record<string, number> = {}
+    let errors = 0
+    for (const log of logs) {
+      const m = log.protoPayload?.methodName?.split('.').pop() || 'Unknown'
+      methods[m] = (methods[m] || 0) + 1
+      if (log.severity === 'ERROR' || (log.protoPayload?.status?.code && log.protoPayload.status.code > 0)) errors++
+    }
+    const topMethod = Object.entries(methods).sort((a, b) => b[1] - a[1])[0]
+    return { total: logs.length, errors, methods, topMethod }
+  })()
+
   return (
     <div className="ai-gcp-logs-live">
+      {/* ── Banner ── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '16px 20px', borderRadius: 16, marginBottom: 16,
-        background: 'linear-gradient(135deg, rgba(8, 145, 178, 0.06), rgba(8, 145, 178, 0.04))',
-        border: '1px solid rgba(8, 145, 178, 0.12)',
+        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(139, 92, 246, 0.04))',
+        border: '1px solid rgba(99, 102, 241, 0.12)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'linear-gradient(135deg, #0891b2, #06b6d4)', color: '#fff',
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
           }}>
-            <Settings size={20} />
+            <BookOpen size={20} />
           </div>
           <div>
-            <span className="eyebrow" style={{ fontSize: '0.7rem' }}>Google Cloud Logging</span>
-            <strong style={{ display: 'block', fontSize: '1rem' }}>Generative Language API Logs</strong>
+            <span className="eyebrow" style={{ fontSize: '0.7rem' }}>Google Cloud Audit Logs</span>
+            <strong style={{ display: 'block', fontSize: '1rem' }}>Generative Language API</strong>
           </div>
         </div>
-        <button type="button" className="ghost-button" onClick={fetchLogs}
-          style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <RefreshCw size={14} /> Atualizar
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Quick stats */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{
+              fontSize: '0.75rem', padding: '4px 10px', borderRadius: 99, fontWeight: 600,
+              background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1',
+            }}>
+              {stats.total} eventos
+            </span>
+            {stats.errors > 0 && (
+              <span style={{
+                fontSize: '0.75rem', padding: '4px 10px', borderRadius: 99, fontWeight: 600,
+                background: 'rgba(239, 68, 68, 0.1)', color: '#dc2626',
+              }}>
+                {stats.errors} erro{stats.errors > 1 ? 's' : ''}
+              </span>
+            )}
+            {stats.topMethod && (
+              <span style={{
+                fontSize: '0.75rem', padding: '4px 10px', borderRadius: 99, fontWeight: 600,
+                background: 'rgba(16, 185, 129, 0.08)', color: '#059669',
+              }}>
+                Top: {stats.topMethod[0]} ({stats.topMethod[1]}×)
+              </span>
+            )}
+          </div>
+          <button type="button" className="ghost-button" onClick={fetchLogs}
+            style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <RefreshCw size={14} /> Atualizar
+          </button>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* ── Log entries ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {logs.map((log) => {
-          const methodName = log.protoPayload?.methodName?.split('.').pop() || 'Unknown Method'
-          const callerIp = String(log.protoPayload?.requestMetadata?.callerIp || 'IP Oculto')
+          const proto = log.protoPayload || {}
+          const rawMethod = proto.methodName?.split('.').pop() || 'Unknown'
+          const methodInfo = METHOD_LABELS[rawMethod] || { label: rawMethod, emoji: '📄', category: 'other' as const }
           const date = new Date(log.timestamp)
           const isExpanded = expandedLog === log.insertId
 
+          // Auth info
+          const auth = proto.authenticationInfo || {}
+          const email = auth.principalEmail || ''
+          const saKeyName = auth.serviceAccountKeyName || ''
+
+          // Request metadata
+          const reqMeta = proto.requestMetadata || {}
+          const callerIp = String(reqMeta.callerIp || '')
+          const userAgent = cleanUserAgent(reqMeta.callerSuppliedUserAgent)
+
+          // Status
+          const statusCode = proto.status?.code
+          const statusMsg = proto.status?.message
+          const hasError = statusCode !== undefined && statusCode > 0
+          const sevStyle = hasError
+            ? severityStyle('ERROR')
+            : severityStyle(log.severity || 'INFO')
+          const scStyle = statusCodeStyle(statusCode)
+
+          // Category color scheme
+          const catColors: Record<string, { accent: string; bg: string }> = {
+            generate: { accent: '#6366f1', bg: 'rgba(99, 102, 241, 0.06)' },
+            config: { accent: '#0891b2', bg: 'rgba(8, 145, 178, 0.06)' },
+            model: { accent: '#059669', bg: 'rgba(16, 185, 129, 0.06)' },
+            other: { accent: '#6b7280', bg: 'rgba(107, 114, 128, 0.06)' },
+          }
+          const cat = catColors[methodInfo.category] || catColors.other
+
           return (
-            <div key={log.insertId} className="form-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div key={log.insertId} className="form-card" style={{ padding: 0, overflow: 'hidden', transition: 'box-shadow 0.2s ease' }}>
+              {/* ── Collapsed header ── */}
               <button type="button" onClick={() => setExpandedLog(isExpanded ? null : log.insertId)}
                 style={{
                   width: '100%', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14,
                   background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left'
                 }}>
+                {/* Category icon */}
                 <div style={{
-                  width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'rgba(8, 145, 178, 0.1)', color: '#0891b2', flexShrink: 0
+                  width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: cat.bg, color: cat.accent, flexShrink: 0, fontSize: '1rem',
+                  border: `1px solid ${cat.accent}18`,
                 }}>
-                  <Activity size={16} />
+                  {methodInfo.emoji}
                 </div>
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <strong style={{ fontSize: '0.92rem', color: '#111827' }}>{methodName}</strong>
-                    <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.05)', color: '#6b7280' }}>
-                      {callerIp.includes('::1') ? 'Localhost' : callerIp}
+
+                {/* Text info */}
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <strong style={{ fontSize: '0.9rem', color: '#111827' }}>{methodInfo.label}</strong>
+                    {/* Status badge */}
+                    <span style={{
+                      fontSize: '0.68rem', padding: '2px 8px', borderRadius: 99, fontWeight: 600,
+                      background: sevStyle.bg, color: sevStyle.color,
+                    }}>
+                      {sevStyle.label}
+                    </span>
+                    {/* Method category pill */}
+                    <span style={{
+                      fontSize: '0.68rem', padding: '2px 8px', borderRadius: 99, fontWeight: 500,
+                      background: 'rgba(0,0,0,0.04)', color: '#6b7280',
+                    }}>
+                      {rawMethod}
                     </span>
                   </div>
-                  <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                    {date.toLocaleDateString('pt-BR')} às {date.toLocaleTimeString('pt-BR')}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.78rem', color: '#6b7280' }}>
+                    <span>📅 {date.toLocaleDateString('pt-BR')} às {date.toLocaleTimeString('pt-BR')}</span>
+                    {email && <span>👤 {email.split('@')[0]}</span>}
+                    {callerIp && callerIp !== 'private' && <span>🌐 {callerIp.includes('::1') ? 'localhost' : callerIp}</span>}
+                  </div>
                 </div>
+
                 {isExpanded ? <ChevronDown size={18} style={{ color: '#9ca3af' }} /> : <ChevronRight size={18} style={{ color: '#9ca3af' }} />}
               </button>
-              
+
+              {/* ── Expanded Content ── */}
               {isExpanded && (
                 <div style={{ padding: '0 20px 20px', animation: 'fadeSlideIn 0.2s ease' }}>
-                  {/* Extracting Friendly Data */}
+
+                  {/* ── 1. Identity & Metadata Card ── */}
+                  <div style={{
+                    borderRadius: 12, padding: '14px 16px', marginBottom: 16,
+                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.03), rgba(139, 92, 246, 0.02))',
+                    border: '1px solid rgba(99, 102, 241, 0.08)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                      <HelpCircle size={14} style={{ color: '#6366f1' }} />
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Identidade & Contexto</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {email && <PropRow icon="👤" label="Conta" value={email} />}
+                      {saKeyName && <PropRow icon="🔑" label="SA Key" value={maskSensitive(saKeyName)} mono />}
+                      {callerIp && <PropRow icon="🌐" label="IP" value={callerIp === 'private' ? 'Privado (interno Google)' : callerIp} mono />}
+                      {userAgent && <PropRow icon="📱" label="Cliente" value={userAgent} />}
+                      {proto.serviceName && <PropRow icon="☁️" label="Serviço" value={proto.serviceName} mono />}
+                      {proto.resourceName && <PropRow icon="📂" label="Recurso" value={proto.resourceName.length > 60 ? '…' + proto.resourceName.slice(-55) : proto.resourceName} mono />}
+                    </div>
+                  </div>
+
+                  {/* ── 2. Status Card (if error) ── */}
+                  {hasError && (
+                    <div style={{
+                      borderRadius: 12, padding: '14px 16px', marginBottom: 16,
+                      background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <AlertTriangle size={14} style={{ color: '#dc2626' }} />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#dc2626', textTransform: 'uppercase' }}>Erro na Requisição</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <span style={{
+                          fontSize: '0.8rem', padding: '4px 12px', borderRadius: 8, fontWeight: 700,
+                          background: scStyle.bg, color: scStyle.color, fontFamily: 'monospace',
+                        }}>
+                          Code {statusCode}
+                        </span>
+                        {statusMsg && <span style={{ fontSize: '0.82rem', color: '#991b1b' }}>{statusMsg}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── 3. Content-Aware Rendering ── */}
                   {(() => {
                     interface LogPart { text?: string }
                     interface LogContent { role?: string; parts?: LogPart[] }
 
-                    const req = (log.protoPayload?.request || {}) as {
-                      model?: string
-                      systemInstruction?: { parts?: LogPart[] }
-                      contents?: LogContent[]
-                    }
-                    
-                    const res = (log.protoPayload?.response || {}) as {
-                      candidates?: { content?: LogContent, finishReason?: string }[]
-                      usageMetadata?: { totalTokenCount?: number, promptTokenCount?: number }
-                    }
-                    
-                    const reqModel = req.model?.split('/').pop() || 'Desconhecido'
-                    
-                    // Extract Prompts (System + User)
-                    const systemInstructions = req.systemInstruction?.parts?.map((p: LogPart) => p.text).filter(Boolean).join('\n') || ''
-                    const userContents = req.contents?.map((c: LogContent) => {
-                      const text = c.parts?.map((p: LogPart) => p.text).filter(Boolean).join('\n') || ''
-                      return { role: c.role || 'user', text }
-                    }) || []
+                    const isGenerate = methodInfo.category === 'generate'
 
-                    // Extract Response
-                    const candidate = res.candidates?.[0]
-                    const responseText = candidate?.content?.parts?.map((p: LogPart) => p.text).filter(Boolean).join('\n') || ''
-                    const finishReason = candidate?.finishReason || ''
-                    
-                    // Tokens
-                    const tokens = res.usageMetadata || {}
+                    if (isGenerate) {
+                      // ── Generate Content: show prompts and response ──
+                      const req = (proto.request || {}) as {
+                        model?: string
+                        systemInstruction?: { parts?: LogPart[] }
+                        contents?: LogContent[]
+                        generationConfig?: { temperature?: number; maxOutputTokens?: number; topP?: number; topK?: number }
+                      }
+                      const res = (proto.response || {}) as {
+                        candidates?: { content?: LogContent; finishReason?: string }[]
+                        usageMetadata?: { totalTokenCount?: number; promptTokenCount?: number; candidatesTokenCount?: number }
+                      }
 
-                    return (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {/* Meta Banner */}
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 6, background: 'rgba(26, 115, 232, 0.1)', color: '#1a73e8', fontWeight: 600 }}>
-                            🤖 Modelo: {reqModel}
-                          </span>
-                          {tokens.totalTokenCount && (
-                            <span style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 6, background: 'rgba(16, 185, 129, 0.1)', color: '#059669', fontWeight: 600 }}>
-                              🎫 Uso Total: {tokens.totalTokenCount} tokens
+                      const reqModel = req.model?.split('/').pop() || 'Desconhecido'
+                      const systemInstructions = req.systemInstruction?.parts?.map(p => p.text).filter(Boolean).join('\n') || ''
+                      const userContents = req.contents?.map(c => ({
+                        role: c.role || 'user',
+                        text: c.parts?.map(p => p.text).filter(Boolean).join('\n') || ''
+                      })) || []
+                      const candidate = res.candidates?.[0]
+                      const responseText = candidate?.content?.parts?.map(p => p.text).filter(Boolean).join('\n') || ''
+                      const finishReason = candidate?.finishReason || ''
+                      const tokens = res.usageMetadata || {}
+                      const genConfig = req.generationConfig
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                          {/* Meta badges */}
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.75rem', padding: '5px 12px', borderRadius: 8, background: 'rgba(26, 115, 232, 0.08)', color: '#1a73e8', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              🤖 {reqModel}
                             </span>
-                          )}
-                          {finishReason && (
-                            <span style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 6, background: finishReason === 'STOP' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: finishReason === 'STOP' ? '#059669' : '#b45309', fontWeight: 600 }}>
-                              🏁 Finish: {finishReason}
-                            </span>
-                          )}
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16 }}>
-                          {/* Left Column: Request */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <span className="eyebrow" style={{ fontSize: '0.72rem', display: 'block' }}>REQUEST (PROMPTS)</span>
-                            
-                            {systemInstructions && (
-                              <div style={{ padding: 16, borderRadius: 12, background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#b45309', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}><Settings size={12} /> System Instruction</div>
-                                <div style={{ fontSize: '0.85rem', color: '#451a03', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{systemInstructions}</div>
-                              </div>
+                            {tokens.promptTokenCount != null && (
+                              <span style={{ fontSize: '0.75rem', padding: '5px 12px', borderRadius: 8, background: 'rgba(14, 165, 233, 0.08)', color: '#0284c7', fontWeight: 600 }}>
+                                📥 {fmtNum(tokens.promptTokenCount)} prompt
+                              </span>
                             )}
-
-                            {userContents.map((c: { role: string; text: string }, i: number) => (
-                              <div key={i} style={{ padding: 16, borderRadius: 12, background: 'rgba(26,115,232,0.03)', border: '1px solid rgba(26,115,232,0.1)' }}>
-                                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#1a73e8', marginBottom: 6, textTransform: 'uppercase' }}>{c.role}</div>
-                                <div style={{ fontSize: '0.85rem', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{c.text || <em style={{opacity: 0.5}}>(Sem texto / Imagem)</em>}</div>
-                              </div>
-                            ))}
+                            {tokens.candidatesTokenCount != null && (
+                              <span style={{ fontSize: '0.75rem', padding: '5px 12px', borderRadius: 8, background: 'rgba(139, 92, 246, 0.08)', color: '#7c3aed', fontWeight: 600 }}>
+                                📤 {fmtNum(tokens.candidatesTokenCount)} resposta
+                              </span>
+                            )}
+                            {tokens.totalTokenCount != null && (
+                              <span style={{ fontSize: '0.75rem', padding: '5px 12px', borderRadius: 8, background: 'rgba(16, 185, 129, 0.08)', color: '#059669', fontWeight: 600 }}>
+                                🎫 {fmtNum(tokens.totalTokenCount)} total
+                              </span>
+                            )}
+                            {finishReason && (
+                              <span style={{
+                                fontSize: '0.75rem', padding: '5px 12px', borderRadius: 8, fontWeight: 600,
+                                background: finishReason === 'STOP' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                                color: finishReason === 'STOP' ? '#059669' : '#b45309',
+                              }}>
+                                🏁 {finishReason === 'STOP' ? 'Completo' : finishReason}
+                              </span>
+                            )}
+                            {genConfig?.temperature != null && (
+                              <span style={{ fontSize: '0.75rem', padding: '5px 12px', borderRadius: 8, background: 'rgba(251, 146, 60, 0.08)', color: '#c2410c', fontWeight: 600 }}>
+                                🌡️ temp: {genConfig.temperature}
+                              </span>
+                            )}
                           </div>
 
-                          {/* Right Column: Response */}
-                          <div>
-                            <span className="eyebrow" style={{ fontSize: '0.72rem', display: 'block', marginBottom: 12 }}>RESPONSE (MODEL)</span>
-                            <div style={{ padding: 16, borderRadius: 12, background: '#1e293b', border: '1px solid #334155', color: '#f8fafc' }}>
-                              <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#e2e8f0', marginBottom: 6, textTransform: 'uppercase' }}>MODEL</div>
-                              <div style={{ fontSize: '0.85rem', color: '#f1f5f9', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                                {responseText || <em style={{opacity: 0.5}}>(Resposta vazia ou estruturada sem texto principal)</em>}
-                              </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 16 }}>
+                            {/* Left: Request */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Entrada (Prompts)</span>
+
+                              {systemInstructions && (
+                                <div style={{ padding: 14, borderRadius: 10, background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.12)' }}>
+                                  <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#b45309', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>⚙️ System Instruction</div>
+                                  <div style={{ fontSize: '0.82rem', color: '#451a03', whiteSpace: 'pre-wrap', lineHeight: 1.5, maxHeight: 200, overflow: 'auto' }}>{systemInstructions}</div>
+                                </div>
+                              )}
+
+                              {userContents.map((c, i) => (
+                                <div key={i} style={{ padding: 14, borderRadius: 10, background: c.role === 'model' ? 'rgba(139,92,246,0.03)' : 'rgba(26,115,232,0.03)', border: `1px solid ${c.role === 'model' ? 'rgba(139,92,246,0.1)' : 'rgba(26,115,232,0.1)'}` }}>
+                                  <div style={{ fontSize: '0.7rem', fontWeight: 600, color: c.role === 'model' ? '#7c3aed' : '#1a73e8', marginBottom: 6, textTransform: 'uppercase' }}>
+                                    {c.role === 'model' ? '🤖 Model' : '👤 User'}
+                                  </div>
+                                  <div style={{ fontSize: '0.82rem', color: '#1e293b', whiteSpace: 'pre-wrap', lineHeight: 1.5, maxHeight: 300, overflow: 'auto' }}>
+                                    {c.text || <em style={{ opacity: 0.5 }}>(Sem texto / Mídia)</em>}
+                                  </div>
+                                </div>
+                              ))}
+
+                              {!systemInstructions && userContents.length === 0 && (
+                                <div style={{ padding: 14, borderRadius: 10, background: 'rgba(0,0,0,0.02)', textAlign: 'center' }}>
+                                  <em style={{ fontSize: '0.82rem', color: '#9ca3af' }}>Sem conteúdo de prompt extraído</em>
+                                </div>
+                              )}
                             </div>
 
-                            {/* Raw Fallback button */}
-                            <details style={{ marginTop: 12 }}>
-                              <summary style={{ cursor: 'pointer', fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
-                                Ver JSON bruto completo
-                              </summary>
-                              <pre style={{ margin: '8px 0 0', padding: 12, borderRadius: 8, background: '#0f172a', color: '#cbd5e1', fontSize: '0.68rem', overflow: 'auto', maxHeight: 300, border: '1px solid rgba(255,255,255,0.05)' }}>
-                                {JSON.stringify(log.protoPayload, null, 2)}
-                              </pre>
-                            </details>
+                            {/* Right: Response */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Saída (Resposta)</span>
+                              <div style={{
+                                padding: 14, borderRadius: 10,
+                                background: responseText ? 'linear-gradient(135deg, #1e1b4b, #312e81)' : 'rgba(0,0,0,0.03)',
+                                border: responseText ? '1px solid #4338ca' : '1px solid rgba(0,0,0,0.06)',
+                                color: responseText ? '#e0e7ff' : '#6b7280',
+                              }}>
+                                {responseText ? (
+                                  <div style={{ fontSize: '0.82rem', whiteSpace: 'pre-wrap', lineHeight: 1.6, maxHeight: 400, overflow: 'auto' }}>{responseText}</div>
+                                ) : (
+                                  <div style={{ textAlign: 'center', padding: 20 }}>
+                                    <p style={{ fontSize: '0.82rem', fontStyle: 'italic' }}>Resposta não disponível no audit log</p>
+                                    <p style={{ fontSize: '0.72rem', marginTop: 4, opacity: 0.6 }}>Audit logs podem omitir o corpo da resposta por compliance</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
+                      )
+                    }
+
+                    // ── Non-generate methods: structured property view ──
+                    const req = proto.request as Record<string, unknown> | undefined
+                    const res = proto.response as Record<string, unknown> | undefined
+                    const hasReq = req && Object.keys(req).filter(k => k !== '@type').length > 0
+                    const hasRes = res && Object.keys(res).filter(k => k !== '@type').length > 0
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        {/* Request Properties Card */}
+                        {hasReq && (
+                          <div style={{
+                            borderRadius: 12, padding: '14px 16px',
+                            background: 'rgba(14, 165, 233, 0.03)', border: '1px solid rgba(14, 165, 233, 0.08)',
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                              <ChevronRight size={14} style={{ color: '#0284c7' }} />
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' }}>Dados da Requisição</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                              {Object.entries(req!).filter(([k]) => k !== '@type').map(([key, val]) => (
+                                <PropRow
+                                  key={key}
+                                  icon="📌"
+                                  label={key}
+                                  value={typeof val === 'object' ? JSON.stringify(val) : String(val ?? '—')}
+                                  mono={typeof val !== 'string'}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Response Properties Card */}
+                        {hasRes && (
+                          <div style={{
+                            borderRadius: 12, padding: '14px 16px',
+                            background: 'rgba(16, 185, 129, 0.03)', border: '1px solid rgba(16, 185, 129, 0.08)',
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                              <CheckCircle size={14} style={{ color: '#059669' }} />
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#059669', textTransform: 'uppercase' }}>Dados da Resposta</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                              {Object.entries(res!).filter(([k]) => k !== '@type').map(([key, val]) => {
+                                // Render nested objects as collapsible JSON
+                                if (typeof val === 'object' && val !== null && Object.keys(val as object).length > 2) {
+                                  return (
+                                    <details key={key} style={{ padding: '6px 12px', borderRadius: 8, background: 'rgba(0,0,0,0.02)' }}>
+                                      <summary style={{ cursor: 'pointer', fontSize: '0.78rem', fontWeight: 500, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <span>📦</span>
+                                        <span style={{ color: '#6b7280', minWidth: 90 }}>{key}</span>
+                                        <span style={{ fontSize: '0.72rem', color: '#9ca3af' }}>({Object.keys(val as object).length} campos)</span>
+                                      </summary>
+                                      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        {Object.entries(val as Record<string, unknown>).map(([subKey, subVal]) => (
+                                          <PropRow key={subKey} icon="  ∟" label={subKey} value={typeof subVal === 'object' ? JSON.stringify(subVal) : String(subVal ?? '—')} mono />
+                                        ))}
+                                      </div>
+                                    </details>
+                                  )
+                                }
+                                return (
+                                  <PropRow
+                                    key={key}
+                                    icon="📌"
+                                    label={key}
+                                    value={typeof val === 'object' ? JSON.stringify(val) : String(val ?? '—')}
+                                    mono={typeof val !== 'string'}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Empty payload note */}
+                        {!hasReq && !hasRes && (
+                          <div style={{
+                            borderRadius: 12, padding: '20px 16px', textAlign: 'center',
+                            background: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.04)',
+                          }}>
+                            <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
+                              ℹ️ Evento de auditoria sem payload de dados — apenas registro de acesso.
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )
                   })()}
+
+                  {/* ── Raw JSON toggle ── */}
+                  <details style={{ marginTop: 14 }}>
+                    <summary style={{
+                      cursor: 'pointer', fontSize: '0.75rem', color: '#64748b', fontWeight: 500,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                      <Settings size={12} /> Ver payload JSON bruto
+                    </summary>
+                    <pre style={{
+                      margin: '8px 0 0', padding: 14, borderRadius: 10,
+                      background: '#0f172a', color: '#94a3b8', fontSize: '0.7rem',
+                      overflow: 'auto', maxHeight: 350, border: '1px solid rgba(255,255,255,0.06)',
+                      lineHeight: 1.5,
+                    }}>
+                      {JSON.stringify(log.protoPayload, null, 2)}
+                    </pre>
+                  </details>
                 </div>
               )}
             </div>
@@ -1546,3 +1900,4 @@ function GcpLogsTab() {
     </div>
   )
 }
+

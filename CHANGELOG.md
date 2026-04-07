@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.78.03] - 2026-04-06
+### Alterado
+- **GCP Audit Logs (UI Redesign)**: Aba "GCP Raw Logs" completamente redesenhada e renomeada para "GCP Audit Logs". JSON bruto substituído por painel visual com cards por evento, badges de status coloridos, identidade estruturada (conta, IP, user-agent), renderização inteligente por tipo de método (GenerateContent exibe prompts/respostas; métodos de configuração exibem property grid), métricas de tokens discriminadas (prompt/resposta/total), e JSON bruto preservado como toggle colapsável. Banner superior com estatísticas agregadas (total de eventos, erros, método mais frequente).
+
+### Controle de versão
+- `admin-app`: APP v01.78.02 → APP v01.78.03
+
 ## [v01.78.02] - 2026-04-06
 ### Corrigido
 - **News Feed 502 Fix**: Adicionado `ExecutionContext` ao fetch handler do `admin-motor` e `waitUntil` ao `routeContext`, corrigindo crash em `/api/news/feed` que dependia de `context.waitUntil()` para cache assíncrono.

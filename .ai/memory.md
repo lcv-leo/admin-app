@@ -1,5 +1,16 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-06 — Admin-App v01.78.03 — GCP Audit Logs UI Redesign
+### Scope
+Redesign completo da aba "GCP Raw Logs" → "GCP Audit Logs" no módulo AI Status. JSON bruto substituído por painel visual com cards por evento, renderização inteligente por tipo de método, badges de status, e identidade estruturada.
+### Alterado
+- `GcpLogsTab`: reescrita completa com helpers (`METHOD_LABELS`, `severityStyle`, `statusCodeStyle`, `cleanUserAgent`, `maskSensitive`, `PropRow`)
+- Renderização por categoria: `generate` (prompts + respostas) vs `config/model/other` (property grid)
+- Banner com estatísticas agregadas (total eventos, erros, top method)
+- Tab icon: `Settings` → `BookOpen`, label: "GCP Raw Logs" → "GCP Audit Logs"
+### Controle de versão
+- `admin-app`: APP v01.78.02 → APP v01.78.03
+
 ## 2026-04-06 — Admin-App v01.78.02 — News Feed 502 Fix + Observability
 ### Scope
 Corrigido crash 502 no `/api/news/feed` causado por `context.waitUntil is not a function`. O `fetch()` handler do admin-motor não recebia `ctx: ExecutionContext`, e o `routeContext` não incluía `waitUntil`.
