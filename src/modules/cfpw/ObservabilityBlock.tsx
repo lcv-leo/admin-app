@@ -397,7 +397,7 @@ export function ObservabilityBlock() {
       const now = Date.now()
       const res = await obsPost('query', {
         queryId: generateQueryId(),
-        timeframe: { from: now - 30_000, to: now }, // last 30s window
+        timeframe: { from: now - 90_000, to: now }, // 90s window to account for ~30s CF ingestion delay
         view: 'events',
         limit: 100,
         parameters: {},
