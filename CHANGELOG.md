@@ -1,5 +1,17 @@
 # Changelog — Admin App
 
+## [v01.79.00] - 2026-04-07
+### Adicionado
+- **Faixa de Status da Rotação (MainSite)**: Nova faixa visual dinâmica posicionada entre "Novo Post" e "Arquivo de posts operacionais" no módulo MainSite, exibindo em tempo real o timestamp da última rotação do cron e um countdown regressivo (`hh:mm:ss`) até a próxima rotação.
+  - Dados extraídos do payload já existente de `GET /api/mainsite/settings` (`settings.rotation`) — zero alterações backend.
+  - Countdown atualizado a cada segundo via `setInterval(1s)` com cálculo ideal (`last_rotated_at + interval * 60000`).
+  - 5 estados inteligentes: ativa (gradiente azul→verde + countdown), iminente (texto verde + ícone girando), pausada por post fixado (amarelo), desativada (cinza muted), dados não carregados (não renderiza).
+  - Labels em negrito com dois-pontos ("Última Rotação:", "Próxima Rotação:"), countdown em fonte monospace sem negrito, conteúdo centralizado na faixa.
+  - Ícones `RotateCw` e `Clock` do lucide-react, formatação pt-BR com timezone `America/Sao_Paulo`.
+
+### Controle de versão
+- `admin-app`: APP v01.78.06 → APP v01.79.00
+
 ## [v01.78.06] - 2026-04-07
 ### Alterado
 - **Migração Total SDK Gemini**: 7 arquivos do `admin-motor` migrados de REST `fetch()` direto para SDK oficial `@google/genai ^1.48.0`:

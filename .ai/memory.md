@@ -1,5 +1,17 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-07 — Admin-App v01.79.00 — Faixa de Status da Rotação (MainSite)
+### Scope
+Nova faixa visual dinâmica no módulo MainSite exibindo em tempo real a última e próxima rotação do cron de textos.
+### Adicionado
+- **Frontend-only**: Zero alterações backend — dados (`enabled`, `interval`, `last_rotated_at`) já disponíveis em `GET /api/mainsite/settings` → `settings.rotation`.
+- **State**: `rotationInfo` (dados do cron) + `countdown` (timer string) + `hasPinnedPost` (derived de `managedPosts`).
+- **Countdown Effect**: `setInterval(1s)` com cálculo ideal `last_rotated_at + interval * 60000`.
+- **5 estados**: ativa (gradiente azul→verde), iminente (RotateCw spin + verde), pausada (post fixado, amarelo), desativada (cinza), não carregada (oculta).
+- **Visual**: Labels "Última Rotação:" / "Próxima Rotação:" em negrito, countdown monospace sem negrito, conteúdo centralizado (`justifyContent: center`), timezone `America/Sao_Paulo`.
+### Controle de versão
+- `admin-app`: APP v01.78.06 → APP v01.79.00
+
 ## 2026-04-07 — Admin-App v01.78.06 — Migração Total REST → SDK @google/genai
 ### Scope
 Migração integral de 7 arquivos do `admin-motor` de REST `fetch()` direto para o SDK oficial `@google/genai ^1.48.0`.
