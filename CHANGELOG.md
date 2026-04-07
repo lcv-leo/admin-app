@@ -1,4 +1,20 @@
 # Changelog — Admin App
+## [v01.81.00] - 2026-04-07
+### Adicionado
+- **Moderação de Comentários — Painel de Configurações Completo**: Novo painel de configurações avançadas no módulo MainSite com 18 parâmetros configuráveis, todos persistidos no D1 (`mainsite_settings`):
+  - **Funcionalidades**: Habilitar/desabilitar comentários, avaliações, anônimos, exigir email, aprovação manual obrigatória, notificações por email com email configurável.
+  - **Limites de Conteúdo**: Tamanho mínimo e máximo de comentários, profundidade de respostas aninhadas, fechamento automático após N dias.
+  - **Moderação Automática (GCP NL API v2)**: Limites de aprovação e rejeição por slider, 16 categorias do Google com labels em PT-BR selecionáveis, comportamento configurável quando API indisponível.
+  - **Proteção Anti-Spam**: Limite de comentários por IP/hora, janela de detecção de duplicatas, política de links (permitir/revisar/bloquear), lista de palavras bloqueadas.
+- **Backend admin-motor**: Rotas `GET/PUT /api/mainsite/comments/admin/settings` com merge de defaults e validação server-side.
+
+### Alterado
+- **MainsiteModule**: Card "Arquivo de posts operacionais" renomeado para "Arquivo de Posts". Reordenação: Arquivo de Posts → Moderação de Comentários → Janelas de Aviso.
+- **mainsite-worker**: `notifyAdminNewComment` agora aceita email de destino configurável (3º parâmetro). Default settings expandidos com merge forward-compatible (`{ ...DEFAULT, ...stored }`).
+
+### Controle de versão
+- `admin-app`: APP v01.80.03 → APP v01.81.00
+
 ## [v01.80.03] - 2026-04-07
 ### Segurança
 - **Vite 8.0.3 → 8.0.7**: Correção de 3 CVEs de severidade alta/média (server.fs.deny bypass, WebSocket arbitrary file read, path traversal `.map` handling).

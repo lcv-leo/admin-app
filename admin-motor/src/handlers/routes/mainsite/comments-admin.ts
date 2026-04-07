@@ -8,6 +8,8 @@
  *   DELETE /api/mainsite/comments/admin/:id
  *   POST  /api/mainsite/comments/admin/:id/reply  { content }
  *   POST  /api/mainsite/comments/admin/bulk  { ids, action }
+ *   GET   /api/mainsite/comments/admin/settings
+ *   PUT   /api/mainsite/comments/admin/settings  { ...ModerationSettings }
  */
 
 type D1Like = {
@@ -187,5 +189,95 @@ export async function handleCommentsAdminBulk(ctx: ModerationContext): Promise<R
   } catch (error) {
     console.error('[comments/admin] bulk:error', error instanceof Error ? error.message : error);
     return json({ ok: false, error: 'Falha na ação em lote.' }, 500);
+  }
+}
+
+// ── Default settings (kept in sync with mainsite-worker) ─────────────
+
+const DEFAULT_MOD_SETTINGS = {
+  commentsEnabled: true,
+  ratingsEnabled: true,
+  allowAnonymous: true,
+  requireEmail: false,
+  requireApproval: false,
+  minCommentLength: 3,
+  maxCommentLength: 2000,
+  maxNestingDepth: 2,
+  autoApproveThreshold: 0.3,
+  autoRejectThreshold: 0.8,
+  criticalCategories: ['Toxic', 'Insult', 'Profanity', 'Sexual', 'Violent', 'Derogatory'],
+  apiUnavailableBehavior: 'pending' as const,
+  rateLimitPerIpPerHour: 10,
+  blocklistWords: [] as string[],
+  linkPolicy: 'allow' as const,
+  duplicateWindowHours: 24,
+  autoCloseAfterDays: 0,
+  notifyOnNewComment: true,
+  notifyEmail: 'cal@reflexosdaalma.blog',
+};
+
+// ── GET /api/mainsite/comments/admin/settings ────────────────────────
+
+export async function handleCommentsAdminGetSettings(ctx: ModerationContext): Promise<Response> {
+  const db = ctx.env.BIGDATA_DB;
+  if (!db) return json({ ok: false, error: 'BIGDATA_DB não disponível.' }, 503);
+
+  try {
+    const record = await db.prepare(
+      "SELECT payload FROM mainsite_settings WHERE id = 'mainsite/moderation'"
+    ).bind().first<{ payload: string }>();
+
+    let settings = { ...DEFAULT_MOD_SETTINGS };
+    if (record?.payload) {
+      const stored = JSON.parse(record.payload);
+      settings = { ...DEFAULT_MOD_SETTINGS, ...stored };
+    }
+
+    return json({ ok: true, settings });
+  } catch (error) {
+    console.error('[comments/admin] getSettings:error', error instanceof Error ? error.message : error);
+    return json({ ok: false, error: 'Falha ao carregar configurações.' }, 500);
+  }
+}
+
+// ── PUT /api/mainsite/comments/admin/settings ────────────────────────
+
+export async function handleCommentsAdminPutSettings(ctx: ModerationContext): Promise<Response> {
+  const db = ctx.env.BIGDATA_DB;
+  if (!db) return json({ ok: false, error: 'BIGDATA_DB não disponível.' }, 503);
+
+  try {
+    const body = await ctx.request.json() as Record<string, unknown>;
+
+    // Load current settings as base
+    const record = await db.prepare(
+      "SELECT payload FROM mainsite_settings WHERE id = 'mainsite/moderation'"
+    ).bind().first<{ payload: string }>();
+
+    let current = { ...DEFAULT_MOD_SETTINGS };
+    if (record?.payload) {
+      current = { ...DEFAULT_MOD_SETTINGS, ...JSON.parse(record.payload) };
+    }
+
+    // Merge
+    const merged = { ...current, ...body };
+
+    // Validations
+    if (typeof merged.autoApproveThreshold === 'number' && typeof merged.autoRejectThreshold === 'number') {
+      if (merged.autoApproveThreshold >= merged.autoRejectThreshold) {
+        return json({ ok: false, error: 'Limite de aprovação deve ser menor que limite de rejeição.' }, 400);
+      }
+    }
+
+    // Upsert
+    await db.prepare(
+      `INSERT INTO mainsite_settings (id, payload) VALUES ('mainsite/moderation', ?)
+       ON CONFLICT(id) DO UPDATE SET payload = excluded.payload`
+    ).bind(JSON.stringify(merged)).run();
+
+    return json({ ok: true, settings: merged });
+  } catch (error) {
+    console.error('[comments/admin] putSettings:error', error instanceof Error ? error.message : error);
+    return json({ ok: false, error: 'Falha ao salvar configurações.' }, 500);
   }
 }

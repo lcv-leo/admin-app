@@ -83,6 +83,8 @@ import {
   handleCommentsAdminDelete,
   handleCommentsAdminReply,
   handleCommentsAdminBulk,
+  handleCommentsAdminGetSettings,
+  handleCommentsAdminPutSettings,
 } from './handlers/routes/mainsite/comments-admin';
 import { onRequestGet as handleMtastsOverviewGet } from './handlers/routes/mtasts/overview';
 import { onRequestPost as handleMtastsSyncPost } from './handlers/routes/mtasts/sync';
@@ -667,6 +669,12 @@ export default {
     }
     if (method === 'POST' && pathname === '/api/mainsite/comments/admin/bulk') {
       return handleCommentsAdminBulk({ request, env: runtimeEnv });
+    }
+    if (method === 'GET' && pathname === '/api/mainsite/comments/admin/settings') {
+      return handleCommentsAdminGetSettings({ request, env: runtimeEnv });
+    }
+    if (method === 'PUT' && pathname === '/api/mainsite/comments/admin/settings') {
+      return handleCommentsAdminPutSettings({ request, env: runtimeEnv });
     }
     if (pathname.startsWith('/api/mainsite/comments/admin/')) {
       // Extract comment ID from path: /api/mainsite/comments/admin/:id[/reply]

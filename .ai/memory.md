@@ -1,4 +1,19 @@
 # AI Memory Log — Admin-App
+## 2026-04-07 — Admin-App v01.81.00 — Moderation Settings UI + Backend Enforcement
+### Scope
+Painel completo de configurações do motor de moderação de comentários com 18 parâmetros configuráveis, organizados em 4 seções (Funcionalidades, Limites de Conteúdo, Moderação Automática GCP NL, Anti-Spam). Backend com enforcement de rate limiting, blocklist, link policy, auto-close e duplicate detection.
+### Adicionado
+- **ModerationPanel.tsx**: Reescrita completa com UI em PT-BR — toggles, sliders para thresholds, chips para categorias GCP NL, textarea para blocklist, selects para link policy e API fallback behavior.
+- **comments-admin.ts (admin-motor)**: Handlers `handleCommentsAdminGetSettings` / `handleCommentsAdminPutSettings` com merge forward-compatible (`{ ...DEFAULT, ...stored }`), upsert D1, validação server-side (approve threshold < reject threshold).
+- **index.ts (admin-motor)**: Rotas `GET/PUT /api/mainsite/comments/admin/settings` registradas antes do catch-all `:id`.
+- **comments.ts (mainsite-worker)**: Enforcement de `rateLimitPerIpPerHour`, `blocklistWords`, `linkPolicy`, `autoCloseAfterDays`, `minCommentLength`, `maxCommentLength`, `requireEmail`, `duplicateWindowHours` no POST handler. Cache 60s com invalidação no PUT.
+- **moderation.ts (mainsite-worker)**: Interface `ModerationSettings` expandida + `notifyAdminNewComment` com `toEmail` dinâmico (3º parâmetro).
+### Alterado
+- **MainsiteModule.tsx**: "Arquivo de posts operacionais" → "Arquivo de Posts". Ordem: Arquivo → Moderação → Disclaimers.
+### Controle de versão
+- `admin-app`: APP v01.80.03 → APP v01.81.00
+- `mainsite-worker`: v02.03.00 → v02.04.00
+
 ## 2026-04-07 — Admin-App v01.80.02 — Live Dedup Bugfix & Stabilization
 ### Scope
 Resolução de bug crítico no mecanismo de deduplicação da aba Live do Observability, que classificava incorretamente todos os novos eventos iterados como duplicados, travando o stream realtime.

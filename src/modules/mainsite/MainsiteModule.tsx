@@ -703,7 +703,7 @@ export function MainsiteModule() {
       <article className="result-card">
         <div className="result-toolbar">
           <div>
-            <h4><Globe size={16} /> Arquivo de posts operacionais</h4>
+            <h4><Globe size={16} /> Arquivo de Posts</h4>
             <p className="field-hint">Gerencie, edite, fixe e exclua posts diretamente por aqui.</p>
           </div>
           <div className="inline-actions">
@@ -785,6 +785,9 @@ export function MainsiteModule() {
           </ul>
         )}
       </article>
+
+      {/* ── Moderação de Comentários ── */}
+      <ModerationPanel showNotification={showNotification} />
 
       <form className="form-card" onSubmit={handleSaveSettings}>
         <div className="result-toolbar">
@@ -1141,8 +1144,7 @@ export function MainsiteModule() {
         </p>
       </div>
 
-      {/* ── Moderação de Comentários ── */}
-      <ModerationPanel showNotification={showNotification} />
+
 
     </section>
   )
