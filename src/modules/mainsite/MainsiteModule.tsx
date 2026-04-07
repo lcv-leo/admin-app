@@ -634,7 +634,7 @@ export function MainsiteModule() {
       {/* ── Faixa de Status da Rotação ── */}
       {rotationInfo && (
         <div className="rotation-status-bar" style={{
-          display: 'flex', alignItems: 'center', gap: '16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px',
           padding: '10px 16px', borderRadius: '10px',
           background: rotationInfo.enabled
             ? 'linear-gradient(135deg, rgba(66,133,244,0.08), rgba(52,168,83,0.08))'
@@ -658,7 +658,7 @@ export function MainsiteModule() {
             <>
               <span>
                 <Clock size={13} style={{ verticalAlign: '-2px', marginRight: '4px', opacity: 0.5 }} />
-                <strong>Última Rotação</strong>{' '}
+                <strong>Última Rotação:</strong>{' '}
                 {rotationInfo.last_rotated_at
                   ? new Date(rotationInfo.last_rotated_at).toLocaleString('pt-BR', {
                       timeZone: 'America/Sao_Paulo',
@@ -669,9 +669,9 @@ export function MainsiteModule() {
               </span>
               <span style={{ opacity: 0.3 }}>|</span>
               <span>
-                <strong>Próxima Rotação em</strong>{' '}
+                <strong>Próxima Rotação:</strong>{' '}
                 <span style={{
-                  fontFamily: 'monospace', fontWeight: 600,
+                  fontFamily: 'monospace',
                   color: countdown === 'Iminente' ? 'var(--color-success, #34a853)' : 'inherit',
                 }}>
                   {countdown || '—'}
