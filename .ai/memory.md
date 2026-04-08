@@ -1,4 +1,18 @@
 # AI Memory Log — Admin-App
+## 2026-04-07 — Admin-App v01.82.00 — Ratings Moderation Panel
+### Scope
+Nova funcionalidade completa de moderação de avaliações (estrelas + reações) no admin-app, com backend CRUD no admin-motor e frontend RatingsPanel no MainsiteModule.
+### Adicionado
+- **Backend (`ratings-admin.ts`)**: 5 endpoints CRUD no `admin-motor` para a tabela `mainsite_ratings` do D1: `GET /all` (listagem filtrada + stats), `GET /stats` (métricas + top posts), `PATCH /:id` (edição), `DELETE /:id` (exclusão individual), `POST /bulk` (exclusão em lote).
+- **Frontend (`RatingsPanel.tsx`)**: Componente integrado ao `MainsiteModule.tsx` com métricas visuais (média, distribuição por estrela, reações por tipo), filtros (Post ID, estrelas, reação), edição inline (seletores clicáveis), exclusão individual e em lote.
+- **Rotas**: 5 endpoints registrados no `index.ts` do admin-motor após o bloco de comments-admin.
+### Arquitetura
+- Segue 100% o padrão existente de `comments-admin.ts` (handler) e `ModerationPanel.tsx` (UI).
+- Usa o mesmo binding D1 (`BIGDATA_DB`) e proxy catch-all `[[path]].ts`.
+- Tipos de reação espelhados do `mainsite-worker/ratings.ts`: `love`, `insightful`, `thought-provoking`, `inspiring`, `beautiful`.
+### Controle de versão
+- `admin-app`: APP v01.81.02 → APP v01.82.00
+
 ## 2026-04-07 — Admin-App v01.81.02 — Config Persistence Safety (CRITICAL)
 ### Scope
 Correção de bug crítico onde deploys apagavam configurações do News Feed e filtros financeiros no D1.

@@ -1,4 +1,23 @@
 # Changelog — Admin App
+## [v01.82.00] - 2026-04-07
+### Adicionado
+- **Moderação de Avaliações (Backend)**: Novo handler `ratings-admin.ts` no `admin-motor` com 5 endpoints CRUD para a tabela `mainsite_ratings` no D1:
+  - `GET /api/mainsite/ratings/admin/all` — Listagem filtrada (post_id, rating, reaction_type) com JOIN em `mainsite_posts` e métricas agregadas (média, distribuição 1-5, reações por tipo).
+  - `GET /api/mainsite/ratings/admin/stats` — Estatísticas globais com top 10 posts por volume de votos.
+  - `PATCH /api/mainsite/ratings/admin/:id` — Edição de rating (1-5) e/ou reaction_type com validação server-side.
+  - `DELETE /api/mainsite/ratings/admin/:id` — Exclusão individual.
+  - `POST /api/mainsite/ratings/admin/bulk` — Exclusão em lote.
+- **Moderação de Avaliações (Frontend)**: Novo componente `RatingsPanel.tsx` integrado ao `MainsiteModule` (logo após Moderação de Comentários) com:
+  - Barra de métricas: média geral com estrelas visuais, distribuição por estrela (barras horizontais), contagem de reações por tipo (❤️ 💡 🤔 ✨ 📚).
+  - Filtros por Post ID, quantidade de estrelas e tipo de reação (com toggle de visibilidade).
+  - Lista com detalhes expandíveis (voter_hash mascarado, post título, data formatada pt-BR/SP).
+  - Edição inline com seletores de estrela clicáveis e dropdown de reação.
+  - Exclusão individual e em lote (seleção múltipla + ação bulk delete).
+- **Rotas registradas no admin-motor**: 5 novos endpoints registrados no `index.ts` do router.
+
+### Controle de versão
+- `admin-app`: APP v01.81.02 → APP v01.82.00
+
 ## [v01.81.02] - 2026-04-07
 ### Corrigido (CRÍTICO)
 - **Proteção contra reset de configurações em deploys**: Removido anti-pattern destrutivo onde `loadNewsSettings()`, `useModuleConfig()` e `loadFilters()` gravavam defaults no D1 quando a API falhava transitoriamente (deploy, cold start, rede), sobrescrevendo silenciosamente configurações salvas pelo usuário.
