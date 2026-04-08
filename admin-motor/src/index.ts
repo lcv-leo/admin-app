@@ -86,6 +86,13 @@ import {
   handleCommentsAdminGetSettings,
   handleCommentsAdminPutSettings,
 } from './handlers/routes/mainsite/comments-admin';
+import {
+  handleRatingsAdminAll,
+  handleRatingsAdminStats,
+  handleRatingsAdminUpdate,
+  handleRatingsAdminDelete,
+  handleRatingsAdminBulk,
+} from './handlers/routes/mainsite/ratings-admin';
 import { onRequestGet as handleMtastsOverviewGet } from './handlers/routes/mtasts/overview';
 import { onRequestPost as handleMtastsSyncPost } from './handlers/routes/mtasts/sync';
 import { onRequestGet as handleNewsFeedGet } from './handlers/routes/news/feed';
@@ -684,6 +691,24 @@ export default {
         if (method === 'PATCH') return handleCommentsAdminModerate({ request, env: runtimeEnv }, commentId);
         if (method === 'DELETE') return handleCommentsAdminDelete({ request, env: runtimeEnv }, commentId);
         if (method === 'POST' && segments[1] === 'reply') return handleCommentsAdminReply({ request, env: runtimeEnv }, commentId);
+      }
+    }
+
+    // mainsite ratings admin (moderation)
+    if (method === 'GET' && pathname === '/api/mainsite/ratings/admin/all') {
+      return handleRatingsAdminAll({ request, env: runtimeEnv });
+    }
+    if (method === 'GET' && pathname === '/api/mainsite/ratings/admin/stats') {
+      return handleRatingsAdminStats({ request, env: runtimeEnv });
+    }
+    if (method === 'POST' && pathname === '/api/mainsite/ratings/admin/bulk') {
+      return handleRatingsAdminBulk({ request, env: runtimeEnv });
+    }
+    if (pathname.startsWith('/api/mainsite/ratings/admin/')) {
+      const ratingId = parseInt(pathname.replace('/api/mainsite/ratings/admin/', ''), 10);
+      if (!isNaN(ratingId)) {
+        if (method === 'PATCH') return handleRatingsAdminUpdate({ request, env: runtimeEnv }, ratingId);
+        if (method === 'DELETE') return handleRatingsAdminDelete({ request, env: runtimeEnv }, ratingId);
       }
     }
 

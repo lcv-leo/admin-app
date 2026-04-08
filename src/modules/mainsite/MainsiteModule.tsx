@@ -19,6 +19,7 @@ import { PopupPortal } from '../../components/PopupPortal'
 // Lazy-loaded PostEditor — TipTap chunk only loads when editor is opened
 const PostEditor = lazy(() => import('./PostEditor'))
 import { ModerationPanel } from './ModerationPanel'
+import { RatingsPanel } from './RatingsPanel'
 
 
 
@@ -788,6 +789,9 @@ export function MainsiteModule() {
 
       {/* ── Moderação de Comentários ── */}
       <ModerationPanel showNotification={showNotification} />
+
+      {/* ── Moderação de Avaliações (Estrelas e Reações) ── */}
+      <RatingsPanel showNotification={showNotification} />
 
       <form className="form-card" onSubmit={handleSaveSettings}>
         <div className="result-toolbar">
