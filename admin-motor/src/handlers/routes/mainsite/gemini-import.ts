@@ -109,41 +109,10 @@ async function fetchSharePageContent(url: string, jinaApiKey?: string): Promise<
     budgetMs: JINA_TOTAL_BUDGET_MS,
   });
 
-  // Calcula timeout dinâmico baseado no budget restante
-  const remainingMs     = deadline - Date.now();
-  const clientTimeoutMs = Math.min(JINA_IDEAL_CLIENT_MS, remainingMs - 2_000);
-  const serverTimeoutS  = Math.min(JINA_IDEAL_SERVER_S, Math.floor((clientTimeoutMs - 5_000) / 1000));
-
-  if (clientTimeoutMs < 12_000) {
-    throw new Error(`Jina: budget insuficiente (${Math.round(remainingMs / 1000)}s restantes).`);
-  }
-
-  structuredLog('info', 'Jina browser-only iniciando', {
-    clientTimeoutMs, serverTimeoutS, remainingMs,
-  });
-
-  // Headers para browser-only
+  // Headers base para browser-only (X-Timeout atualizado dinamicamente por tentativa)
   const authHeader: Record<string, string> = jinaApiKey
     ? { 'Authorization': `Bearer ${jinaApiKey}` }
     : {};
-
-  const fetchConfig: RequestInit = {
-    method:  'GET',
-    headers: {
-      'Accept':          'text/markdown',
-      'X-Return-Format': 'markdown',
-      // Chromium headless — CRÍTICO para SPAs como Gemini Share
-      'X-Engine':        'browser',
-      // Não incluir imagens — reduz payload e acelera resposta
-      // Gemini faz a extração de conteúdo textual; imagens são desnecessárias
-      'X-Retain-Images': 'none',
-      // Bypassa cache Jina — evita respostas de erro cacheadas
-      'X-No-Cache':      'true',
-      'DNT':             '1',
-      'X-Timeout':       String(serverTimeoutS),
-      ...authHeader,
-    },
-  };
 
   const jinaUrl = `${JINA_BASE_URL}${url}`;
   let lastError: Error = new Error('Falha desconhecida ao buscar via Jina Reader.');
@@ -153,14 +122,45 @@ async function fetchSharePageContent(url: string, jinaApiKey?: string): Promise<
     if (attempt > 0) {
       const backoffMs = JINA_RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
       await new Promise(r => setTimeout(r, backoffMs));
-
-      // Recalcula deadline antes do retry
-      const retryRemaining = deadline - Date.now();
-      if (retryRemaining < 12_000) {
-        structuredLog('warn', 'Jina: budget esgotado antes do retry', { attempt, retryRemaining });
-        throw lastError;
-      }
     }
+
+    // ── Recalcula timeout DINAMICAMENTE a cada tentativa baseado no budget restante ──
+    // (Fix: usar valor stale pre-loop causava overshoot do deadline de 100s do CF proxy → 524)
+    const remainingMs     = deadline - Date.now();
+    const clientTimeoutMs = Math.min(JINA_IDEAL_CLIENT_MS, remainingMs - 2_000);
+    const serverTimeoutS  = Math.min(JINA_IDEAL_SERVER_S, Math.floor((clientTimeoutMs - 5_000) / 1000));
+
+    if (clientTimeoutMs < 12_000) {
+      structuredLog('warn', 'Jina: budget insuficiente para tentativa', {
+        attempt, remainingMs, clientTimeoutMs,
+      });
+      throw lastError.message !== 'Falha desconhecida ao buscar via Jina Reader.'
+        ? lastError
+        : new Error(`Jina: budget insuficiente (${Math.round(remainingMs / 1000)}s restantes).`);
+    }
+
+    structuredLog('info', `Jina browser-only tentativa ${attempt}`, {
+      clientTimeoutMs, serverTimeoutS, remainingMs,
+    });
+
+    const fetchConfig: RequestInit = {
+      method:  'GET',
+      headers: {
+        'Accept':          'text/markdown',
+        'X-Return-Format': 'markdown',
+        // Chromium headless — CRÍTICO para SPAs como Gemini Share
+        'X-Engine':        'browser',
+        // Não incluir imagens — reduz payload e acelera resposta
+        // Gemini faz a extração de conteúdo textual; imagens são desnecessárias
+        'X-Retain-Images': 'none',
+        // Bypassa cache Jina — evita respostas de erro cacheadas
+        'X-No-Cache':      'true',
+        'DNT':             '1',
+        // X-Timeout recalculado por tentativa para respeitar o budget
+        'X-Timeout':       String(serverTimeoutS),
+        ...authHeader,
+      },
+    };
 
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), clientTimeoutMs);

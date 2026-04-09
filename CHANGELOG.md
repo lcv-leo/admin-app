@@ -1,4 +1,13 @@
 # Changelog — Admin App
+## [v01.82.04] - 2026-04-09
+### Corrigido
+- **Gemini Import — 524 timeout por overshoot de budget no Jina Reader**: O `clientTimeoutMs` (52s) era calculado **uma única vez** antes do loop de retries. Com 2 tentativas, o pior caso era 52s + 1.5s (backoff) + 52s = 105.5s, estourando o limite de 100s do proxy Cloudflare Pages e gerando erro 524 (Connection Timed Out).
+  - **Fix**: Timeout (`clientTimeoutMs`, `serverTimeoutS`, `X-Timeout` header) agora é recalculado **dinamicamente a cada tentativa** com base no budget restante (`deadline - Date.now()`). Se o budget restante for < 12s, a tentativa é abortada proativamente em vez de estourar o deadline do proxy.
+  - **Arquivo alterado**: `admin-motor/src/handlers/routes/mainsite/gemini-import.ts` (`fetchSharePageContent`).
+
+### Controle de versão
+- `admin-app`: APP v01.82.03 → APP v01.82.04
+
 ## [v01.82.03] - 2026-04-09
 ### Corrigido
 - **PostEditor — Notificações/toasts apareciam na janela principal em vez do pop-up**: O `NotificationProvider` usava `createPortal(... , document.body)` que sempre referenciava o body da janela principal. Quando o PostEditor (rodando dentro de um `PopupPortal` via `window.open()`) chamava `showNotification()`, os toasts renderizavam na janela errada, invisíveis ao usuário.

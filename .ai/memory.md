@@ -1,5 +1,16 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-09 — Gemini Import 524 Fix: Jina Reader Budget Overshoot (v01.82.04)
+### Escopo
+Correção de timeout 524 na importação Gemini causado por overshoot do budget de tempo no retry loop do Jina Reader.
+### Root Cause
+O `clientTimeoutMs` (52s) e `serverTimeoutS` (45s) eram calculados **uma única vez** antes do loop de retries em `fetchSharePageContent()`. Com `JINA_MAX_RETRIES=2`, o pior caso era: 52s (attempt 0 timeout) + 1.5s (backoff) + 52s (attempt 1 timeout) = **105.5s** — estourando o limite de 100s do proxy CF Pages e gerando 524.
+### Corrigido
+- **Timeout dinâmico por tentativa**: `clientTimeoutMs`, `serverTimeoutS` e o header `X-Timeout` agora são recalculados dentro do loop a cada tentativa usando `deadline - Date.now()`. Se o budget restante < 12s, a tentativa é abortada proativamente com o último erro, em vez de estourar o deadline.
+- **`fetchConfig` per-attempt**: Headers de fetch (incluindo `X-Timeout`) são reconstruídos a cada tentativa para refletir o timeout dinâmico.
+### Versão
+- APP v01.82.03 → APP v01.82.04
+
 ## 2026-04-09 — PostEditor Popup Notification Context Fix (v01.82.03)
 ### Escopo
 Correção de bug onde notificações/toasts disparados pelo PostEditor (rodando em popup window via `PopupPortal`) renderizavam na janela principal do admin em vez do popup.
