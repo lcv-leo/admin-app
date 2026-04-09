@@ -1,4 +1,13 @@
 # Changelog — Admin App
+## [v01.82.02] - 2026-04-09
+### Corrigido
+- **PostEditor — Crash em produção por bare module specifiers no bundle**: O `vite.config.ts` usava `rollupOptions.external` para suprimir erros de build de peer dependencies não instaladas do Tiptap 3.22.x (`@tiptap/extension-drag-handle`, `@tiptap/extension-collaboration`, `@tiptap/extension-node-range`, `@tiptap/y-tiptap`, `@tiptap/suggestion`, `yjs`, `y-prosemirror`). Isso deixava bare module specifiers (ex: `from"@tiptap/extension-drag-handle"`) no JavaScript de produção — browsers não resolvem bare specifiers e lançavam `TypeError: Failed to resolve module specifier` ao abrir o PostEditor.
+  - **Fix**: Removida a lista `external` inteira. Todas as peer dependencies foram instaladas como dependências reais para que o Vite resolva, embuta no bundle e aplique tree-shaking corretamente. Zero bare imports no bundle de produção.
+  - **Root cause**: Upgrade de Tiptap para 3.22.x introduziu novas peer deps (`drag-handle`, `collaboration`, `node-range`, `y-tiptap`, `suggestion`) que não estavam instaladas. O `external` mascarava os erros de build mas vazava specifiers inválidos para o runtime.
+
+### Controle de versão
+- `admin-app`: APP v01.82.01 → APP v01.82.02
+
 ## [v01.82.01] - 2026-04-08
 ### Atualização Tecnológica
 - **ESLint 9 → 10**: Migração para `eslint@10.2.0` e `@eslint/js@10.0.1`. Configuração flat config validada como compatível.

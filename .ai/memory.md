@@ -1,5 +1,20 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-09 — PostEditor Crash Fix: Tiptap Peer Deps Bare Specifiers (v01.82.02)
+### Escopo
+Resolução de crash em produção no PostEditor causado por bare module specifiers no bundle Vite.
+### Root Cause
+O `vite.config.ts` usava `rollupOptions.external` para mascarar erros de build de peer deps do Tiptap 3.22.x (`@tiptap/extension-drag-handle`, `@tiptap/extension-collaboration`, `@tiptap/extension-node-range`, `@tiptap/y-tiptap`, `@tiptap/suggestion`, `yjs`, `y-prosemirror`). Isso deixava bare module specifiers (ex: `from"@tiptap/extension-drag-handle"`) no JS de produção, que browsers não sabem resolver → `TypeError: Failed to resolve module specifier`.
+### Corrigido
+- **`external` removido**: A lista inteira de externals foi eliminada do `vite.config.ts`.
+- **Peer deps instaladas**: Todas as 7 peer deps foram instaladas como dependências reais (`npm install`). O Vite agora resolve, embute no bundle e aplica tree-shaking automaticamente.
+- **Verificação**: Zero bare imports em nenhum dos assets de produção.
+### Lição Operacional
+- **NUNCA usar `rollupOptions.external` para peer deps de bibliotecas de editor (Tiptap/ProseMirror)** — esses pacotes fazem imports dinâmicos internos que sobrevivem ao tree-shaking e vazam como bare specifiers no bundle final. A abordagem correta é instalar todos os peer deps e deixar o bundler resolver/tree-shake.
+- **Build success ≠ runtime success**: O build com externals não produz erro, mas o JS resultante contém specifiers que browsers não resolvem.
+### Versão
+- APP v01.82.01 → APP v01.82.02
+
 ## 2026-04-08 — Monorepo Tech Upgrade: ESLint 10 + TypeScript Infrastructure
 ### Escopo
 Migração ESLint 9→10 completa. Infraestrutura TS corrigida para Cloudflare Pages Functions.
