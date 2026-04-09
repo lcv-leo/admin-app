@@ -1163,17 +1163,17 @@ export function MainsiteModule() {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ fontSize: '13px', lineHeight: '1.5' }}>
-                      <div style={{ marginBottom: '4px' }}>
+                    <div style={{ fontSize: '13px', lineHeight: '1.5', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                         <span style={{ fontSize: '11px', fontWeight: 600, opacity: 0.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>OG</span>{' '}
                         <span style={{ opacity: 0.85 }}>{s.summary_og}</span>
                       </div>
-                      {s.summary_ld && s.summary_ld !== s.summary_og && (
-                        <div>
+                      {s.summary_ld && s.summary_ld !== s.summary_og ? (
+                        <div style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                           <span style={{ fontSize: '11px', fontWeight: 600, opacity: 0.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>LD</span>{' '}
                           <span style={{ opacity: 0.7 }}>{s.summary_ld}</span>
                         </div>
-                      )}
+                      ) : <div />}
                     </div>
                   )}
                 </li>
