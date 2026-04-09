@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Suspense, lazy } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -12,7 +12,7 @@ import {
   Save, Sparkles, Trash2, X,
   CheckCircle, XCircle,
 } from 'lucide-react'
-import { useNotification } from '../../components/Notification'
+import { useNotification, NotificationProvider } from '../../components/Notification'
 import { PopupPortal } from '../../components/PopupPortal'
 
 
@@ -86,7 +86,42 @@ type AiSummary = {
 
 type BulkDetail = { postId: number; title: string; status: string }
 
+/**
+ * PopupNotificationBridge — Detects the popup window's document body and
+ * wraps children in a scoped NotificationProvider so that toasts/notifications
+ * render INSIDE the popup window instead of the main admin window.
+ */
+function PopupNotificationBridge({ children }: { children: (popupShowNotification: (msg: string, type?: 'info' | 'success' | 'error' | 'warning') => void) => ReactNode }) {
+  const [popupBody, setPopupBody] = useState<HTMLElement | null>(null)
 
+  // Callback ref: detects the popup window's body when the DOM node mounts.
+  // Avoids useEffect + synchronous setState lint violation.
+  const detectPopupBody = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      const ownerBody = node.ownerDocument?.body
+      if (ownerBody && ownerBody !== document.body) {
+        setPopupBody(ownerBody)
+      }
+    }
+  }, [])
+
+  // First render: mount callback ref to detect popup body
+  if (!popupBody) {
+    return <div ref={detectPopupBody} style={{ display: 'contents' }}>{children(() => { /* noop until popup body detected */ })}</div>
+  }
+
+  return (
+    <NotificationProvider container={popupBody}>
+      <PopupNotificationConsumer>{children}</PopupNotificationConsumer>
+    </NotificationProvider>
+  )
+}
+
+/** Inner consumer that extracts showNotification from the popup-scoped NotificationProvider */
+function PopupNotificationConsumer({ children }: { children: (popupShowNotification: (msg: string, type?: 'info' | 'success' | 'error' | 'warning') => void) => ReactNode }) {
+  const { showNotification } = useNotification()
+  return <>{children(showNotification)}</>
+}
 
 export function MainsiteModule() {
   const { showNotification } = useNotification()
@@ -624,18 +659,22 @@ export function MainsiteModule() {
         onClose={resetPostEditor}
         title={editingPostId ? `Editar post #${editingPostId} — LCV Admin` : 'Novo Post — LCV Admin'}
       >
-        <Suspense fallback={<div className="module-loading"><Loader2 size={24} className="spin" /></div>}>
-          <PostEditor
-            editingPostId={editingPostId}
-            initialTitle={editingPostId ? managedPosts.find(p => p.id === editingPostId)?.title ?? '' : ''}
-            initialAuthor={editingPostId ? managedPosts.find(p => p.id === editingPostId)?.author ?? '' : ''}
-            initialContent={editingPostContent}
-            savingPost={savingPost}
-            showNotification={showNotification}
-            onSave={(title, author, html) => handleSavePost(title, author, html)}
-            onClose={resetPostEditor}
-          />
-        </Suspense>
+        <PopupNotificationBridge>
+          {(popupNotify) => (
+            <Suspense fallback={<div className="module-loading"><Loader2 size={24} className="spin" /></div>}>
+              <PostEditor
+                editingPostId={editingPostId}
+                initialTitle={editingPostId ? managedPosts.find(p => p.id === editingPostId)?.title ?? '' : ''}
+                initialAuthor={editingPostId ? managedPosts.find(p => p.id === editingPostId)?.author ?? '' : ''}
+                initialContent={editingPostContent}
+                savingPost={savingPost}
+                showNotification={popupNotify}
+                onSave={(title, author, html) => handleSavePost(title, author, html)}
+                onClose={resetPostEditor}
+              />
+            </Suspense>
+          )}
+        </PopupNotificationBridge>
       </PopupPortal>
 
       <button type="button" className="primary-button" onClick={() => setShowPostEditor(true)}>

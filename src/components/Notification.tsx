@@ -37,7 +37,7 @@ const iconMap = {
   warning: AlertTriangle,
 } satisfies Record<NotificationTone, typeof Info>
 
-export function NotificationProvider({ children }: { children: ReactNode }) {
+export function NotificationProvider({ children, container }: { children: ReactNode; container?: HTMLElement | null }) {
   const [items, setItems] = useState<NotificationItem[]>([])
   const ids = useRef(0)
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
@@ -67,6 +67,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Portal target: custom container (e.g. popup window body) or main document.body
+  const portalTarget = container || document.body
+
   return (
     <NotificationContext.Provider value={{ showNotification }}>
       {children}
@@ -87,7 +90,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             )
           })}
         </div>,
-        document.body
+        portalTarget
       )}
     </NotificationContext.Provider>
   )
