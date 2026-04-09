@@ -832,184 +832,6 @@ export function MainsiteModule() {
       {/* ── Moderação de Avaliações (Estrelas e Reações) ── */}
       <RatingsPanel showNotification={showNotification} />
 
-      <form className="form-card" onSubmit={handleSaveSettings}>
-        <div className="result-toolbar">
-          <div>
-            <h4><Save size={16} /> Janelas de Aviso (Disclaimers)</h4>
-            <p className="field-hint">Gerencie os avisos legais exibidos no site principal.</p>
-          </div>
-          <div className="inline-actions">
-            <button type="button" className="ghost-button" onClick={() => void loadPublicSettings(true)} disabled={settingsLoading || savingSettings}>
-              {settingsLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-              Recarregar
-            </button>
-          </div>
-        </div>
-
-        {/* ── Disclaimers ─────────────────────────────────── */}
-        <fieldset className="settings-fieldset">
-          <legend>Janelas de Aviso (Disclaimers)</legend>
-          <label className="toggle-row">
-            <input id="disclaimers-enabled" name="disclaimersEnabled" type="checkbox" checked={disclaimers.enabled} onChange={(e) => setDisclaimers({ ...disclaimers, enabled: e.target.checked })} />
-            Exibir Janelas de Aviso antes da leitura dos fragmentos
-          </label>
-
-          {disclaimers.enabled && (
-            <div className="disclaimers-list astro-akashico-scroll">
-              {disclaimers.items.map((item, idx) => (
-                <div key={item.id} className="disclaimer-card">
-                  <div className="disclaimer-card__header">
-                    <span className="disclaimer-card__index">AVISO {idx + 1}</span>
-                    <button type="button" className="ghost-button danger" onClick={() => {
-                      const next = [...disclaimers.items]
-                      next.splice(idx, 1)
-                      setDisclaimers({ ...disclaimers, items: next })
-                    }}><Trash2 size={14} /> Remover</button>
-                  </div>
-                  <div className="form-grid">
-                    <div className="field-group">
-                      <label htmlFor={`disc-title-${idx}`}>Título</label>
-                      <input id={`disc-title-${idx}`} name={`discTitle_${idx}`} placeholder="Ex: Termos de Leitura" value={item.title} onChange={(e) => {
-                        const next = [...disclaimers.items]; next[idx] = { ...next[idx], title: e.target.value }; setDisclaimers({ ...disclaimers, items: next })
-                      }} />
-                    </div>
-                    <div className="field-group">
-                      <label htmlFor={`disc-btn-${idx}`}>Texto do Botão</label>
-                      <input id={`disc-btn-${idx}`} name={`discBtn_${idx}`} placeholder="Concordo" value={item.buttonText} onChange={(e) => {
-                        const next = [...disclaimers.items]; next[idx] = { ...next[idx], buttonText: e.target.value }; setDisclaimers({ ...disclaimers, items: next })
-                      }} />
-                    </div>
-                  </div>
-                  <div className="field-group">
-                    <label htmlFor={`disc-text-${idx}`}>Texto do aviso</label>
-                    <textarea id={`disc-text-${idx}`} name={`discText_${idx}`} rows={3} value={item.text} onChange={(e) => {
-                      const next = [...disclaimers.items]; next[idx] = { ...next[idx], text: e.target.value }; setDisclaimers({ ...disclaimers, items: next })
-                    }} />
-                  </div>
-                  <label className="toggle-row donation-trigger">
-                    <input id={`disc-trigger-${idx}`} name={`discTrigger_${idx}`} type="checkbox" checked={item.isDonationTrigger} onChange={(e) => {
-                      const next = [...disclaimers.items]; next[idx] = { ...next[idx], isDonationTrigger: e.target.checked }; setDisclaimers({ ...disclaimers, items: next })
-                    }} />
-                    Gatilho de Doação
-                  </label>
-                </div>
-              ))}
-              <button type="button" className="ghost-button" onClick={() => setDisclaimers({
-                ...disclaimers,
-                items: [...disclaimers.items, { id: crypto.randomUUID(), title: '', text: '', buttonText: 'Concordo', isDonationTrigger: false }],
-              })}>
-                <FilePlus2 size={16} /> Adicionar Novo Aviso
-              </button>
-            </div>
-          )}
-        </fieldset>
-
-        <div className="form-actions">
-          <button type="submit" className="primary-button" disabled={savingSettings}>
-            {savingSettings ? <Loader2 size={18} className="spin" /> : <Save size={18} />}
-            Salvar disclaimers
-          </button>
-        </div>
-      </form>
-
-      {/* ── Taxas dos Gateways de Pagamento ── */}
-      <div className="form-card" style={{ marginTop: '24px' }}>
-        <div className="result-toolbar">
-          <div>
-            <h4><DollarSign size={16} /> Taxas dos Gateways de Pagamento</h4>
-            <p className="field-hint">
-              Configure as taxas cobradas pela SumUp e Mercado Pago para cálculo automático de repasse ao valor da doação.
-            </p>
-          </div>
-          <div className="inline-actions">
-            <button type="button" className="ghost-button" onClick={() => void carregarTaxas()} disabled={feesLoading}>
-              {feesLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-              Recarregar
-            </button>
-          </div>
-        </div>
-
-        <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          {/* SumUp */}
-          <fieldset className="settings-fieldset">
-            <legend>SumUp</legend>
-            <div className="field-group">
-              <label htmlFor="sumup-fee-rate">Taxa Percentual (%)</label>
-              <input
-                id="sumup-fee-rate"
-                name="sumupFeeRate"
-                type="number"
-                step="0.01"
-                min="0"
-                max="99.99"
-                value={parseFloat((fees.sumupRate * 100).toFixed(4))}
-                onChange={e => setFees(prev => ({ ...prev, sumupRate: Math.max(0, Math.min(0.9999, parseFloat(e.target.value) / 100 || 0)) }))}
-              />
-              <p className="field-hint">Ex: 2.67 = 2,67% por transação</p>
-            </div>
-            <div className="field-group">
-              <label htmlFor="sumup-fee-fixed">Taxa Fixa (R$)</label>
-              <input
-                id="sumup-fee-fixed"
-                name="sumupFeeFixed"
-                type="number"
-                step="0.01"
-                min="0"
-                value={fees.sumupFixed}
-                onChange={e => setFees(prev => ({ ...prev, sumupFixed: Math.max(0, parseFloat(e.target.value) || 0) }))}
-              />
-              <p className="field-hint">Valor fixo cobrado por transação (0 = desabilitado)</p>
-            </div>
-          </fieldset>
-
-          {/* Mercado Pago */}
-          <fieldset className="settings-fieldset">
-            <legend>Mercado Pago</legend>
-            <div className="field-group">
-              <label htmlFor="mp-fee-rate">Taxa Percentual (%)</label>
-              <input
-                id="mp-fee-rate"
-                name="mpFeeRate"
-                type="number"
-                step="0.01"
-                min="0"
-                max="99.99"
-                value={parseFloat((fees.mpRate * 100).toFixed(4))}
-                onChange={e => setFees(prev => ({ ...prev, mpRate: Math.max(0, Math.min(0.9999, parseFloat(e.target.value) / 100 || 0)) }))}
-              />
-              <p className="field-hint">Ex: 4.99 = 4,99% por transação</p>
-            </div>
-            <div className="field-group">
-              <label htmlFor="mp-fee-fixed">Taxa Fixa (R$)</label>
-              <input
-                id="mp-fee-fixed"
-                name="mpFeeFixed"
-                type="number"
-                step="0.01"
-                min="0"
-                value={fees.mpFixed}
-                onChange={e => setFees(prev => ({ ...prev, mpFixed: Math.max(0, parseFloat(e.target.value) || 0) }))}
-              />
-              <p className="field-hint">Valor fixo cobrado por transação (ex: R$ 0,40)</p>
-            </div>
-          </fieldset>
-        </div>
-
-        <div className="form-actions" style={{ marginTop: '16px' }}>
-          <button type="button" className="primary-button" onClick={() => void salvarTaxas()} disabled={feesSaving}>
-            {feesSaving ? <Loader2 size={18} className="spin" /> : <Save size={18} />}
-            Salvar Taxas
-          </button>
-          <button type="button" className="ghost-button" onClick={() => { setFees(DEFAULT_FEES); showNotification('Taxas restauradas para os valores padrão. Salve para confirmar.', 'info') }}>
-            Restaurar Padrão
-          </button>
-        </div>
-
-        <p className="field-hint" style={{ marginTop: '12px', fontStyle: 'italic', opacity: 0.7 }}>
-          Estas taxas são lidas pelo worker em cada checkout para calcular o valor final com repasse. Alterações refletem imediatamente após salvar.
-        </p>
-      </div>
-
       {/* ── Resumos IA para Compartilhamento Social ── */}
       <div className="form-card" style={{ marginTop: '24px' }}>
         <div className="result-toolbar">
@@ -1191,6 +1013,184 @@ export function MainsiteModule() {
 
         <p className="field-hint" style={{ marginTop: '12px', fontStyle: 'italic', opacity: 0.7 }}>
           Esses resumos são usados automaticamente nos previews de links compartilhados (og:description, twitter:description, Schema.org). Edições manuais não serão sobrescritas pela IA.
+        </p>
+      </div>
+
+      <form className="form-card" onSubmit={handleSaveSettings}>
+        <div className="result-toolbar">
+          <div>
+            <h4><Save size={16} /> Janelas de Aviso (Disclaimers)</h4>
+            <p className="field-hint">Gerencie os avisos legais exibidos no site principal.</p>
+          </div>
+          <div className="inline-actions">
+            <button type="button" className="ghost-button" onClick={() => void loadPublicSettings(true)} disabled={settingsLoading || savingSettings}>
+              {settingsLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+              Recarregar
+            </button>
+          </div>
+        </div>
+
+        {/* ── Disclaimers ─────────────────────────────────── */}
+        <fieldset className="settings-fieldset">
+          <legend>Janelas de Aviso (Disclaimers)</legend>
+          <label className="toggle-row">
+            <input id="disclaimers-enabled" name="disclaimersEnabled" type="checkbox" checked={disclaimers.enabled} onChange={(e) => setDisclaimers({ ...disclaimers, enabled: e.target.checked })} />
+            Exibir Janelas de Aviso antes da leitura dos fragmentos
+          </label>
+
+          {disclaimers.enabled && (
+            <div className="disclaimers-list astro-akashico-scroll">
+              {disclaimers.items.map((item, idx) => (
+                <div key={item.id} className="disclaimer-card">
+                  <div className="disclaimer-card__header">
+                    <span className="disclaimer-card__index">AVISO {idx + 1}</span>
+                    <button type="button" className="ghost-button danger" onClick={() => {
+                      const next = [...disclaimers.items]
+                      next.splice(idx, 1)
+                      setDisclaimers({ ...disclaimers, items: next })
+                    }}><Trash2 size={14} /> Remover</button>
+                  </div>
+                  <div className="form-grid">
+                    <div className="field-group">
+                      <label htmlFor={`disc-title-${idx}`}>Título</label>
+                      <input id={`disc-title-${idx}`} name={`discTitle_${idx}`} placeholder="Ex: Termos de Leitura" value={item.title} onChange={(e) => {
+                        const next = [...disclaimers.items]; next[idx] = { ...next[idx], title: e.target.value }; setDisclaimers({ ...disclaimers, items: next })
+                      }} />
+                    </div>
+                    <div className="field-group">
+                      <label htmlFor={`disc-btn-${idx}`}>Texto do Botão</label>
+                      <input id={`disc-btn-${idx}`} name={`discBtn_${idx}`} placeholder="Concordo" value={item.buttonText} onChange={(e) => {
+                        const next = [...disclaimers.items]; next[idx] = { ...next[idx], buttonText: e.target.value }; setDisclaimers({ ...disclaimers, items: next })
+                      }} />
+                    </div>
+                  </div>
+                  <div className="field-group">
+                    <label htmlFor={`disc-text-${idx}`}>Texto do aviso</label>
+                    <textarea id={`disc-text-${idx}`} name={`discText_${idx}`} rows={3} value={item.text} onChange={(e) => {
+                      const next = [...disclaimers.items]; next[idx] = { ...next[idx], text: e.target.value }; setDisclaimers({ ...disclaimers, items: next })
+                    }} />
+                  </div>
+                  <label className="toggle-row donation-trigger">
+                    <input id={`disc-trigger-${idx}`} name={`discTrigger_${idx}`} type="checkbox" checked={item.isDonationTrigger} onChange={(e) => {
+                      const next = [...disclaimers.items]; next[idx] = { ...next[idx], isDonationTrigger: e.target.checked }; setDisclaimers({ ...disclaimers, items: next })
+                    }} />
+                    Gatilho de Doação
+                  </label>
+                </div>
+              ))}
+              <button type="button" className="ghost-button" onClick={() => setDisclaimers({
+                ...disclaimers,
+                items: [...disclaimers.items, { id: crypto.randomUUID(), title: '', text: '', buttonText: 'Concordo', isDonationTrigger: false }],
+              })}>
+                <FilePlus2 size={16} /> Adicionar Novo Aviso
+              </button>
+            </div>
+          )}
+        </fieldset>
+
+        <div className="form-actions">
+          <button type="submit" className="primary-button" disabled={savingSettings}>
+            {savingSettings ? <Loader2 size={18} className="spin" /> : <Save size={18} />}
+            Salvar disclaimers
+          </button>
+        </div>
+      </form>
+
+      {/* ── Taxas dos Gateways de Pagamento ── */}
+      <div className="form-card" style={{ marginTop: '24px' }}>
+        <div className="result-toolbar">
+          <div>
+            <h4><DollarSign size={16} /> Taxas dos Gateways de Pagamento</h4>
+            <p className="field-hint">
+              Configure as taxas cobradas pela SumUp e Mercado Pago para cálculo automático de repasse ao valor da doação.
+            </p>
+          </div>
+          <div className="inline-actions">
+            <button type="button" className="ghost-button" onClick={() => void carregarTaxas()} disabled={feesLoading}>
+              {feesLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+              Recarregar
+            </button>
+          </div>
+        </div>
+
+        <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {/* SumUp */}
+          <fieldset className="settings-fieldset">
+            <legend>SumUp</legend>
+            <div className="field-group">
+              <label htmlFor="sumup-fee-rate">Taxa Percentual (%)</label>
+              <input
+                id="sumup-fee-rate"
+                name="sumupFeeRate"
+                type="number"
+                step="0.01"
+                min="0"
+                max="99.99"
+                value={parseFloat((fees.sumupRate * 100).toFixed(4))}
+                onChange={e => setFees(prev => ({ ...prev, sumupRate: Math.max(0, Math.min(0.9999, parseFloat(e.target.value) / 100 || 0)) }))}
+              />
+              <p className="field-hint">Ex: 2.67 = 2,67% por transação</p>
+            </div>
+            <div className="field-group">
+              <label htmlFor="sumup-fee-fixed">Taxa Fixa (R$)</label>
+              <input
+                id="sumup-fee-fixed"
+                name="sumupFeeFixed"
+                type="number"
+                step="0.01"
+                min="0"
+                value={fees.sumupFixed}
+                onChange={e => setFees(prev => ({ ...prev, sumupFixed: Math.max(0, parseFloat(e.target.value) || 0) }))}
+              />
+              <p className="field-hint">Valor fixo cobrado por transação (0 = desabilitado)</p>
+            </div>
+          </fieldset>
+
+          {/* Mercado Pago */}
+          <fieldset className="settings-fieldset">
+            <legend>Mercado Pago</legend>
+            <div className="field-group">
+              <label htmlFor="mp-fee-rate">Taxa Percentual (%)</label>
+              <input
+                id="mp-fee-rate"
+                name="mpFeeRate"
+                type="number"
+                step="0.01"
+                min="0"
+                max="99.99"
+                value={parseFloat((fees.mpRate * 100).toFixed(4))}
+                onChange={e => setFees(prev => ({ ...prev, mpRate: Math.max(0, Math.min(0.9999, parseFloat(e.target.value) / 100 || 0)) }))}
+              />
+              <p className="field-hint">Ex: 4.99 = 4,99% por transação</p>
+            </div>
+            <div className="field-group">
+              <label htmlFor="mp-fee-fixed">Taxa Fixa (R$)</label>
+              <input
+                id="mp-fee-fixed"
+                name="mpFeeFixed"
+                type="number"
+                step="0.01"
+                min="0"
+                value={fees.mpFixed}
+                onChange={e => setFees(prev => ({ ...prev, mpFixed: Math.max(0, parseFloat(e.target.value) || 0) }))}
+              />
+              <p className="field-hint">Valor fixo cobrado por transação (ex: R$ 0,40)</p>
+            </div>
+          </fieldset>
+        </div>
+
+        <div className="form-actions" style={{ marginTop: '16px' }}>
+          <button type="button" className="primary-button" onClick={() => void salvarTaxas()} disabled={feesSaving}>
+            {feesSaving ? <Loader2 size={18} className="spin" /> : <Save size={18} />}
+            Salvar Taxas
+          </button>
+          <button type="button" className="ghost-button" onClick={() => { setFees(DEFAULT_FEES); showNotification('Taxas restauradas para os valores padrão. Salve para confirmar.', 'info') }}>
+            Restaurar Padrão
+          </button>
+        </div>
+
+        <p className="field-hint" style={{ marginTop: '12px', fontStyle: 'italic', opacity: 0.7 }}>
+          Estas taxas são lidas pelo worker em cada checkout para calcular o valor final com repasse. Alterações refletem imediatamente após salvar.
         </p>
       </div>
 
