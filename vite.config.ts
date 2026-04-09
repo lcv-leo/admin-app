@@ -10,12 +10,11 @@ export default defineConfig({
     rollupOptions: {
       // Tiptap 3.22.x declara peer deps (collaboration, yjs, etc.) que o bundler
       // tenta resolver mas que NÃO são usados em runtime neste app.
+      // NÃO externalizar deps usados em runtime (drag-handle, suggestion).
       external: [
-        '@tiptap/extension-drag-handle',
         '@tiptap/extension-collaboration',
         '@tiptap/extension-node-range',
         '@tiptap/y-tiptap',
-        '@tiptap/suggestion',
         'yjs',
         'y-prosemirror',
       ],
