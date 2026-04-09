@@ -1,4 +1,14 @@
 # Changelog — Admin App
+## [v01.82.03] - 2026-04-09
+### Corrigido
+- **PostEditor — Notificações/toasts apareciam na janela principal em vez do pop-up**: O `NotificationProvider` usava `createPortal(... , document.body)` que sempre referenciava o body da janela principal. Quando o PostEditor (rodando dentro de um `PopupPortal` via `window.open()`) chamava `showNotification()`, os toasts renderizavam na janela errada, invisíveis ao usuário.
+  - **Fix**: `NotificationProvider` agora aceita prop opcional `container` para redirecionar o portal para um DOM arbitrário. Novo componente `PopupNotificationBridge` no `MainsiteModule` detecta o `ownerDocument.body` do popup via callback ref e cria um `NotificationProvider` scoped para aquela janela. PostEditor recebe a função `showNotification` do provider do popup ao invés do provider principal.
+  - **Arquivos alterados**: `Notification.tsx` (prop `container`), `MainsiteModule.tsx` (`PopupNotificationBridge` + `PopupNotificationConsumer`).
+  - **Lint**: Corrigido aviso React "Calling setState synchronously within an effect" usando callback ref em vez de `useEffect` + `useRef`.
+
+### Controle de versão
+- `admin-app`: APP v01.82.02 → APP v01.82.03
+
 ## [v01.82.02] - 2026-04-09
 ### Corrigido
 - **PostEditor — Crash em produção por bare module specifiers no bundle**: O `vite.config.ts` usava `rollupOptions.external` para suprimir erros de build de peer dependencies não instaladas do Tiptap 3.22.x (`@tiptap/extension-drag-handle`, `@tiptap/extension-collaboration`, `@tiptap/extension-node-range`, `@tiptap/y-tiptap`, `@tiptap/suggestion`, `yjs`, `y-prosemirror`). Isso deixava bare module specifiers (ex: `from"@tiptap/extension-drag-handle"`) no JavaScript de produção — browsers não resolvem bare specifiers e lançavam `TypeError: Failed to resolve module specifier` ao abrir o PostEditor.

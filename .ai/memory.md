@@ -1,6 +1,19 @@
 # AI Memory Log — Admin-App
 
-## 2026-04-09 — PostEditor Crash Fix: Tiptap Peer Deps Bare Specifiers (v01.82.02)
+## 2026-04-09 — PostEditor Popup Notification Context Fix (v01.82.03)
+### Escopo
+Correção de bug onde notificações/toasts disparados pelo PostEditor (rodando em popup window via `PopupPortal`) renderizavam na janela principal do admin em vez do popup.
+### Root Cause
+O `NotificationProvider` (Notification.tsx) sempre portalizava toasts para `document.body` — que refere-se ao body da **janela principal**. O PostEditor recebe `showNotification` como prop e é renderizado dentro de uma janela popup separada via `window.open()`. Ao chamar `showNotification()`, o toast aparecia na janela principal (invisível ao usuário no popup).
+### Corrigido
+- **`Notification.tsx`**: Adicionada prop opcional `container?: HTMLElement | null` ao `NotificationProvider`. Quando fornecido, `createPortal` usa o container em vez de `document.body`. Retrocompatível (fallback para `document.body`).
+- **`MainsiteModule.tsx`**: Criados componentes `PopupNotificationBridge` + `PopupNotificationConsumer`. O bridge usa **callback ref** (não `useEffect`) para detectar `ownerDocument.body` do popup, wrapa filhos em `NotificationProvider` scoped para o popup, e passa a `showNotification` do popup para o PostEditor via render prop.
+- **Lint fix**: Callback ref elimina o aviso React "Calling setState synchronously within an effect".
+### Padrão Arquitetural
+- Componentes renderizados dentro de `PopupPortal` vivem em um `document` diferente. Qualquer `createPortal` que target `document.body` vai mirar a janela errada. Usar `ownerDocument.body` do elemento renderizado para obter o body correto.
+### Versão
+- APP v01.82.02 → APP v01.82.03
+
 ### Escopo
 Resolução de crash em produção no PostEditor causado por bare module specifiers no bundle Vite.
 ### Root Cause
