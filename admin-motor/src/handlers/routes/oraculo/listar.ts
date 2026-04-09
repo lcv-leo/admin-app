@@ -30,7 +30,7 @@ export const onRequestGet = async (context: any) => {
 
       const total = Number(countRes.results?.[0]?.c ?? 0)
       
-      const items = (res.results ?? []).map((row) => {
+      const items = (res.results ?? []).map((row: Record<string, unknown>) => {
         const prazoDias = Number(row.prazo_dias ?? 0)
         const aliquotaIr = prazoDias <= 180 ? 22.5 : prazoDias <= 360 ? 20 : prazoDias <= 720 ? 17.5 : 15
         return {
@@ -59,7 +59,7 @@ export const onRequestGet = async (context: any) => {
 
       const total = Number(countRes.results?.[0]?.c ?? 0)
       
-      const items = (res.results ?? []).map((row) => ({
+      const items = (res.results ?? []).map((row: Record<string, unknown>) => ({
         id: row.id,
         criadoEm: row.created_at,
         dataCompra: row.data_compra,

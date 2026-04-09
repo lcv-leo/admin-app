@@ -133,7 +133,7 @@ export async function getAccessToken(saKey: string): Promise<string> {
   try {
     cryptoKey = await crypto.subtle.importKey(
       'pkcs8',
-      keyBuffer.buffer,
+      keyBuffer.buffer as ArrayBuffer,
       { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
       false,
       ['sign']
