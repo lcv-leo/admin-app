@@ -1108,10 +1108,14 @@ export function MainsiteModule() {
               const isEditing = editingSummaryId === s.post_id
               const isRegenerating = regeneratingId === s.post_id
               return (
-                <li key={s.post_id} className="post-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <li key={s.post_id} className="post-row" style={isEditing
+                  ? { gridTemplateColumns: '1fr', gap: '8px' }
+                  : { gridTemplateColumns: 'repeat(3, 1fr)', alignItems: 'start', gap: '8px 16px' }
+                }>
+                  {/* Coluna 1 (sempre): título + meta + ações */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <strong style={{ display: 'block', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                         #{s.post_id} {s.post_title || '(sem título)'}
                       </strong>
                       <span style={{ fontSize: '12px', opacity: 0.6 }}>
@@ -1129,6 +1133,7 @@ export function MainsiteModule() {
                   </div>
 
                   {isEditing ? (
+                    /* Modo edição: formulário ocupa coluna única */
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px', background: 'rgba(128,128,128,0.05)', borderRadius: '8px' }}>
                       <div className="field-group">
                         <label style={{ fontSize: '12px', fontWeight: 600 }}>Resumo OG (máx. 200 chars — preview social)</label>
@@ -1163,18 +1168,20 @@ export function MainsiteModule() {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ fontSize: '13px', lineHeight: '1.5', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      <div style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 600, opacity: 0.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>OG</span>{' '}
+                    <>
+                      {/* Coluna 2: OG */}
+                      <div style={{ borderLeft: '1px solid rgba(128,128,128,0.15)', paddingLeft: '12px', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: '13px', lineHeight: '1.6' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.45, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '3px' }}>OG</div>
                         <span style={{ opacity: 0.85 }}>{s.summary_og}</span>
                       </div>
+                      {/* Coluna 3: LD */}
                       {s.summary_ld && s.summary_ld !== s.summary_og ? (
-                        <div style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 600, opacity: 0.5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>LD</span>{' '}
+                        <div style={{ borderLeft: '1px solid rgba(128,128,128,0.15)', paddingLeft: '12px', wordBreak: 'break-word', overflowWrap: 'break-word', fontSize: '13px', lineHeight: '1.6' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, opacity: 0.45, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '3px' }}>LD</div>
                           <span style={{ opacity: 0.7 }}>{s.summary_ld}</span>
                         </div>
                       ) : <div />}
-                    </div>
+                    </>
                   )}
                 </li>
               )
