@@ -1,5 +1,15 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-09 — MainSite: Reordenação do quadro Resumos IA (v01.82.07)
+### Escopo
+Reordenação de painel no `MainsiteModule.tsx`.
+### Alterado
+- Quadro "Resumos IA — Compartilhamento Social" movido: agora aparece entre "Moderação de Avaliações" e "Janelas de Aviso (Disclaimers)".
+- Ordem anterior: Avaliações → Disclaimers → Taxas → Resumos IA.
+- Nova ordem: Avaliações → **Resumos IA** → Disclaimers → Taxas.
+### Versão
+- APP v01.82.06 → APP v01.82.07
+
 ## 2026-04-09 — Financeiro: MP Transaction Field Mapping Fix (v01.82.05)
 ### Escopo
 Datas e outros campos das transações Mercado Pago não apareciam na tabela do módulo Financeiro.
