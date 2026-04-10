@@ -4,7 +4,18 @@
     "enabled": false
   },
   "linter": {
-    "enabled": false
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noConsole": "off",
+        "noExplicitAny": "off"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "warn",
+        "noUndeclaredVariables": "off"
+      }
+    }
   },
   "formatter": {
     "enabled": true,

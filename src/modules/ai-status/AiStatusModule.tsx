@@ -5,7 +5,8 @@
 // Módulo: admin-app/src/modules/ai-status/AiStatusModule.tsx
 // Descrição: Dashboard AI Status — Tier A (Catálogo + Rate Limits) + Tier B (Usage) + Tier C (GCP Monitoring)
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Activity, AlertTriangle, BarChart3, BookOpen, Brain, CheckCircle,
   ChevronDown, ChevronRight, Clock, Cloud, CloudOff, Copy, CpuIcon,
@@ -181,23 +182,15 @@ export function AiStatusModule() {
   const [activeTab, setActiveTab] = useState<TabId>('models')
 
   // Health (runs on mount)
-  const [health, setHealth] = useState<HealthData | null>(null)
-  const [healthLoading, setHealthLoading] = useState(true)
-
-  const fetchHealth = useCallback(async () => {
-    setHealthLoading(true)
-    try {
+  const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery<HealthData>({
+    queryKey: ['ai-status-health'],
+    queryFn: async () => {
       const res = await fetch('/api/ai-status/health')
-      const data = await res.json() as HealthData
-      setHealth(data)
-    } catch {
-      setHealth({ ok: false, keyConfigured: false, apiReachable: false, latencyMs: null, httpStatus: null, checkedAt: new Date().toISOString() })
-    } finally {
-      setHealthLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { void fetchHealth() }, [fetchHealth])
+      return await res.json() as HealthData
+    },
+    staleTime: 30_000,
+    retry: 1,
+  })
 
   return (
     <section className="module-shell module-shell-ai-status">
@@ -223,7 +216,7 @@ export function AiStatusModule() {
               <AlertTriangle size={14} /> {health?.apiReachable === false ? 'API inacessível' : `HTTP ${health?.httpStatus}`}
             </span>
           )}
-          <button type="button" className="ghost-button" onClick={fetchHealth} disabled={healthLoading}
+          <button type="button" className="ghost-button" onClick={() => void refetchHealth()} disabled={healthLoading}
             style={{ padding: '8px 12px' }}>
             <RefreshCw size={14} />
           </button>
@@ -272,35 +265,26 @@ export function AiStatusModule() {
    ═══════════════════════════════════════════════════════════════ */
 
 function ModelsTab() {
-  const [models, setModels] = useState<GeminiModel[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [latencyMs, setLatencyMs] = useState(0)
   const [searchFilter, setSearchFilter] = useState('')
   const [familyFilter, setFamilyFilter] = useState<string>('all')
   const [expandedModel, setExpandedModel] = useState<string | null>(null)
   const [showRateLimits, setShowRateLimits] = useState(false)
 
-  const fetchModels = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
+  const { data: modelsData, isLoading: loading, error: queryError, refetch: refetchModels } = useQuery({
+    queryKey: ['ai-status-models'] as const,
+    queryFn: async (): Promise<{ models: GeminiModel[]; latencyMs: number }> => {
       const res = await fetch('/api/ai-status/models')
       const data = await res.json() as { ok: boolean; models: GeminiModel[]; latencyMs: number; error?: string }
-      if (data.ok) {
-        setModels(data.models || [])
-        setLatencyMs(data.latencyMs || 0)
-      } else {
-        setError(data.error || 'Erro desconhecido')
-      }
-    } catch {
-      setError('Falha de conexão com o backend.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      if (!data.ok) throw new Error(data.error || 'Erro desconhecido')
+      return { models: data.models || [], latencyMs: data.latencyMs || 0 }
+    },
+    staleTime: 30_000,
+    retry: 1,
+  })
 
-  useEffect(() => { void fetchModels() }, [fetchModels])
+  const models = modelsData?.models ?? []
+  const latencyMs = modelsData?.latencyMs ?? 0
+  const error = queryError instanceof Error ? queryError.message : ''
 
   // Filtros
   const filteredModels = useMemo(() => {
@@ -337,7 +321,7 @@ function ModelsTab() {
       <div className="form-card" style={{ textAlign: 'center', padding: 32 }}>
         <AlertTriangle size={32} style={{ color: '#dc2626', marginBottom: 10 }} />
         <p style={{ color: '#dc2626' }}>{error}</p>
-        <button type="button" className="ghost-button" onClick={fetchModels} style={{ marginTop: 12 }}>
+        <button type="button" className="ghost-button" onClick={() => void refetchModels()} style={{ marginTop: 12 }}>
           <RefreshCw size={14} /> Tentar novamente
         </button>
       </div>
@@ -410,7 +394,7 @@ function ModelsTab() {
         <button type="button" className="ghost-button" onClick={() => setShowRateLimits(!showRateLimits)} style={{ padding: '10px 16px' }}>
           <Zap size={14} /> {showRateLimits ? 'Ocultar Rate Limits' : 'Rate Limits'}
         </button>
-        <button type="button" className="ghost-button" onClick={fetchModels} style={{ padding: '10px 14px' }}>
+        <button type="button" className="ghost-button" onClick={() => void refetchModels()} style={{ padding: '10px 14px' }}>
           <RefreshCw size={14} />
         </button>
       </div>
@@ -574,29 +558,19 @@ function ModelsTab() {
    ═══════════════════════════════════════════════════════════════ */
 
 function UsageTab() {
-  const [usage, setUsage] = useState<UsageData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  const fetchUsage = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
+  const { data: usage, isLoading: loading, error: queryError, refetch: refetchUsage } = useQuery<UsageData>({
+    queryKey: ['ai-status-usage'] as const,
+    queryFn: async () => {
       const res = await fetch('/api/ai-status/usage')
       const data = await res.json() as UsageData & { error?: string }
-      if (data.ok) {
-        setUsage(data)
-      } else {
-        setError(data.error || 'Erro ao carregar dados de uso.')
-      }
-    } catch {
-      setError('Falha ao conectar ao backend.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      if (!data.ok) throw new Error(data.error || 'Erro ao carregar dados de uso.')
+      return data
+    },
+    staleTime: 30_000,
+    retry: 1,
+  })
 
-  useEffect(() => { void fetchUsage() }, [fetchUsage])
+  const error = queryError instanceof Error ? queryError.message : ''
 
   if (loading) return <div className="module-loading"><Loader2 size={24} className="spin" /></div>
 
@@ -605,7 +579,7 @@ function UsageTab() {
       <div className="form-card" style={{ textAlign: 'center', padding: 32 }}>
         <AlertTriangle size={32} style={{ color: '#dc2626', marginBottom: 10 }} />
         <p style={{ color: '#dc2626' }}>{error}</p>
-        <button type="button" className="ghost-button" onClick={fetchUsage} style={{ marginTop: 12 }}>
+        <button type="button" className="ghost-button" onClick={() => void refetchUsage()} style={{ marginTop: 12 }}>
           <RefreshCw size={14} /> Tentar novamente
         </button>
       </div>
@@ -622,7 +596,7 @@ function UsageTab() {
       {/* ── Period ── */}
       <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: 14 }}>
         Período: {new Date(usage.period.since).toLocaleDateString('pt-BR')} — {new Date(usage.period.until).toLocaleDateString('pt-BR')} (últimos 30 dias)
-        <button type="button" className="ghost-button" onClick={fetchUsage} style={{ marginLeft: 12, padding: '4px 10px', fontSize: '0.75rem' }}>
+        <button type="button" className="ghost-button" onClick={() => void refetchUsage()} style={{ marginLeft: 12, padding: '4px 10px', fontSize: '0.75rem' }}>
           <RefreshCw size={12} />
         </button>
       </div>
@@ -760,26 +734,19 @@ function UsageTab() {
    ═══════════════════════════════════════════════════════════════ */
 
 function GcpTab() {
-  const [data, setData] = useState<GcpMonitoringData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [expandedGuide, setExpandedGuide] = useState(false)
 
-  const fetchGcp = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
+  const { data, isLoading: loading, error: queryError, refetch: refetchGcp } = useQuery<GcpMonitoringData>({
+    queryKey: ['ai-status-gcp'] as const,
+    queryFn: async () => {
       const res = await fetch('/api/ai-status/gcp-monitoring')
-      const result = await res.json() as GcpMonitoringData
-      setData(result)
-    } catch {
-      setError('Falha ao conectar ao backend.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      return await res.json() as GcpMonitoringData
+    },
+    staleTime: 30_000,
+    retry: 1,
+  })
 
-  useEffect(() => { void fetchGcp() }, [fetchGcp])
+  const error = queryError instanceof Error ? queryError.message : ''
 
   /* ── Tipagem para timeSeries do GCP ── */
   type TsPoint = {
@@ -855,7 +822,7 @@ function GcpTab() {
       <div className="form-card" style={{ textAlign: 'center', padding: 32 }}>
         <AlertTriangle size={32} style={{ color: '#dc2626', marginBottom: 10 }} />
         <p style={{ color: '#dc2626' }}>{error}</p>
-        <button type="button" className="ghost-button" onClick={fetchGcp} style={{ marginTop: 12 }}>
+        <button type="button" className="ghost-button" onClick={() => void refetchGcp()} style={{ marginTop: 12 }}>
           <RefreshCw size={14} /> Tentar novamente
         </button>
       </div>
@@ -1010,7 +977,7 @@ function GcpTab() {
             <strong style={{ display: 'block', fontSize: '1rem' }}>{data?.projectId}</strong>
           </div>
         </div>
-        <button type="button" className="ghost-button" onClick={fetchGcp}
+        <button type="button" className="ghost-button" onClick={() => void refetchGcp()}
           style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6 }}>
           <RefreshCw size={14} /> Atualizar
         </button>
@@ -1287,7 +1254,7 @@ function GcpTab() {
           <CloudOff size={36} style={{ color: '#dc2626', marginBottom: 12 }} />
           <p style={{ color: '#dc2626', fontWeight: 600, fontSize: '1rem', marginBottom: 4 }}>Erro ao consultar Cloud Monitoring</p>
           <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>{data?.error}</p>
-          <button type="button" className="ghost-button" onClick={fetchGcp} style={{ marginTop: 16, padding: '10px 20px' }}>
+          <button type="button" className="ghost-button" onClick={() => void refetchGcp()} style={{ marginTop: 16, padding: '10px 20px' }}>
             <RefreshCw size={14} /> Tentar novamente
           </button>
         </div>
@@ -1440,34 +1407,26 @@ function exportLogsJSONL(logs: GcpLogEntry[]) {
 }
 
 function GcpLogsTab() {
-  const [logs, setLogs] = useState<GcpLogEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [expandedLog, setExpandedLog] = useState<string | null>(null)
   const [filterMethod, setFilterMethod] = useState('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'ok' | 'error'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortNewest, setSortNewest] = useState(true)
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
+  const { data: logsData, isLoading: loading, error: queryError, refetch: refetchLogs } = useQuery({
+    queryKey: ['ai-status-logs'] as const,
+    queryFn: async (): Promise<GcpLogEntry[]> => {
       const res = await fetch('/api/ai-status/gcp-logs')
       const data = await res.json() as { ok: boolean; entries?: GcpLogEntry[]; error?: string }
-      if (data.ok) {
-        setLogs(data.entries || [])
-      } else {
-        setError(data.error || 'Erro desconhecido')
-      }
-    } catch {
-      setError('Falha de conexão com o backend.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+      if (!data.ok) throw new Error(data.error || 'Erro desconhecido')
+      return data.entries || []
+    },
+    staleTime: 30_000,
+    retry: 1,
+  })
 
-  useEffect(() => { void fetchLogs() }, [fetchLogs])
+  const logs = logsData ?? []
+  const error = queryError instanceof Error ? queryError.message : ''
 
   /* ── Stats summary (hook must be before early returns) ── */
   const stats = useMemo(() => {
@@ -1527,7 +1486,7 @@ function GcpLogsTab() {
       <div className="form-card" style={{ textAlign: 'center', padding: 32 }}>
         <AlertTriangle size={32} style={{ color: '#dc2626', marginBottom: 10 }} />
         <p style={{ color: '#dc2626' }}>{error}</p>
-        <button type="button" className="ghost-button" onClick={fetchLogs} style={{ marginTop: 12 }}>
+        <button type="button" className="ghost-button" onClick={() => void refetchLogs()} style={{ marginTop: 12 }}>
           <RefreshCw size={14} /> Tentar novamente
         </button>
       </div>
@@ -1552,7 +1511,7 @@ function GcpLogsTab() {
           </p>
         </div>
 
-        <button type="button" className="ghost-button" onClick={fetchLogs} style={{ marginTop: 20, padding: '10px 20px' }}>
+        <button type="button" className="ghost-button" onClick={() => void refetchLogs()} style={{ marginTop: 20, padding: '10px 20px' }}>
           <RefreshCw size={14} /> Atualizar Agora
         </button>
       </div>
@@ -1606,7 +1565,7 @@ function GcpLogsTab() {
               </span>
             )}
           </div>
-          <button type="button" className="ghost-button" onClick={fetchLogs}
+          <button type="button" className="ghost-button" onClick={() => void refetchLogs()}
             style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6 }}>
             <RefreshCw size={14} /> Atualizar
           </button>

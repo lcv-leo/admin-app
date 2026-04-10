@@ -11,7 +11,9 @@
     "test": "vitest run",
     "preview": "vite preview",
     "format": "biome format --write src",
-    "stats": "ANALYZE=true vite build"
+    "stats": "ANALYZE=true vite build",
+    "knip": "knip",
+    "prepare": "husky"
   },
   "dependencies": {
     "@google/genai": "^1.48.0",
@@ -91,7 +93,16 @@
     "vitest": "^4.1.2",
     "wrangler": "^4.79.0",
     "@vitest/coverage-v8": "^4.1.2",
-    "rollup-plugin-visualizer": "^5.14.0"
+    "rollup-plugin-visualizer": "^5.14.0",
+    "husky": "^9.0.0",
+    "knip": "^5.0.0",
+    "lint-staged": "^15.0.0"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "biome format --write",
+      "eslint --fix"
+    ]
   },
   "overrides": {
     "picomatch": "4.0.4",
