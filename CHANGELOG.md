@@ -1,4 +1,12 @@
 # Changelog — Admin App
+## [v01.84.00] - 2026-04-09
+### Adicionado
+- **Vitest UI**: `@vitest/ui ^4.1.2` adicionado; script `"test:ui": "vitest --ui"` para dashboard visual de testes.
+- **Biome organizeImports**: Ordenação automática de imports habilitada em `biome.json`.
+
+### Controle de versão
+- `admin-app`: APP v01.83.00 → APP v01.84.00
+
 ## [v01.83.00] - 2026-04-09
 ### Adicionado
 - **TanStack Query DevTools**: `ReactQueryDevtools` adicionado a `main.tsx` (visible somente em dev via tree-shaking de produção).

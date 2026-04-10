@@ -1,5 +1,14 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-09 — Tier 4 Tech Upgrades (v01.84.00)
+### Escopo
+Vitest UI, Biome organizeImports.
+### Adicionado
+- `@vitest/ui ^4.1.2` + script `test:ui`.
+- `organizeImports: true` no `biome.json`.
+### Versão
+- APP v01.83.00 → APP v01.84.00
+
 ## 2026-04-09 — Tier 1-3 Tech Upgrades (v01.83.00)
 ### Escopo
 Três tiers de upgrades tecnológicos aplicados: TanStack Query completo, Biome linter, Husky, Knip.
