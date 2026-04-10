@@ -49,7 +49,8 @@ import {
   onRequestPut as handleApphubConfigPut,
 } from './handlers/routes/apphub/config';
 import { toHeaders } from '../../functions/api/_lib/mainsite-admin';
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenAI } from '@google/genai';
+import { validatePutAuth } from './handlers/routes/_lib/auth';
 // ── Novos handlers migrados de Pages Functions ──
 import { onRequestGet as handleAiStatusUsageGet, onRequestPost as handleAiStatusUsagePost } from './handlers/routes/ai-status/usage';
 import { onRequestPost as handleAstrologoExcluirPost } from './handlers/routes/astrologo/excluir';
@@ -136,6 +137,8 @@ type AdminMotorEnv = {
   GCP_SA_KEY?: unknown;
   GCP_PROJECT_ID?: unknown;
   JINA_API_KEY?: unknown;
+  CF_ACCESS_TEAM_DOMAIN?: unknown;
+  ENFORCE_JWT_VALIDATION?: unknown;
 };
 
 type ResolvedAdminMotorEnv = {
@@ -154,6 +157,8 @@ type ResolvedAdminMotorEnv = {
   GCP_SA_KEY?: string;
   GCP_PROJECT_ID?: string;
   JINA_API_KEY?: string;
+  CF_ACCESS_TEAM_DOMAIN?: string;
+  ENFORCE_JWT_VALIDATION?: string;
 };
 
 type D1Like = {
@@ -241,6 +246,8 @@ const resolveRuntimeEnv = async (env: AdminMotorEnv): Promise<ResolvedAdminMotor
   GCP_SA_KEY: await readSecretString(env.GCP_SA_KEY),
   GCP_PROJECT_ID: await readSecretString(env.GCP_PROJECT_ID),
   JINA_API_KEY: await readSecretString(env.JINA_API_KEY),
+  CF_ACCESS_TEAM_DOMAIN: await readSecretString(env.CF_ACCESS_TEAM_DOMAIN),
+  ENFORCE_JWT_VALIDATION: await readSecretString(env.ENFORCE_JWT_VALIDATION),
 });
 
 const handleAiStatusHealth = async (request: Request, env: ResolvedAdminMotorEnv, unparsedEnv: AdminMotorEnv): Promise<Response> => {
@@ -399,6 +406,21 @@ export default {
 
     try {
       const runtimeEnv = await resolveRuntimeEnv(env);
+
+      // Global auth guard — all routes require CF Access or valid Bearer.
+      // Exempt OPTIONS (CORS preflight) so the browser can discover CORS headers.
+      if (method !== 'OPTIONS') {
+        const authCtx = await validatePutAuth(request, runtimeEnv.CLOUDFLARE_PW, {
+          teamDomain: runtimeEnv.CF_ACCESS_TEAM_DOMAIN,
+          enforcement: runtimeEnv.ENFORCE_JWT_VALIDATION,
+        });
+        if (!authCtx.isAuthenticated) {
+          return new Response(
+            JSON.stringify({ ok: false, error: 'Unauthorized.' }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+      }
 
       const routeContext = <T>() => ({ request, env: runtimeEnv, waitUntil: (p: Promise<unknown>) => ctx.waitUntil(p) } as unknown as T);
       if (method === 'GET' && pathname === '/api/ai-status/health') {

@@ -151,8 +151,11 @@ export async function validatePutAuth(
     return { isAuthenticated: false, source: 'none', error: 'No authentication provided.' };
   }
 
-  // No bearer token — trust Cloudflare Access edge authentication.
+  // No bearer token — require Cloudflare Access authentication.
   const cfAccessEmail = request.headers.get('CF-Access-Authenticated-User-Email');
+  if (!cfAccessEmail) {
+    return { isAuthenticated: false, source: 'none', error: 'CF Access authentication required.' };
+  }
 
   // Optionally validate CF-Access-JWT-Assertion
   const teamDomain = jwtConfig?.teamDomain?.trim();
@@ -190,7 +193,7 @@ export async function validatePutAuth(
 
   return {
     isAuthenticated: true,
-    token: cfAccessEmail ?? 'cloudflare-access-session',
+    token: cfAccessEmail,
     source: 'cloudflare-access',
   };
 }
