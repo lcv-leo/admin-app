@@ -1,6 +1,7 @@
 /**
  * Authentication utilities for admin-app endpoints
- * Supports Bearer token and Cloudflare Access headers
+ * Supports Bearer token and Cloudflare Access headers.
+ * Uses constant-time comparison to prevent timing attacks.
  */
 
 export interface AuthContext {
@@ -8,6 +9,20 @@ export interface AuthContext {
   token?: string;
   source?: 'bearer' | 'cloudflare-access' | 'none';
   error?: string;
+}
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // Compare against self to keep constant time even with different lengths
+    const dummy = new TextEncoder().encode(a);
+    crypto.subtle.timingSafeEqual(dummy, dummy);
+    return false;
+  }
+  const encoder = new TextEncoder();
+  return crypto.subtle.timingSafeEqual(encoder.encode(a), encoder.encode(b));
 }
 
 /**
@@ -26,13 +41,16 @@ export function validatePutAuth(request: Request, bearerTokenEnv?: string): Auth
     const authHeader = request.headers.get('Authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      if (token === bearerTokenEnv) {
+      if (timingSafeEqual(token, bearerTokenEnv)) {
         return { isAuthenticated: true, token, source: 'bearer' };
       }
       return { isAuthenticated: false, source: 'bearer', error: 'Invalid Bearer token' };
     }
 
-    // Check Cloudflare Access headers as fallback when bearer token env is set
+    // Check Cloudflare Access headers as fallback when bearer token env is set.
+    // Note: CF-Access-Authenticated-User-Email is set by Cloudflare Access after
+    // JWT validation at the edge — it cannot be spoofed by end users when Access
+    // is properly configured. The JWT is stripped and replaced by this header.
     const cfAccessEmail = request.headers.get('CF-Access-Authenticated-User-Email');
     if (cfAccessEmail) {
       return { isAuthenticated: true, token: cfAccessEmail, source: 'cloudflare-access' };
@@ -41,14 +59,16 @@ export function validatePutAuth(request: Request, bearerTokenEnv?: string): Auth
     return { isAuthenticated: false, source: 'none', error: 'No authentication provided.' };
   }
 
-  // When no bearer token is configured in the environment, the entire domain is
-  // protected by Cloudflare Access at the edge. If this function is reachable,
-  // the request already passed Access authentication. Trust the session.
+  // Fail-closed: when no bearer token is configured, require CF-Access header.
+  // If neither is present, deny access instead of assuming edge auth passed.
   const cfAccessEmail = request.headers.get('CF-Access-Authenticated-User-Email');
+  if (cfAccessEmail) {
+    return { isAuthenticated: true, token: cfAccessEmail, source: 'cloudflare-access' };
+  }
   return {
-    isAuthenticated: true,
-    token: cfAccessEmail ?? 'cloudflare-access-session',
-    source: 'cloudflare-access',
+    isAuthenticated: false,
+    source: 'none',
+    error: 'No authentication method available.',
   };
 }
 

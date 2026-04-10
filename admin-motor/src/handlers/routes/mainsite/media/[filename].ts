@@ -31,6 +31,11 @@ export async function onRequestGet(context: MediaContext): Promise<Response> {
     return new Response('Arquivo não especificado.', { status: 400 })
   }
 
+  // Path traversal protection: block directory traversal and null bytes
+  if (filename.includes('..') || filename.includes('/') || filename.includes('\\') || filename.includes('\0')) {
+    return new Response('Nome de arquivo inválido.', { status: 400 })
+  }
+
   try {
     const object = await context.env.MEDIA_BUCKET.get(filename)
     if (!object) {

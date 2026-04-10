@@ -323,9 +323,9 @@ function postprocessHtml(html: string): string {
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': 'https://admin.lcv.app.br',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   }
 
   // Outer bulletproof catch — NEVER let an unhandled exception escape
@@ -506,9 +506,9 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
   return new Response(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': 'https://admin.lcv.app.br',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   })
 }

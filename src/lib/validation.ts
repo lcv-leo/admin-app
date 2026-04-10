@@ -374,7 +374,7 @@ export function stripDangerousHtml(html: string): string {
     return escapeHtml(html)
   }
 
-  const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'base'])
+  const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'base', 'svg', 'math', 'details'])
   const parsed = new DOMParser().parseFromString(html, 'text/html')
 
   const nodes = Array.from(parsed.body.querySelectorAll('*'))

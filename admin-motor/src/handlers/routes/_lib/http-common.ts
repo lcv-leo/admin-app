@@ -28,9 +28,11 @@ export const STANDARD_JSON_HEADERS: Record<string, string> = {
 /**
  * Headers for CORS-enabled endpoints
  */
+export const ADMIN_ORIGIN = 'https://admin.lcv.app.br'
+
 export const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Origin': ADMIN_ORIGIN,
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Max-Age': '86400',
 }

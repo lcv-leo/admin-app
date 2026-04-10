@@ -229,6 +229,20 @@ const readSecretString = async (value: unknown): Promise<string> => {
   return '';
 };
 
+const CRITICAL_SECRETS = ['ADMINHUB_BEARER_TOKEN', 'APPHUB_BEARER_TOKEN'] as const;
+const IMPORTANT_SECRETS = ['CLOUDFLARE_PW', 'CF_ACCOUNT_ID', 'GEMINI_API_KEY', 'RESEND_API_KEY', 'MP_ACCESS_TOKEN', 'SUMUP_API_KEY_PRIVATE', 'SUMUP_MERCHANT_CODE'] as const;
+
+function validateResolvedSecrets(env: ResolvedAdminMotorEnv): { ok: boolean; missing: string[] } {
+  const missing: string[] = [];
+  for (const key of CRITICAL_SECRETS) {
+    if (!env[key]) missing.push(key);
+  }
+  for (const key of IMPORTANT_SECRETS) {
+    if (!env[key]) console.warn(`[env] Missing recommended secret: ${key}`);
+  }
+  return { ok: missing.length === 0, missing };
+}
+
 const resolveRuntimeEnv = async (env: AdminMotorEnv): Promise<ResolvedAdminMotorEnv> => ({
   BIGDATA_DB: env.BIGDATA_DB,
   MEDIA_BUCKET: env.MEDIA_BUCKET,
@@ -252,14 +266,10 @@ const resolveRuntimeEnv = async (env: AdminMotorEnv): Promise<ResolvedAdminMotor
 const handleAiStatusHealth = async (request: Request, env: ResolvedAdminMotorEnv, unparsedEnv: AdminMotorEnv): Promise<Response> => {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) {
-    const rawKeys = Object.keys(unparsedEnv);
-    const resolvedMap = Object.entries(env).map(([k, v]) => `${k}:${v ? 'EXISTE' : 'FALTA'}`);
-    return json({ 
-      ok: false, 
-      error: 'GEMINI_API_KEY não configurada no runtime do admin-motor.', 
+    return json({
+      ok: false,
+      error: 'AI service not configured.',
       keyConfigured: false,
-      debugRawEnvKeys: rawKeys,
-      debugResolved: resolvedMap
     }, 503);
   }
   const ai = new GoogleGenAI({ apiKey });
@@ -303,7 +313,7 @@ const handleAiStatusHealth = async (request: Request, env: ResolvedAdminMotorEnv
         apiReachable: false,
         latencyMs: null,
         httpStatus: null,
-        error: errorBody.slice(0, 500),
+        error: 'AI service unreachable.',
         checkedAt: new Date().toISOString(),
       },
       500,
@@ -409,6 +419,12 @@ export default {
 
     try {
       const runtimeEnv = await resolveRuntimeEnv(env);
+
+      const secretsCheck = validateResolvedSecrets(runtimeEnv);
+      if (!secretsCheck.ok) {
+        console.error(`[env] CRITICAL secrets missing: ${secretsCheck.missing.join(', ')}`);
+      }
+
       const routeContext = <T>() => ({ request, env: runtimeEnv, waitUntil: (p: Promise<unknown>) => ctx.waitUntil(p) } as unknown as T);
       if (method === 'GET' && pathname === '/api/ai-status/health') {
         return handleAiStatusHealth(request, runtimeEnv, env);
@@ -654,7 +670,10 @@ export default {
       return handleMainsiteUploadPost(routeContext<Parameters<typeof handleMainsiteUploadPost>[0]>());
     }
     if (method === 'GET' && pathname.startsWith('/api/mainsite/media/')) {
-      const filename = pathname.replace('/api/mainsite/media/', '');
+      const filename = decodeURIComponent(pathname.replace('/api/mainsite/media/', ''));
+      if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\') || filename.includes('\0')) {
+        return new Response('Invalid filename.', { status: 400 });
+      }
       const mediaCtx = { request, env: runtimeEnv, params: { filename } };
       return handleMainsiteMediaGet(mediaCtx as Parameters<typeof handleMainsiteMediaGet>[0]);
     }
