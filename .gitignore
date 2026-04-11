@@ -24,3 +24,7 @@ dist-ssr
 *.sln
 *.sw?
 _cf_functions_build/
+
+# Playwright
+playwright-report/
+test-results/
