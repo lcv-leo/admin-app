@@ -1,4 +1,19 @@
 # Changelog — Admin App
+## [v01.85.00] - 2026-04-10
+### Adicionado
+- **TanStack Router**: Navegação por URL (`/$moduleId`) substitui `useState`. Deep links, browser back/forward e F5 preserva módulo ativo.
+- **E2E Playwright**: `e2e/navigation.spec.ts` (7 tests) + `e2e/modules.spec.ts` (15 tests) cobrindo router e lazy loading.
+- **Dependabot groups**: `@tanstack/*`, `@vitest/*`, `@biomejs/*` agrupados para reduzir PRs.
+
+### Corrigido
+- **JWT validation**: `validateCfAccessJwt()` agora é chamada em ambos os paths CF-Access (antes era ignorada quando `CLOUDFLARE_PW` estava configurado).
+- **MP Balance labels**: "Saldo Disponível" → "Total Recebido Líquido", "Saldo a Liberar" → "Pendente" (API do MP não expõe saldo real para contas pessoais).
+- **MP Balance paginação**: Paginação completa em `/v1/payments/search` (antes truncava em 100), usando `net_received_amount` (líquido de taxas).
+
+### Removido
+- **Auth duplicado**: `functions/api/_lib/auth.ts` deletado (nunca importado; Pages proxy delega auth ao admin-motor).
+- **`.wrangler/`** removido do repo e adicionado ao `.gitignore`.
+
 ## [v01.84.00] - 2026-04-09
 ### Adicionado
 - **Vitest UI**: `@vitest/ui ^4.1.2` adicionado; script `"test:ui": "vitest --ui"` para dashboard visual de testes.
