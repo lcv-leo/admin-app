@@ -121,6 +121,7 @@ type AdminMotorEnv = {
   GCP_PROJECT_ID?: unknown;
   JINA_API_KEY?: unknown;
   CF_ACCESS_TEAM_DOMAIN?: unknown;
+  CF_ACCESS_AUD?: unknown;
   ENFORCE_JWT_VALIDATION?: unknown;
 };
 
@@ -140,6 +141,7 @@ type ResolvedAdminMotorEnv = {
   GCP_PROJECT_ID?: string;
   JINA_API_KEY?: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
+  CF_ACCESS_AUD?: string;
   ENFORCE_JWT_VALIDATION?: string;
 };
 
@@ -228,6 +230,7 @@ const resolveRuntimeEnv = async (env: AdminMotorEnv): Promise<ResolvedAdminMotor
   GCP_PROJECT_ID: await readSecretString(env.GCP_PROJECT_ID),
   JINA_API_KEY: await readSecretString(env.JINA_API_KEY),
   CF_ACCESS_TEAM_DOMAIN: await readSecretString(env.CF_ACCESS_TEAM_DOMAIN),
+  CF_ACCESS_AUD: await readSecretString(env.CF_ACCESS_AUD),
   ENFORCE_JWT_VALIDATION: await readSecretString(env.ENFORCE_JWT_VALIDATION),
 });
 
@@ -404,6 +407,7 @@ app.use('*', async (c, next) => {
   const env = c.get('runtimeEnv');
   const authCtx = await validatePutAuth(c.req.raw, env.CLOUDFLARE_PW, {
     teamDomain: env.CF_ACCESS_TEAM_DOMAIN,
+    audience: env.CF_ACCESS_AUD,
     enforcement: env.ENFORCE_JWT_VALIDATION,
   });
   if (!authCtx.isAuthenticated) {

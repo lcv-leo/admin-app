@@ -1,4 +1,14 @@
 # Changelog — Admin App
+## [v01.89.01] - 2026-04-16
+### Adicionado
+- **Testes unitários de auth**: `admin-motor/src/handlers/routes/_lib/auth.test.ts` cobre bearer token válido e o novo fail-closed quando `CF_ACCESS_AUD` não está configurado.
+### Alterado
+- **Cloudflare Access JWT hardening**: `admin-motor` agora valida `iss`, `aud` e `nbf` além de `exp`/`iat`. O modo de enforcement passa a falhar fechado quando a audience do Access não está configurada, em vez de seguir com validação parcial.
+- **Rotas protegidas por bearer/Access**: `adminhub/config`, `apphub/config` e o middleware central passaram a encaminhar `CF_ACCESS_AUD` explicitamente para a validação do JWT.
+- **Bindings de produção**: `admin-motor/wrangler.json` ganhou o binding `CF_ACCESS_AUD` via Secrets Store (`cf-access-aud`) para alinhar o deploy ao novo gate de segurança.
+### Motivação
+- Fechar a lacuna de validação do Cloudflare Access apontada na auditoria de segurança, reduzindo risco de aceitação de JWT fora da aplicação correta.
+
 ## [v01.89.00] - 2026-04-16
 ### Adicionado
 - **Radix UI Dialog**: `@radix-ui/react-dialog ^1.x` em dependencies. Criado wrapper `src/components/ui/Dialog.tsx` (Dialog, DialogTrigger, DialogClose, DialogContent, DialogTitle, DialogDescription) — API limpa, a11y nativa (ARIA, foco trap, Escape-to-close, restauração de foco no trigger), consumidor passa `className` para integrar com CSS existente.

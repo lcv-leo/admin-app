@@ -15,6 +15,8 @@ export interface AuthContext {
 export interface JwtConfig {
   /** CF Access team domain, e.g. "lcv" for lcv.cloudflareaccess.com */
   teamDomain?: string;
+  /** Expected CF Access audience(s), comma or whitespace separated */
+  audience?: string;
   /** "warn" = log failures but allow access; "block" = reject on failure */
   enforcement?: string;
 }
@@ -68,14 +70,37 @@ function base64UrlDecode(str: string): Uint8Array {
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }
 
-async function verifyJwt(jwt: string, teamDomain: string): Promise<{ valid: boolean; email?: string; error?: string }> {
+function parseExpectedAudiences(raw: string | undefined): string[] {
+  return String(raw || '')
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function audienceMatches(tokenAudience: string | string[] | undefined, expectedAudiences: string[]): boolean {
+  const tokenAudiences = Array.isArray(tokenAudience)
+    ? tokenAudience.map((item) => item.trim()).filter(Boolean)
+    : typeof tokenAudience === 'string'
+      ? [tokenAudience.trim()].filter(Boolean)
+      : [];
+  return expectedAudiences.some((aud) => tokenAudiences.includes(aud));
+}
+
+async function verifyJwt(jwt: string, teamDomain: string, expectedAudiences: string[]): Promise<{ valid: boolean; email?: string; error?: string }> {
   try {
     const parts = jwt.split('.');
     if (parts.length !== 3) return { valid: false, error: 'JWT malformado.' };
 
     const [headerB64, payloadB64, signatureB64] = parts;
     const headerJson = JSON.parse(new TextDecoder().decode(base64UrlDecode(headerB64))) as { kid?: string; alg?: string };
-    const payloadJson = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadB64))) as { exp?: number; iat?: number; email?: string };
+    const payloadJson = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadB64))) as {
+      aud?: string | string[];
+      email?: string;
+      exp?: number;
+      iat?: number;
+      iss?: string;
+      nbf?: number;
+    };
 
     if (headerJson.alg !== 'RS256') return { valid: false, error: `Algoritmo JWT inesperado: ${headerJson.alg}` };
 
@@ -86,6 +111,18 @@ async function verifyJwt(jwt: string, teamDomain: string): Promise<{ valid: bool
     }
     if (payloadJson.iat && payloadJson.iat > now + 30) {
       return { valid: false, error: 'JWT com iat no futuro.' };
+    }
+    if (payloadJson.nbf && payloadJson.nbf > now + 30) {
+      return { valid: false, error: 'JWT ainda não está válido (nbf).' };
+    }
+
+    const expectedIssuer = `https://${teamDomain}.cloudflareaccess.com`;
+    if (payloadJson.iss !== expectedIssuer) {
+      return { valid: false, error: 'Issuer JWT inválido.' };
+    }
+
+    if (!audienceMatches(payloadJson.aud, expectedAudiences)) {
+      return { valid: false, error: 'Audience JWT inválido.' };
     }
 
     const keys = await fetchJwks(teamDomain);
@@ -138,9 +175,19 @@ async function validateCfAccessJwt(
   jwtConfig?: JwtConfig,
 ): Promise<AuthContext | null> {
   const teamDomain = jwtConfig?.teamDomain?.trim();
-  const enforcement = jwtConfig?.enforcement?.trim()?.toLowerCase();
+  const enforcement = jwtConfig?.enforcement?.trim()?.toLowerCase() === 'warn' ? 'warn' : 'block';
+  const expectedAudiences = parseExpectedAudiences(jwtConfig?.audience);
 
-  if (teamDomain && (enforcement === 'warn' || enforcement === 'block')) {
+  if (teamDomain) {
+    if (expectedAudiences.length === 0) {
+      const msg = 'CF Access audience não configurada.';
+      console.warn(`[Auth] JWT validation: ${msg}`);
+      if (enforcement === 'block') {
+        return { isAuthenticated: false, source: 'cloudflare-access', error: msg };
+      }
+      return null;
+    }
+
     const jwtToken = request.headers.get('CF-Access-JWT-Assertion');
 
     if (!jwtToken) {
@@ -150,7 +197,7 @@ async function validateCfAccessJwt(
         return { isAuthenticated: false, source: 'none', error: msg };
       }
     } else {
-      const result = await verifyJwt(jwtToken, teamDomain);
+      const result = await verifyJwt(jwtToken, teamDomain, expectedAudiences);
 
       if (!result.valid) {
         console.warn(`[Auth] JWT inválido: ${result.error}`);
@@ -167,8 +214,6 @@ async function validateCfAccessJwt(
         console.info(`[Auth] JWT válido para ${result.email || cfAccessEmail}.`);
       }
     }
-  } else if (teamDomain) {
-    console.info('[Auth] CF_ACCESS_TEAM_DOMAIN configurado mas ENFORCE_JWT_VALIDATION não definido. JWT não verificado.');
   }
 
   return null; // no rejection — proceed

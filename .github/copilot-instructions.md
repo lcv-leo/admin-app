@@ -9,6 +9,20 @@
 ## 🧠 MEMÓRIA DE CONTEXTO ISOLADO (ADMIN-APP)
 # AI Memory Log — Admin-App
 
+## 2026-04-16 — Admin-Motor: CF Access audience enforcement fail-closed (v01.89.01)
+### Escopo
+Hardening do `admin-motor` para validar JWTs do Cloudflare Access com issuer e audience corretos, sem operar em modo permissivo quando a `CF_ACCESS_AUD` estiver ausente.
+### Alterado
+- **`admin-motor/src/handlers/routes/_lib/auth.ts`**: `JwtConfig` ganhou `audience`. A verificação do JWT agora valida `iss`, `aud` e `nbf`, além de `exp` e `iat`. `ENFORCE_JWT_VALIDATION` cai para `block` por padrão efetivo (somente `warn` preserva modo permissivo), e a ausência de `CF_ACCESS_AUD` gera falha fechada quando o enforcement está ativo.
+- **`admin-motor/src/index.ts`**: `CF_ACCESS_AUD` passou a integrar `AdminMotorEnv`, `ResolvedAdminMotorEnv` e `resolveRuntimeEnv()`, sendo repassado ao middleware global de auth.
+- **`admin-motor/src/handlers/routes/adminhub/config.ts` e `apphub/config.ts`**: as rotas de config agora passam `audience: env.CF_ACCESS_AUD` para `validatePutAuth`.
+- **`admin-motor/wrangler.json`**: adicionado binding `CF_ACCESS_AUD` apontando para o secret `cf-access-aud` no Secrets Store.
+- **`admin-motor/src/handlers/routes/_lib/auth.test.ts`**: teste novo cobrindo bearer válido e a ausência de audience em modo `block`.
+### Dependência operacional
+- A produção precisa do secret `cf-access-aud` vinculado ao worker. O valor foi validado pela borda do Access de `admin.lcv.app.br` na própria sessão de deploy.
+### Versão
+- APP v01.89.00 → APP v01.89.01
+
 ## 2026-04-12 — MainSite/PostEditor: strip de assinatura no import de Markdown (v01.87.01)
 ### Escopo
 Refinamento do importador de `.md` adicionado em v01.87.00.

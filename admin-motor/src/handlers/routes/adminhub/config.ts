@@ -89,6 +89,7 @@ export async function onRequestPut(context: Context) {
   const env = (context as any).data?.env || context.env;
   const authContext = await validatePutAuth(context.request, env.ADMINHUB_BEARER_TOKEN, {
     teamDomain: env.CF_ACCESS_TEAM_DOMAIN,
+    audience: env.CF_ACCESS_AUD,
     enforcement: env.ENFORCE_JWT_VALIDATION,
   });
   if (!authContext.isAuthenticated) {
