@@ -375,6 +375,14 @@
 }
 
 .deploy-cleanup__confirm-modal {
+  /* Com Radix Dialog, Overlay e Content são siblings no Portal (não parent-child).
+     O flex-center do overlay não posiciona mais o modal — precisa centralizar
+     explicitamente no viewport. Preserva o comportamento original (v01.69.05). */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100000;
   background: var(--surface-1, #fff);
   border: 1px solid var(--border, rgba(0,0,0,0.1));
   border-radius: 16px;
