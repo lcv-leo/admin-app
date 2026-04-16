@@ -27,7 +27,7 @@ import './App.css';
 import { FloatingScrollButtons } from './components/FloatingScrollButtons';
 import { ComplianceBanner } from './components/ComplianceBanner';
 
-const APP_VERSION = 'APP v01.87.01';
+const APP_VERSION = 'APP v01.88.00';
 
 export type ModuleId =
   | 'overview'
@@ -227,11 +227,7 @@ function App() {
 
         <Outlet />
 
-        <ComplianceBanner
-          onViewLicenses={() =>
-            navigate({ to: '/$moduleId', params: { moduleId: 'compliance' } })
-          }
-        />
+        <ComplianceBanner onViewLicenses={() => navigate({ to: '/$moduleId', params: { moduleId: 'compliance' } })} />
         <FloatingScrollButtons />
       </main>
     </div>

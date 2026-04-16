@@ -1,4 +1,11 @@
 # Changelog — Admin App
+## [v01.88.00] - 2026-04-16
+### Alterado
+- **Tiptap/homogeneização**: Todas as 27 dependências `@tiptap/*` em `^3.21.0` promovidas para `^3.22.3`, alinhando com os peer deps declarados por `@tiptap/extension-drag-handle@3.22.3`, `@tiptap/extension-collaboration@3.22.3`, `@tiptap/extension-node-range@3.22.3` e `@tiptap/suggestion@3.22.3` (todos em 3.22.3 desde antes deste commit). Mantidos intocados: `@tiptap/extension-drag-handle-react@^3.22.0` e `@tiptap/y-tiptap@^3.0.3` (não têm equivalente 3.22.3 publicado).
+### Motivação
+- Ao instalar `drag-handle@3.22.3`, npm registrava peer dep warning para `@tiptap/core@^3.22.3` e `@tiptap/pm@^3.22.3` — satisfeitos pelo caret range `^3.21.0` mas fora do range exigido. Promover para `^3.22.3` elimina os warnings e alinha o grafo.
+- Parte do plano de upgrade v2 (fase A1).
+
 ## [v01.87.01] - 2026-04-12
 ### Alterado
 - **MainSite/PostEditor (markdownImport)**: Última linha da `.md` importada agora é removida silenciosamente quando consiste em uma assinatura bold isolada (ex.: `**Leonardo — Abril de 2026**`). Regex `^\s*\*\*[^*\n]+\*\*\s*$`, aplicada após o strip de frontmatter e antes do parse marked.
