@@ -1,4 +1,12 @@
 # Changelog — Admin App
+## [v01.89.02] - 2026-04-16
+### Removido
+- **Endpoint legado `/api/config`**: o `admin-motor` deixou de publicar a rota fake de configuração global que devolvia defaults e simulava persistência sem gravar nada no D1. O handler `admin-motor/src/handlers/routes/config/config.ts` foi removido do runtime.
+### Alterado
+- **Persistência de configuração consolidada**: `/api/config-store` permanece como única superfície de configuração persistida no `admin-app`, apoiada pela tabela remota `admin_module_configs`.
+### Motivação
+- Eliminar um contrato enganoso sem consumidores internos conhecidos, reduzindo risco de falso positivo operacional e reforçando `config-store` como caminho canônico.
+
 ## [v01.89.01] - 2026-04-16
 ### Adicionado
 - **Testes unitários de auth**: `admin-motor/src/handlers/routes/_lib/auth.test.ts` cobre bearer token válido e o novo fail-closed quando `CF_ACCESS_AUD` não está configurado.

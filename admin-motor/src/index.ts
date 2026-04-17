@@ -59,7 +59,6 @@ import { onRequestPost as handleAstrologoSyncPost } from './handlers/routes/astr
 import { onRequestGet as handleAstrologoUserdataGet, onRequestDelete as handleAstrologoUserdataDelete } from './handlers/routes/astrologo/userdata';
 import { onRequestDelete as handleCfdnsDeleteDelete } from './handlers/routes/cfdns/delete';
 import { onRequestPost as handleCfdnsUpsertPost } from './handlers/routes/cfdns/upsert';
-import { onRequest as handleConfigRequest } from './handlers/routes/config/config';
 import { onRequestGet as handleConfigStoreGet, onRequestPost as handleConfigStorePost } from './handlers/routes/config/config-store';
 import { onRequestGet as handleCalculadoraOverviewGet } from './handlers/routes/calculadora/overview';
 import { onRequestGet as handleCalculadoraParametrosGet, onRequestPost as handleCalculadoraParametrosPost } from './handlers/routes/calculadora/parametros';
@@ -474,7 +473,6 @@ app.get('/api/cfpw/cleanup-deployments', (c) => handleCleanupDeploymentsGet(re(c
 app.post('/api/cfpw/cleanup-deployments', (c) => handleCleanupDeploymentsPost(re(c)));
 
 // ── config ──
-app.all('/api/config', (c) => handleConfigRequest(rc(c)));
 app.get('/api/config-store', (c) => handleConfigStoreGet(rc(c)));
 app.post('/api/config-store', (c) => handleConfigStorePost(rc(c)));
 

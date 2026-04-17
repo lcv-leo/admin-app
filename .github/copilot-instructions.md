@@ -9,6 +9,18 @@
 ## 🧠 MEMÓRIA DE CONTEXTO ISOLADO (ADMIN-APP)
 # AI Memory Log — Admin-App
 
+## 2026-04-16 — Admin-Motor: remoção do `/api/config` legado (v01.89.02)
+### Escopo
+Encerramento do endpoint global fake de configuração do `admin-motor`, mantendo `config-store` como superfície única de persistência real no `admin-app`.
+### Alterado
+- **`admin-motor/src/index.ts`**: remoção do mount de `app.all('/api/config', ...)`, preservando apenas `GET/POST /api/config-store`.
+- **`admin-motor/src/handlers/routes/config/config.ts`**: handler legado removido do código ativo.
+### Evidência operacional
+- O D1 remoto segue usando `admin_module_configs` como tabela viva de persistência; não existe `global_config` no banco de produção.
+- A busca em código do `admin-app` não encontrou consumidores runtime de `/api/config`; os consumidores ativos usam somente `/api/config-store`.
+### Versão
+- APP v01.89.01 → APP v01.89.02
+
 ## 2026-04-16 — Admin-Motor: CF Access audience enforcement fail-closed (v01.89.01)
 ### Escopo
 Hardening do `admin-motor` para validar JWTs do Cloudflare Access com issuer e audience corretos, sem operar em modo permissivo quando a `CF_ACCESS_AUD` estiver ausente.
