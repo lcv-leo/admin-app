@@ -1,5 +1,11 @@
 # Changelog — Admin App
 
+## [v01.90.02] - 2026-04-17
+### Corrigido
+- `wrangler.json` do app Pages deixou de declarar `observability`, preservando o baseline apenas em `admin-motor/wrangler.json` e `tlsrpt-motor/wrangler.json`, que são configs de Workers.
+### Motivação
+- Restaurar o deploy do `admin-app` após os logs do GitHub Actions confirmarem que `wrangler 4.83.0` rejeita `observability` em projetos Cloudflare Pages.
+
 ## [v01.90.01] - 2026-04-17
 ### Alterado
 - `wrangler.json`, `admin-motor/wrangler.json` e `tlsrpt-motor/wrangler.json` agora garantem `observability.logs.enabled = true`, `observability.logs.invocation_logs = true` e `observability.traces.enabled = true`.

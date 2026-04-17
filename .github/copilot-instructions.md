@@ -9,6 +9,17 @@
 ## 🧠 MEMÓRIA DE CONTEXTO ISOLADO (ADMIN-APP)
 # AI Memory Log — Admin-App
 
+## 2026-04-17 — Admin-App v01.90.02 (Pages observability rollback after GHA failure)
+### Escopo
+Hotfix de deploy no `admin-app` após o GitHub Actions confirmar que `observability` não é suportado em config de Cloudflare Pages.
+### Alterado
+- `wrangler.json` do app Pages deixou de declarar `observability`.
+- `admin-motor/wrangler.json` e `tlsrpt-motor/wrangler.json` mantiveram `observability` porque são configs de Workers e já estavam válidos no deploy anterior.
+### Motivação
+- Restaurar o deploy do app principal sem perder a telemetria explícita dos Workers.
+### Versão
+- APP v01.90.01 → APP v01.90.02
+
 ## 2026-04-17 — Admin-App v01.90.01 (wrangler observability + traces)
 ### Escopo
 Alinhamento do baseline de observabilidade Cloudflare no `admin-app`, cobrindo o app principal e os workers `admin-motor` e `tlsrpt-motor`.
