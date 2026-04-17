@@ -1,5 +1,17 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-16 — Plano futuro de migração de e-mail do `admin-motor`
+### Escopo
+Registro do plano de migração futura do envio de e-mail do `admin-app`, hoje via Resend, para Cloudflare Email Service nativo em Worker.
+### Fluxo impactado
+- **`admin-motor/src/handlers/astrologoEmail.ts`**: `POST /api/astrologo/enviar-email` deixará de usar `fetch('https://api.resend.com/emails')` e deverá migrar para binding `send_email` com `env.EMAIL.send(...)`.
+### Estratégia consolidada
+- **Remetente do admin-app permanece em `@lcv.app.br`**.
+- O caso do Astrólogo foi classificado como **migração direta**, sem dependência de domínio secundário do mainsite.
+- O binding futuro deve restringir remetentes oficiais com `allowed_sender_addresses`, evitando superfície aberta de spoofing no Worker.
+### Pré-requisito operacional
+- O domínio de envio efetivo do `admin-app` deve estar onboarded no Cloudflare Email Service antes da troca do provider.
+
 ## 2026-04-16 — Admin-Motor: remoção do `/api/config` legado (v01.89.02)
 ### Escopo
 Encerramento do endpoint global fake de configuração do `admin-motor`, mantendo `config-store` como superfície única de persistência real no `admin-app`.
