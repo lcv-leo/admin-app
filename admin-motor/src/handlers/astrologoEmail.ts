@@ -2,6 +2,7 @@ import { logModuleOperationalEvent, type D1Database } from '../../../functions/a
 import { toHeaders } from '../../../functions/api/_lib/astrologo-admin';
 import { resolveAdminActorFromRequest } from '../../../functions/api/_lib/admin-actor';
 import { createResponseTrace } from '../../../functions/api/_lib/request-trace';
+import { maskEmail } from './routes/_lib/log-safety';
 
 type Env = {
   RESEND_API_KEY?: string;
@@ -36,6 +37,8 @@ export const handleAstrologoEnviarEmailPost = async (context: Context) => {
     if (!isValidEmail(emailDestino)) {
       return json({ ok: false, error: 'E-mail de destino inválido.', ...trace }, 400);
     }
+
+    const emailDestinoMasked = maskEmail(emailDestino);
 
     if (!relatorioHtml && !relatorioTexto) {
       return json({ ok: false, error: 'Relatório vazio.', ...trace }, 400);
@@ -75,7 +78,7 @@ export const handleAstrologoEnviarEmailPost = async (context: Context) => {
             errorMessage: message,
             metadata: {
               action: 'send-email',
-              emailDestino,
+              emailDestino: emailDestinoMasked,
               adminActor,
             },
           });
@@ -96,7 +99,7 @@ export const handleAstrologoEnviarEmailPost = async (context: Context) => {
           ok: true,
           metadata: {
             action: 'send-email',
-            emailDestino,
+            emailDestino: emailDestinoMasked,
             adminActor,
           },
         });

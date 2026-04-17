@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:admin-motor": "vitest run --config vitest.admin-motor.config.ts",
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
     "preview": "vite preview",

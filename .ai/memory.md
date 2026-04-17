@@ -1,5 +1,14 @@
 # AI Memory Log — Admin-App
 
+## 2026-04-17 — Plano do `admin-motor` revisado contra Email Service atual
+### Escopo
+Atualização do plano de migração futura do envio de e-mail do `admin-app` após revalidação na documentação oficial da Cloudflare.
+### Refinamentos consolidados
+- **Target técnico mantido**: `admin-motor/src/handlers/astrologoEmail.ts` continua elegível para migração direta de `fetch('https://api.resend.com/emails')` para binding `send_email` com `env.EMAIL.send(...)`.
+- **Resposta esperada no runtime novo**: o Workers API retorna `messageId`; ao migrar, o contrato de retorno do handler deve deixar de depender da forma antiga do Resend.
+- **Binding recomendado**: usar `allowed_sender_addresses` para restringir os remetentes oficiais do `admin-app` em `@lcv.app.br`.
+- **Pré-requisitos confirmados**: Email Service exige Cloudflare DNS e a documentação atual posiciona Email Sending como recurso de Workers Paid.
+
 ## 2026-04-16 — Plano futuro de migração de e-mail do `admin-motor`
 ### Escopo
 Registro do plano de migração futura do envio de e-mail do `admin-app`, hoje via Resend, para Cloudflare Email Service nativo em Worker.

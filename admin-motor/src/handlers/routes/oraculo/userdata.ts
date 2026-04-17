@@ -158,11 +158,11 @@ export const onRequestDelete = async (context: any) => {
 
     return jsonResponse({
       ok: true,
-      email,
+      userId: id,
       deleted: deletedCounts,
     })
   } catch (error) {
-    console.error('[oraculo/userdata DELETE] Erro:', error)
+    console.error('[oraculo/userdata DELETE] Erro:', error instanceof Error ? error.message : error)
     return jsonResponse({
       ok: false,
       error: error instanceof Error ? error.message : 'Erro ao excluir registro.',
