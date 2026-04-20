@@ -1,5 +1,34 @@
 # Changelog — Admin App
 
+## [v01.91.00] - 2026-04-20
+### Adicionado
+- **`biome.json` — escopo explícito de arquivos**: `files.includes` agora exclui `dist/`, `_cf_functions_build/`, `out/`, `functions/`, `public/`, `docs/`, `db/`, `scripts/`, `e2e/`, `tlsrpt-motor/`, `.tmp/`, `.wrangler/` e `admin-motor/.wrangler/`, alinhando o scan do Biome ao já ignorado pelo ESLint e eliminando ~10.500 falsos positivos vindos de build output e caches.
+### Alterado
+- **a11y — elementos interativos**: 17 `<div onClick>` e 14 handlers sem teclado ganharam `role="button" tabIndex={0} onKeyDown` (Enter/Space), com supressão documentada de `useSemanticElements` onde converter para `<button>` inseriria inputs/botões aninhados (inválido) ou exigiria reset extensivo de CSS. Modais (`CfDnsModule`, `CfPwModule`, `FinanceiroModule`) ganharam `onKeyDown={Escape}` no overlay e `stopPropagation` no corpo.
+- **a11y — `<label>` sem controle (32 ocorrências)**: labels que rotulam `input`/`textarea`/`select` reais ganharam `htmlFor` + `id` pareados (10 campos em `CfPwModule`, 5 em `ObservabilityBlock`, `MainsiteModule` OG/LD, `cfpw-delete-confirmation`). Labels que funcionam como cabeçalho de campo display-only (valores read-only renderizados em `<p>`/`<span>` logo abaixo) mantiveram a tag `<label>` por preservação de CSS e receberam supressão biome-ignore explicando o papel semântico.
+- **a11y — semântica**: `<div role="region">` e `<article role="region">` convertidos para `<section>` (`FinanceiroModule`, `NewsPanel`); `<div role="list">` + `<span role="listitem">` em `FinanceiroModule` convertidos para `<ul>`/`<li>`; `role="contentinfo"` explícito em `<footer>` de `ComplianceBanner`; `all: unset` + `<button>` real no "Selecionar todos" de `ModerationPanel`/`RatingsPanel`.
+- **a11y — botões**: 8 `<button>` sem `type="button"` explícito corrigidos em `CfPwModule` e `TlsrptModule`; `autoFocus` removido onde conflitava com `noAutofocus`.
+- **React — estabilidade de callbacks**: `carregarModelos` (`CalculadoraModule`), `carregarTaxas` (`MainsiteModule`), `withTrace` (`HubCardsModule`, `MtastsModule`), `updateOpsState` (`CfPwModule`) e `fetchCloudReports` (`TlsrptModule`) envolvidos em `useCallback` com dependências exatas. Resolveu 7 `useExhaustiveDependencies` (biome) + 8 `react-hooks/exhaustive-deps` (eslint) que geravam re-execução de `useEffect`/`useCallback` a cada render.
+- **React — chaves de lista**: 25 `noArrayIndexKey` substituídos por identidade natural dos dados (ex.: `a.astro`, `u.orixa`-`u.posicao`, `item.link`, `alert.code`, `p.policy['policy-domain']`) ou supressão documentada quando o dado não tem ID estável (JSON parseado read-only, listas estáticas `Array.from({length:24})`, listas recursivas de dados opacos).
+- **Correção de hooks — ordem de declaração**: `fetchCloudReports` em `TlsrptModule` passou a ser declarado antes do `useEffect` que o consome, resolvendo `noInvalidUseBeforeDeclaration`.
+- **TipTap editor — eslint-disable drift**: 9 diretivas `// eslint-disable-next-line @typescript-eslint/no-explicit-any` em `PostEditor` e `editor/extensions.ts` foram reposicionadas após o reflow do Biome (agora ancoradas na linha com o `as any` real, não em chamadas em cadeia onde o formatter deslocou a linha alvo).
+### Corrigido
+- **Segurança — `noDangerouslySetInnerHtml` em `AstrologoModule`**: `sanitizeRichHtml` teve `ALLOWED_ATTR: ['style']` reduzido para `ALLOWED_ATTR: []`, eliminando potencial vetor de exfiltração CSS via `background-image: url(...)` caso a síntese do Gemini seja influenciada por prompt-injection. A tag `<div dangerouslySetInnerHTML>` recebeu supressão biome-ignore documentando a mitigação (DOMPurify + allowlist restrita a tags semânticas).
+- **Regex loops com efeito colateral**: `noAssignInExpressions` em `discover.ts` e `news/feed.ts` refatorados para `for (const match of html.matchAll(regex))`; `searchReplaceCore.ts` idem.
+- **TipTap mention popup — narrowing**: `renderList` em `editor/extensions.ts` deixou de acessar `popup?.ownerDocument` dentro de `forEach` (com TS18048 em build mode) e passou a alias `const popupEl = popup` após o early-return, permitindo uso sem optional chaining.
+- **main.tsx — null check explícito**: `document.getElementById('root')!` substituído por check explícito `if (!rootElement) throw new Error(...)`.
+- **AiStatusModule — filter+map com `!`**: substituídos por `flatMap` type-safe (`functionCall`/`functionResponse`); `req!`/`res!` substituídos por `req ?? {}` / `res ?? {}`.
+- **discover.ts — type guard**: filter de candidatos do Gemini ganhou predicado `(item): item is Required<...> => Boolean(name && url && category)` removendo 4 `!` de type assertion.
+- **`ObservabilityBlock.tsx` — `map.get()!`**: reestruturado com `let entry = map.get(name); if (!entry) { entry = {...}; map.set(...); }` no agregador de métricas p50/p95/p99.
+- **`noImplicitAnyLet`, `useIterableCallbackReturn`, `noDuplicateFontNames`, `useAriaPropsSupportedByRole`, `noAccumulatingSpread`**: correções unitárias em `post-summaries.ts`, `Notification.tsx`, `App.css`, `ComplianceBanner.tsx`, `useForm.ts`.
+- **`NewsPanel.tsx` — import cleanup**: removido `_fetchKey` ocioso flagado por `tsc --noEmit` em build mode.
+### Removido
+- **Rule `style/noDescendingSpecificity` (biome)**: desabilitada globalmente em `biome.json` por gerar 19 falsos positivos em `App.css` e `CfPwModule.css` — selectors com especificidade descendente no código tratam de propriedades disjuntas (ex.: `.module-shell .detail-header { padding }` vs `.detail-header { display: flex }`), sem conflito real de cascata.
+### Motivação
+- **Origem da rodada**: auditoria completa do `admin-app` em 2026-04-20 a pedido do usuário, expondo débito acumulado de 346 errors / 116 warnings / 54 infos no Biome. O objetivo era zerar todos os gates (biome/eslint/tsc/build) sem regressão funcional.
+- **Resultado**: todos os gates verdes (`npx tsc --noEmit` 0 erros, `npm run lint` 0 issues, `npm run build` sucesso, `npx biome check .` 0/0/0).
+- **Quebra de diretiva retrospectiva**: o débito existente não havia sido flagado em auditorias anteriores; a memória `feedback_proactive_error_audit.md` registra a correção de conduta para que auditorias futuras comecem rodando gates no escopo do repo antes de qualquer edição.
+
 ## [v01.90.02] - 2026-04-17
 ### Corrigido
 - `wrangler.json` do app Pages deixou de declarar `observability`, preservando o baseline apenas em `admin-motor/wrangler.json` e `tlsrpt-motor/wrangler.json`, que são configs de Workers.

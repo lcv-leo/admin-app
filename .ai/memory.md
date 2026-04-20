@@ -1,3 +1,27 @@
+## 2026-04-20 — Admin-App v01.91.00 (auditoria de qualidade: zerar biome/eslint/tsc)
+### Escopo
+Auditoria completa dos gates do `admin-app` a pedido do usuário em 2026-04-20. Baseline: 346 errors / 116 warnings / 54 infos no Biome (incluindo débito acumulado de a11y, React hooks, keys de lista, segurança, imports, formatação). Meta: todos os gates verdes.
+### Alterado
+- **`biome.json`**: `files.includes` exclui `dist/`, `_cf_functions_build/`, `out/`, `functions/`, `public/`, `docs/`, `db/`, `scripts/`, `e2e/`, `tlsrpt-motor/`, `.tmp/`, `.wrangler/`, `admin-motor/.wrangler/`; schema migrado para 2.4.12 via `biome migrate`; rule `style/noDescendingSpecificity` desabilitada (falsos positivos em CSS com propriedades disjuntas).
+- **a11y — interatividade**: 17 `noStaticElementInteractions` + 14 `useKeyWithClickEvents` resolvidos via `role="button" tabIndex={0} onKeyDown` em linhas clicáveis, cards, backdrops de modal; conversão para `<button>` onde estruturalmente seguro (`ModerationPanel`/`RatingsPanel` "Selecionar todos").
+- **a11y — labels**: 32 `noLabelWithoutControl` tratados — `htmlFor`+`id` em labels reais de form (10 em `CfPwModule`, 5 em `ObservabilityBlock`, 2 em `MainsiteModule`, 1 em `CfPwModule` delete confirmation), `biome-ignore` documentado em labels de display (6 em `Astrologo`, 5 em `Oraculo`, `HubCardsModule`, `ModerationPanel`, `RatingsPanel`).
+- **a11y — semântica**: `<section>` no lugar de `<article role="region">`/`<div role="region">` (`FinanceiroModule`, `NewsPanel`); `<ul>`/`<li>` no lugar de `role="list"`/`role="listitem"`; `role="contentinfo"` em `ComplianceBanner`; 8 `useButtonType` com `type="button"`; 3 `noAutofocus` removidos.
+- **React — stabilidade de callbacks**: `useCallback` aplicado a `carregarModelos`, `carregarTaxas`, `withTrace` (×2), `updateOpsState`, `fetchCloudReports` — zerou 7 `useExhaustiveDependencies` biome + 8 `react-hooks/exhaustive-deps` eslint.
+- **React — chaves de lista**: 25 `noArrayIndexKey` resolvidos com identidade natural (`a.astro`, `u.orixa`-`u.posicao`, `item.link`, `alert.code`, `p.policy['policy-domain']`) ou `biome-ignore` documentado.
+- **TipTap editor — eslint-disable drift**: 9 diretivas `@typescript-eslint/no-explicit-any` reposicionadas em `PostEditor.tsx` e `editor/extensions.ts` após reflow do Biome (ancoradas na linha com `as any` real).
+### Corrigido
+- **Segurança — `noDangerouslySetInnerHtml` em `AstrologoModule`**: `DOMPurify.sanitize` teve `ALLOWED_ATTR: ['style']` reduzido para `ALLOWED_ATTR: []`, eliminando vetor de exfiltração via `background-image: url(...)`; `biome-ignore` documentando a mitigação.
+- **Correctness / types**: `matchAll` no lugar de `while(match = regex.exec(...))` (`discover.ts`, `news/feed.ts`, `searchReplaceCore.ts`); `flatMap` no lugar de `filter(...).map(p => p.X!)` em `AiStatusModule`; type guard `Required<...>` em `discover.ts`; null-check explícito em `main.tsx` (`getElementById('root')!`); `req ?? {}`/`res ?? {}` no lugar de `!` em `AiStatusModule`; `let entry = map.get(); if (!entry) { ... }` em `ObservabilityBlock`.
+- **Build TS em modo estrito**: narrowing de `popup` no TipTap mention popup (alias `popupEl` após early-return); remoção de `_fetchKey` ocioso em `NewsPanel`; `noImplicitAnyLet` em `post-summaries.ts`.
+- **Misc**: `useIterableCallbackReturn` em `Notification.tsx` (`.forEach` com body block), `noDuplicateFontNames` em `App.css`, `useAriaPropsSupportedByRole` em `ComplianceBanner`, `noAccumulatingSpread` em `useForm.ts`.
+### Gates (pós-auditoria)
+- `npx tsc --noEmit`: ✅ 0 erros
+- `npm run lint`: ✅ 0 problems
+- `npm run build` (`tsc -b && vite build`): ✅ build completa
+- `npx biome check .`: ✅ **0 errors, 0 warnings, 0 infos**
+### Versão
+- APP v01.90.02 → APP v01.91.00
+
 ## 2026-04-17 — Admin-App v01.90.02 (Pages observability rollback after GHA failure)
 ### Escopo
 Hotfix de deploy no `admin-app` após o GitHub Actions confirmar que `observability` não é suportado em config de Cloudflare Pages.
