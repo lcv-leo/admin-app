@@ -56,7 +56,7 @@ async function fetchJwks(teamDomain: string): Promise<JwksKey[]> {
   const url = `https://${teamDomain}.cloudflareaccess.com/cdn-cgi/access/certs`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`JWKS fetch failed: ${res.status}`);
-  const body = await res.json() as { keys?: JwksKey[] };
+  const body = (await res.json()) as { keys?: JwksKey[] };
   const keys = Array.isArray(body?.keys) ? body.keys : [];
   cachedJwks = keys;
   cachedJwksTeamDomain = teamDomain;
@@ -86,13 +86,20 @@ function audienceMatches(tokenAudience: string | string[] | undefined, expectedA
   return expectedAudiences.some((aud) => tokenAudiences.includes(aud));
 }
 
-async function verifyJwt(jwt: string, teamDomain: string, expectedAudiences: string[]): Promise<{ valid: boolean; email?: string; error?: string }> {
+async function verifyJwt(
+  jwt: string,
+  teamDomain: string,
+  expectedAudiences: string[],
+): Promise<{ valid: boolean; email?: string; error?: string }> {
   try {
     const parts = jwt.split('.');
     if (parts.length !== 3) return { valid: false, error: 'JWT malformado.' };
 
     const [headerB64, payloadB64, signatureB64] = parts;
-    const headerJson = JSON.parse(new TextDecoder().decode(base64UrlDecode(headerB64))) as { kid?: string; alg?: string };
+    const headerJson = JSON.parse(new TextDecoder().decode(base64UrlDecode(headerB64))) as {
+      kid?: string;
+      alg?: string;
+    };
     const payloadJson = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadB64))) as {
       aud?: string | string[];
       email?: string;
@@ -227,7 +234,7 @@ export async function validatePutAuth(
   // If a Bearer token is configured in the environment, validate strictly against it.
   if (bearerTokenEnv) {
     const authHeader = request.headers.get('Authorization');
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       if (timingSafeEqual(token, bearerTokenEnv)) {
         return { isAuthenticated: true, token, source: 'bearer' };
@@ -274,14 +281,14 @@ export function unauthorizedResponse(message: string, headers?: Record<string, s
     JSON.stringify({
       error: 'Unauthorized',
       message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }),
     {
       status: 401,
       headers: {
         'Content-Type': 'application/json',
-        ...(headers || {})
-      }
-    }
+        ...(headers || {}),
+      },
+    },
   );
 }

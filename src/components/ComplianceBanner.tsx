@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import React from 'react';
+import type React from 'react';
 
 interface ComplianceBannerProps {
   onViewLicenses: () => void;
@@ -12,7 +12,7 @@ export const ComplianceBanner: React.FC<ComplianceBannerProps> = ({ onViewLicens
   const linkStyle: React.CSSProperties = {
     color: 'var(--color-primary, #1a73e8)',
     textDecoration: 'underline',
-    fontWeight: 700
+    fontWeight: 700,
   };
 
   return (
@@ -30,8 +30,9 @@ export const ComplianceBanner: React.FC<ComplianceBannerProps> = ({ onViewLicens
         marginTop: 'auto',
         background: 'var(--surface, rgba(255,255,255,0.82))',
         backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)'
+        WebkitBackdropFilter: 'blur(10px)',
       }}
+      role="contentinfo"
       aria-label="Rodapé de conformidade de licenciamento"
     >
       <span>Copyright © 2026 Leonardo Cardozo Vargas</span>

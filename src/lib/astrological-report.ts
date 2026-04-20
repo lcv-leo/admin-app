@@ -10,112 +10,139 @@
  */
 
 // ─── Types (paridade com astrologo-frontend) ──────────────────────
-interface AstroData { astro: string; signo: string; simbolo: string }
-interface UmbandaData { posicao: string; orixa: string; simbolo: string }
-interface DadosGlobais { tatwa: { principal: string; sub: string }; numerologia: { expressao: number; caminhoVida: number; vibracaoHora: number } }
-interface DadosSistema { astrologia: AstroData[]; umbanda: UmbandaData[] }
+interface AstroData {
+  astro: string;
+  signo: string;
+  simbolo: string;
+}
+interface UmbandaData {
+  posicao: string;
+  orixa: string;
+  simbolo: string;
+}
+interface DadosGlobais {
+  tatwa: { principal: string; sub: string };
+  numerologia: { expressao: number; caminhoVida: number; vibracaoHora: number };
+}
+interface DadosSistema {
+  astrologia: AstroData[];
+  umbanda: UmbandaData[];
+}
 
 interface MapaDetalhado {
-  id: string
-  nome: string
-  data_nascimento: string | null
-  hora_nascimento: string | null
-  local_nascimento: string | null
-  dados_astronomica: string | null
-  dados_tropical: string | null
-  dados_globais: string | null
-  analise_ia: string | null
-  created_at: string | null
+  id: string;
+  nome: string;
+  data_nascimento: string | null;
+  hora_nascimento: string | null;
+  local_nascimento: string | null;
+  dados_astronomica: string | null;
+  dados_tropical: string | null;
+  dados_globais: string | null;
+  analise_ia: string | null;
+  created_at: string | null;
 }
 
 interface GeneratedReport {
-  html: string
-  text: string
-  summary: string
+  html: string;
+  text: string;
+  summary: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
 function safeParseJson<T>(jsonString: string | null): T | null {
-  if (!jsonString) return null
-  try { return JSON.parse(jsonString) } catch { return null }
+  if (!jsonString) return null;
+  try {
+    return JSON.parse(jsonString);
+  } catch {
+    return null;
+  }
 }
 
 const formatarData = (dataStr: string): string => {
-  if (!dataStr) return ''
-  const p = dataStr.split('-')
-  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : dataStr
-}
+  if (!dataStr) return '';
+  const p = dataStr.split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : dataStr;
+};
 
 const formatPosicaoLabel = (pos: string): string => {
-  const p = pos.toUpperCase()
-  if (p.includes('FAIXA') || p.includes('PERÍODO')) return 'FAIXA HORÁRIA (3H)'
-  if (p.startsWith('HORA PLANETÁRIA')) return p
+  const p = pos.toUpperCase();
+  if (p.includes('FAIXA') || p.includes('PERÍODO')) return 'FAIXA HORÁRIA (3H)';
+  if (p.startsWith('HORA PLANETÁRIA')) return p;
   if (p.includes('ASTRO')) {
-    const match = p.match(/\((.*?)\)/)
-    return match ? `HORA PLANETÁRIA (${match[1].trim()})` : 'HORA PLANETÁRIA (ASTRO)'
+    const match = p.match(/\((.*?)\)/);
+    return match ? `HORA PLANETÁRIA (${match[1].trim()})` : 'HORA PLANETÁRIA (ASTRO)';
   }
-  return p
-}
+  return p;
+};
 
 /** Sanitiza HTML para uso em e-mail (tags seguras apenas) */
 const htmlToPlainText = (html: string): string => {
   if (typeof DOMParser === 'undefined') {
     return html
-      .split('&nbsp;').join(' ')
-      .split('&amp;').join('&')
-      .split('&quot;').join('"')
-      .split('&#39;').join("'")
-      .trim()
+      .split('&nbsp;')
+      .join(' ')
+      .split('&amp;')
+      .join('&')
+      .split('&quot;')
+      .join('"')
+      .split('&#39;')
+      .join("'")
+      .trim();
   }
 
-  const parsed = new DOMParser().parseFromString(html, 'text/html')
-  return (parsed.body.textContent || '').trim()
-}
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  return (parsed.body.textContent || '').trim();
+};
 
 const sanitizeForEmail = (html: string): string => {
   if (typeof DOMParser === 'undefined') {
-    return htmlToPlainText(html)
+    return htmlToPlainText(html);
   }
 
-  const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'base'])
-  const parsed = new DOMParser().parseFromString(html, 'text/html')
+  const blockedTags = new Set(['script', 'style', 'iframe', 'object', 'embed', 'form', 'meta', 'link', 'base']);
+  const parsed = new DOMParser().parseFromString(html, 'text/html');
 
-  const nodes = Array.from(parsed.body.querySelectorAll('*'))
+  const nodes = Array.from(parsed.body.querySelectorAll('*'));
   nodes.forEach((node) => {
-    const tagName = node.tagName.toLowerCase()
+    const tagName = node.tagName.toLowerCase();
 
     if (blockedTags.has(tagName)) {
-      node.remove()
-      return
+      node.remove();
+      return;
     }
 
     Array.from(node.attributes).forEach((attr) => {
-      const name = attr.name.toLowerCase()
-      const rawValue = attr.value.trim()
-      const lowerValue = rawValue.toLowerCase()
+      const name = attr.name.toLowerCase();
+      const rawValue = attr.value.trim();
+      const lowerValue = rawValue.toLowerCase();
 
-      if (name.startsWith('on') || lowerValue.startsWith('javascript:') || lowerValue.startsWith('data:') || lowerValue.startsWith('vbscript:')) {
-        node.removeAttribute(attr.name)
-        return
+      if (
+        name.startsWith('on') ||
+        lowerValue.startsWith('javascript:') ||
+        lowerValue.startsWith('data:') ||
+        lowerValue.startsWith('vbscript:')
+      ) {
+        node.removeAttribute(attr.name);
+        return;
       }
 
       if (name === 'href' || name === 'src') {
         try {
-          const resolved = new URL(rawValue, 'https://example.invalid')
-          const protocol = resolved.protocol.toLowerCase()
+          const resolved = new URL(rawValue, 'https://example.invalid');
+          const protocol = resolved.protocol.toLowerCase();
           if (protocol === 'javascript:' || protocol === 'data:' || protocol === 'vbscript:') {
-            node.removeAttribute(attr.name)
+            node.removeAttribute(attr.name);
           }
         } catch {
-          node.removeAttribute(attr.name)
+          node.removeAttribute(attr.name);
         }
       }
-    })
-  })
+    });
+  });
 
-  return parsed.body.innerHTML
-}
+  return parsed.body.innerHTML;
+};
 
 // ─── Text Report (WhatsApp-style) ────────────────────────────────
 
@@ -124,69 +151,71 @@ function gerarTextoRelatorio(
   globais: DadosGlobais | null,
   tropical: DadosSistema | null,
   astronomica: DadosSistema | null,
-  analiseIa: string | null
+  analiseIa: string | null,
 ): string {
-  const divider = '\n' + '─'.repeat(28) + '\n'
+  const divider = `\n${'─'.repeat(28)}\n`;
 
-  let t = `*🌌 DIAGNÓSTICO ASTROLÓGICO E ESOTÉRICO 🌌*\n\n`
-  t += `*Consulente:* ${mapa.nome}\n`
-  if (mapa.local_nascimento) t += `*Local:* ${mapa.local_nascimento}\n`
-  if (mapa.data_nascimento) t += `*Nascimento:* ${formatarData(mapa.data_nascimento)} às ${mapa.hora_nascimento ?? '??:??'}\n`
+  let t = `*🌌 DIAGNÓSTICO ASTROLÓGICO E ESOTÉRICO 🌌*\n\n`;
+  t += `*Consulente:* ${mapa.nome}\n`;
+  if (mapa.local_nascimento) t += `*Local:* ${mapa.local_nascimento}\n`;
+  if (mapa.data_nascimento)
+    t += `*Nascimento:* ${formatarData(mapa.data_nascimento)} às ${mapa.hora_nascimento ?? '??:??'}\n`;
 
   if (globais) {
-    t += divider
-    t += `*🌬️ FORÇAS GLOBAIS*\n\n`
-    t += `*Tatwas:*\n`
-    t += `  • Principal: *${globais.tatwa.principal}*\n`
-    t += `  • Sub-tatwa: *${globais.tatwa.sub}*\n\n`
-    t += `*Numerologia:*\n`
-    t += `  • Expressão: *${globais.numerologia.expressao}*\n`
-    t += `  • Caminho da Vida: *${globais.numerologia.caminhoVida}*\n`
-    t += `  • Vibração da Hora: *${globais.numerologia.vibracaoHora}*\n`
+    t += divider;
+    t += `*🌬️ FORÇAS GLOBAIS*\n\n`;
+    t += `*Tatwas:*\n`;
+    t += `  • Principal: *${globais.tatwa.principal}*\n`;
+    t += `  • Sub-tatwa: *${globais.tatwa.sub}*\n\n`;
+    t += `*Numerologia:*\n`;
+    t += `  • Expressão: *${globais.numerologia.expressao}*\n`;
+    t += `  • Caminho da Vida: *${globais.numerologia.caminhoVida}*\n`;
+    t += `  • Vibração da Hora: *${globais.numerologia.vibracaoHora}*\n`;
   }
 
   const blocoTexto = (dados: DadosSistema): string => {
-    let texto = `\n*Astrologia:*\n`
-    if (dados.astrologia[0]) texto += `  • ☀️ Sol: *${dados.astrologia[0].signo}*\n`
-    if (dados.astrologia[1]) texto += `  • ⬆️ Ascendente: *${dados.astrologia[1].signo}*\n`
-    if (dados.astrologia[2]) texto += `  • 🌙 Lua: *${dados.astrologia[2].signo}*\n`
-    if (dados.astrologia[3]) texto += `  • 🔭 Meio do Céu: *${dados.astrologia[3].signo}*\n\n`
-    texto += `*Umbanda:*\n`
-    if (dados.umbanda[0]) texto += `  • 👑 Coroa (Orixá Ancestral): *${dados.umbanda[0].orixa}*\n`
-    if (dados.umbanda[1]) texto += `  • 🌊 Adjuntó (Orixá de Frente): *${dados.umbanda[1].orixa}*\n`
-    if (dados.umbanda[2]) texto += `  • 🏹 Frente (Orixá de Trabalho): *${dados.umbanda[2].orixa}*\n`
-    if (dados.umbanda[3]) texto += `  • 🌟 Decanato (Regente Secundário): *${dados.umbanda[3].orixa}*\n`
-    if (dados.umbanda[4]) texto += `  • ⏳ Faixa Horária (Regente da Hora): *${dados.umbanda[4].orixa}*\n`
-    if (dados.umbanda[5]) texto += `  • 🪐 ${formatPosicaoLabel(dados.umbanda[5].posicao)}: *${dados.umbanda[5].orixa}*\n`
-    return texto
-  }
+    let texto = `\n*Astrologia:*\n`;
+    if (dados.astrologia[0]) texto += `  • ☀️ Sol: *${dados.astrologia[0].signo}*\n`;
+    if (dados.astrologia[1]) texto += `  • ⬆️ Ascendente: *${dados.astrologia[1].signo}*\n`;
+    if (dados.astrologia[2]) texto += `  • 🌙 Lua: *${dados.astrologia[2].signo}*\n`;
+    if (dados.astrologia[3]) texto += `  • 🔭 Meio do Céu: *${dados.astrologia[3].signo}*\n\n`;
+    texto += `*Umbanda:*\n`;
+    if (dados.umbanda[0]) texto += `  • 👑 Coroa (Orixá Ancestral): *${dados.umbanda[0].orixa}*\n`;
+    if (dados.umbanda[1]) texto += `  • 🌊 Adjuntó (Orixá de Frente): *${dados.umbanda[1].orixa}*\n`;
+    if (dados.umbanda[2]) texto += `  • 🏹 Frente (Orixá de Trabalho): *${dados.umbanda[2].orixa}*\n`;
+    if (dados.umbanda[3]) texto += `  • 🌟 Decanato (Regente Secundário): *${dados.umbanda[3].orixa}*\n`;
+    if (dados.umbanda[4]) texto += `  • ⏳ Faixa Horária (Regente da Hora): *${dados.umbanda[4].orixa}*\n`;
+    if (dados.umbanda[5])
+      texto += `  • 🪐 ${formatPosicaoLabel(dados.umbanda[5].posicao)}: *${dados.umbanda[5].orixa}*\n`;
+    return texto;
+  };
 
   if (tropical) {
-    t += divider
-    t += `*🌞 MÓDULO I: ASTROLÓGICO TROPICAL (A PERSONA)*\n`
-    t += blocoTexto(tropical)
+    t += divider;
+    t += `*🌞 MÓDULO I: ASTROLÓGICO TROPICAL (A PERSONA)*\n`;
+    t += blocoTexto(tropical);
   }
 
-  t += divider
-  t += `*✨ AGORA, A VERDADE OCULTA... ✨*\n\n`
-  t += `_O módulo tropical acima revelou a sua máscara terrena (Persona). Desfaça a ilusão sazonal e contemple abaixo a sua *verdadeira assinatura estelar*._\n`
+  t += divider;
+  t += `*✨ AGORA, A VERDADE OCULTA... ✨*\n\n`;
+  t += `_O módulo tropical acima revelou a sua máscara terrena (Persona). Desfaça a ilusão sazonal e contemple abaixo a sua *verdadeira assinatura estelar*._\n`;
 
   if (astronomica) {
-    t += divider
-    t += `*⭐ MÓDULO II: ASTRONÔMICO CONSTELACIONAL (A ALMA)*\n`
-    t += blocoTexto(astronomica)
+    t += divider;
+    t += `*⭐ MÓDULO II: ASTRONÔMICO CONSTELACIONAL (A ALMA)*\n`;
+    t += blocoTexto(astronomica);
   }
 
   if (analiseIa) {
-    const iaTxt = htmlToPlainText(analiseIa)
+    const iaTxt = htmlToPlainText(analiseIa);
 
-    t += divider
-    t += `*🧠 SÍNTESE DO MESTRE (IA)*\n\n` + iaTxt.replace(/\n{3,}/g, '\n\n').trim() + `\n`
+    t += divider;
+    t += `*🧠 SÍNTESE DO MESTRE (IA)*\n\n${iaTxt.replace(/\n{3,}/g, '\n\n').trim()}\n`;
   }
 
-  t += divider
-  t += `✨ _Gerado via Oráculo Celestial — Admin LCV_ ✨`
-  return t
+  t += divider;
+  t += `✨ _Gerado via Oráculo Celestial — Admin LCV_ ✨`;
+  return t;
 }
 
 // ─── HTML Report (rich email with inline styles) ─────────────────
@@ -196,26 +225,34 @@ function gerarHtmlRelatorio(
   globais: DadosGlobais | null,
   tropical: DadosSistema | null,
   astronomica: DadosSistema | null,
-  analiseIa: string | null
+  analiseIa: string | null,
 ): string {
-  const fontFamily = "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;"
-  const boxShadow = "box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.05);"
+  const fontFamily =
+    "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;";
+  const boxShadow = 'box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.05);';
 
   // Astrologia grid cards
-  const blocoAstrologiaHtml = (dados: AstroData[]) => dados.map(a => `
+  const blocoAstrologiaHtml = (dados: AstroData[]) =>
+    dados
+      .map(
+        (a) => `
     <div style="background-color: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #f1f5f9; ${boxShadow} text-align: left;">
       <p style="font-size: 11px; color: #64748b; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px;">${a.astro}</p>
       <p style="font-size: 15px; color: #1e293b; margin: 0; font-weight: bold;">${a.simbolo} ${a.signo}</p>
     </div>
-  `).join('')
+  `,
+      )
+      .join('');
 
   // Umbanda grid cards
   const blocoUmbandaHtml = (dados: UmbandaData[], isTropical: boolean) => {
-    const color = isTropical ? '#e37400' : '#1a73e8'
-    const bgColor = isTropical ? 'rgba(251, 146, 60, 0.1)' : 'rgba(99, 102, 241, 0.1)'
-    const borderColor = isTropical ? '#fed7aa' : '#c7d2fe'
+    const color = isTropical ? '#e37400' : '#1a73e8';
+    const bgColor = isTropical ? 'rgba(251, 146, 60, 0.1)' : 'rgba(99, 102, 241, 0.1)';
+    const borderColor = isTropical ? '#fed7aa' : '#c7d2fe';
 
-    return dados.map(u => `
+    return dados
+      .map(
+        (u) => `
       <div style="background-color: #ffffff; padding: 12px; border-radius: 12px; border: 1px solid #f1f5f9; ${boxShadow} display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; text-align: center;">
         <span style="font-size: 32px; margin-bottom: 8px;">${u.simbolo}</span>
         <p style="font-size: 10px; color: #64748b; margin: 0 0 8px 0; font-weight: bold; text-transform: uppercase; line-height: 1.2;">${formatPosicaoLabel(u.posicao)}</p>
@@ -223,13 +260,20 @@ function gerarHtmlRelatorio(
           <p style="margin: 0; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">${u.orixa}</p>
         </div>
       </div>
-    `).join('')
-  }
+    `,
+      )
+      .join('');
+  };
 
   // Section block (Tropical or Astronômico)
-  const renderBlocoAstrologicoEmail = (titulo: string, dadosAstrologia: AstroData[], dadosUmbanda: UmbandaData[], isTropical: boolean) => {
-    const titleColor = isTropical ? '#f9ab00' : '#1967d2'
-    const borderTopColor = isTropical ? '#fdd663' : '#1a73e8'
+  const renderBlocoAstrologicoEmail = (
+    titulo: string,
+    dadosAstrologia: AstroData[],
+    dadosUmbanda: UmbandaData[],
+    isTropical: boolean,
+  ) => {
+    const titleColor = isTropical ? '#f9ab00' : '#1967d2';
+    const borderTopColor = isTropical ? '#fdd663' : '#1a73e8';
     return `
       <div style="margin-top: 40px; padding-top: 40px; border-top: 1px solid ${borderTopColor};">
         <h2 style="font-size: 28px; font-weight: 900; color: ${titleColor}; margin: 0 0 32px 0;">${titulo}</h2>
@@ -246,14 +290,14 @@ function gerarHtmlRelatorio(
           </div>
         </div>
       </div>
-    `
-  }
+    `;
+  };
 
   // Sanitize IA analysis for email
-  const analiseSanitizada = analiseIa ? sanitizeForEmail(analiseIa) : ''
+  const analiseSanitizada = analiseIa ? sanitizeForEmail(analiseIa) : '';
 
-  const dataNasc = mapa.data_nascimento ? formatarData(mapa.data_nascimento) : ''
-  const horaNasc = mapa.hora_nascimento ?? ''
+  const dataNasc = mapa.data_nascimento ? formatarData(mapa.data_nascimento) : '';
+  const horaNasc = mapa.hora_nascimento ?? '';
 
   const html = `
   <!DOCTYPE html>
@@ -283,7 +327,9 @@ function gerarHtmlRelatorio(
         ${dataNasc ? `<p style="font-size: 16px; color: #475569; margin: 0;">${dataNasc}${horaNasc ? ` às ${horaNasc}` : ''}</p>` : ''}
       </div>
 
-      ${globais ? `
+      ${
+        globais
+          ? `
       <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 40px;">
         <div style="background-color: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); padding: 24px; border-radius: 24px; border: 1px solid #ffffff; ${boxShadow}">
           <h3 style="font-size: 20px; font-weight: bold; color: #2563eb; margin: 0 0 16px 0; padding-bottom: 12px; border-bottom: 1px solid #dadce0;">🌬️ Forças Globais: Tatwas</h3>
@@ -301,7 +347,9 @@ function gerarHtmlRelatorio(
           </div>
         </div>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
 
       ${tropical?.astrologia && tropical?.umbanda ? renderBlocoAstrologicoEmail('Módulo I: Astrológico Tropical', tropical.astrologia, tropical.umbanda, true) : ''}
 
@@ -316,12 +364,16 @@ function gerarHtmlRelatorio(
 
       ${astronomica?.astrologia && astronomica?.umbanda ? renderBlocoAstrologicoEmail('Módulo II: Astronômico Constelacional', astronomica.astrologia, astronomica.umbanda, false) : ''}
 
-      ${analiseSanitizada ? `
+      ${
+        analiseSanitizada
+          ? `
       <div style="margin-top: 60px; padding: 40px; background-color: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border-radius: 24px; border: 1px solid #ffffff; ${boxShadow}">
         <h3 style="font-size: 28px; font-weight: 900; color: transparent; background-clip: text; -webkit-background-clip: text; background-image: linear-gradient(to right, #4285f4, #1a73e8); margin: 0 0 24px 0; padding-bottom: 16px; border-bottom: 1px solid #dadce0;">🧠 Síntese do Mestre (IA)</h3>
         <div style="font-size: 16px; line-height: 1.7; color: #334155;">${analiseSanitizada}</div>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
 
       <footer style="text-align: center; margin-top: 60px; padding-top: 20px; border-top: 1px solid #dde4ee;">
         <p style="font-size: 12px; color: #64748b; margin: 0;">Gerado via Oráculo Celestial — Admin LCV</p>
@@ -330,29 +382,27 @@ function gerarHtmlRelatorio(
     </div>
   </body>
   </html>
-  `
-  return html
+  `;
+  return html;
 }
 
 // ─── Public API ───────────────────────────────────────────────────
 
-export function generateAstrologicalReport(
-  mapa: MapaDetalhado,
-): GeneratedReport {
-  const globais = safeParseJson<DadosGlobais>(mapa.dados_globais)
-  const tropical = safeParseJson<DadosSistema>(mapa.dados_tropical)
-  const astronomica = safeParseJson<DadosSistema>(mapa.dados_astronomica)
+export function generateAstrologicalReport(mapa: MapaDetalhado): GeneratedReport {
+  const globais = safeParseJson<DadosGlobais>(mapa.dados_globais);
+  const tropical = safeParseJson<DadosSistema>(mapa.dados_tropical);
+  const astronomica = safeParseJson<DadosSistema>(mapa.dados_astronomica);
 
-  const htmlContent = gerarHtmlRelatorio(mapa, globais, tropical, astronomica, mapa.analise_ia)
-  const textContent = gerarTextoRelatorio(mapa, globais, tropical, astronomica, mapa.analise_ia)
+  const htmlContent = gerarHtmlRelatorio(mapa, globais, tropical, astronomica, mapa.analise_ia);
+  const textContent = gerarTextoRelatorio(mapa, globais, tropical, astronomica, mapa.analise_ia);
 
   // Summary from AI or fallback
-  let summary: string
+  let summary: string;
   if (mapa.analise_ia) {
-    summary = htmlToPlainText(mapa.analise_ia).split('.')[0].trim()
+    summary = htmlToPlainText(mapa.analise_ia).split('.')[0].trim();
   } else {
-    summary = `Mapa astrológico de ${mapa.nome}`
+    summary = `Mapa astrológico de ${mapa.nome}`;
   }
 
-  return { html: htmlContent, text: textContent, summary }
+  return { html: htmlContent, text: textContent, summary };
 }

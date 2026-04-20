@@ -16,47 +16,47 @@
  * - Sets a custom window title
  */
 
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface PopupPortalProps {
-  isOpen: boolean
-  onClose: () => void
-  title?: string
-  children: React.ReactNode
+  isOpen: boolean;
+  onClose: () => void;
+  title?: string;
+  children: React.ReactNode;
 }
 
 // Module-scoped popup window reference (safe for single instance)
-let popupWindow: Window | null = null
+let popupWindow: Window | null = null;
 
 export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: PopupPortalProps) {
-  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
-  const lastFocusedElementRef = useRef<HTMLElement | null>(null)
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
 
   // Open or close the popup window
   useEffect(() => {
     if (!isOpen) {
       if (popupWindow && !popupWindow.closed) {
-        popupWindow.close()
+        popupWindow.close();
       }
-      popupWindow = null
-      return () => { /* noop */ }
+      popupWindow = null;
+      return () => {
+        /* noop */
+      };
     }
 
     // Already open — skip
-    if (popupWindow && !popupWindow.closed && containerEl) return
+    if (popupWindow && !popupWindow.closed && containerEl) return;
 
-    lastFocusedElementRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null
+    lastFocusedElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     // Calculate dimensions to fill the screen (maximized)
-    const screenW = window.screen.availWidth || 1920
-    const screenH = window.screen.availHeight || 1080
-    const popupW = screenW
-    const popupH = screenH
-    const left = 0
-    const top = 0
+    const screenW = window.screen.availWidth || 1920;
+    const screenH = window.screen.availHeight || 1080;
+    const popupW = screenW;
+    const popupH = screenH;
+    const left = 0;
+    const top = 0;
 
     const features = [
       `width=${popupW}`,
@@ -69,15 +69,15 @@ export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: 
       'toolbar=no',
       'location=no',
       'status=no',
-    ].join(',')
+    ].join(',');
 
-    const popup = window.open('', '_blank', features)
+    const popup = window.open('', '_blank', features);
     if (!popup) {
-      onClose()
-      return
+      onClose();
+      return;
     }
 
-    popupWindow = popup
+    popupWindow = popup;
 
     // Write basic HTML structure
     popup.document.write(`
@@ -92,16 +92,16 @@ export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: 
         <div id="popup-root"></div>
       </body>
       </html>
-    `)
-    popup.document.close()
+    `);
+    popup.document.close();
 
     // Copy all stylesheets from parent into popup
-    document.querySelectorAll('style, link[rel="stylesheet"]').forEach(node => {
-      popup.document.head.appendChild(node.cloneNode(true))
-    })
+    document.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => {
+      popup.document.head.appendChild(node.cloneNode(true));
+    });
 
     // Inject popup-specific base styles
-    const popupBaseStyle = popup.document.createElement('style')
+    const popupBaseStyle = popup.document.createElement('style');
     popupBaseStyle.textContent = `
       body {
         margin: 0;
@@ -137,50 +137,49 @@ export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: 
         flex-direction: column;
         flex: 1;
       }
-    `
-    popup.document.head.appendChild(popupBaseStyle)
+    `;
+    popup.document.head.appendChild(popupBaseStyle);
 
     // Create container and notify React via scheduled setState
-    const root = popup.document.getElementById('popup-root')
+    const root = popup.document.getElementById('popup-root');
     if (root) {
-      const div = popup.document.createElement('div')
-      div.setAttribute('role', 'dialog')
-      div.setAttribute('aria-modal', 'true')
-      div.setAttribute('aria-label', title)
-      div.className = 'popup-portal__dialog'
-      div.tabIndex = -1
-      root.appendChild(div)
+      const div = popup.document.createElement('div');
+      div.setAttribute('role', 'dialog');
+      div.setAttribute('aria-modal', 'true');
+      div.setAttribute('aria-label', title);
+      div.className = 'popup-portal__dialog';
+      div.tabIndex = -1;
+      root.appendChild(div);
       // Schedule state update for next microtask to avoid sync setState in effect
       queueMicrotask(() => {
-        setContainerEl(div)
-        div.focus()
-      })
+        setContainerEl(div);
+        div.focus();
+      });
     }
 
     // Monitor popup closed by OS
     const pollTimer = setInterval(() => {
       if (!popup || popup.closed) {
-        clearInterval(pollTimer)
-        popupWindow = null
-        queueMicrotask(() => setContainerEl(null))
-        lastFocusedElementRef.current?.focus()
-        onClose()
+        clearInterval(pollTimer);
+        popupWindow = null;
+        queueMicrotask(() => setContainerEl(null));
+        lastFocusedElementRef.current?.focus();
+        onClose();
       }
-    }, 300)
+    }, 300);
 
     // Cleanup on unmount or when isOpen changes
     return () => {
-      clearInterval(pollTimer)
+      clearInterval(pollTimer);
       if (popupWindow && !popupWindow.closed) {
-        popupWindow.close()
+        popupWindow.close();
       }
-      popupWindow = null
-      lastFocusedElementRef.current?.focus()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, title])
+      popupWindow = null;
+      lastFocusedElementRef.current?.focus();
+    };
+  }, [isOpen, title, onClose, containerEl]);
 
   // Render children into popup via portal
-  if (!containerEl) return null
-  return createPortal(children, containerEl)
+  if (!containerEl) return null;
+  return createPortal(children, containerEl);
 }

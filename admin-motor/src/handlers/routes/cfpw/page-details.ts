@@ -1,76 +1,86 @@
-import { logModuleOperationalEvent } from '../_lib/operational'
-import type { D1Database } from '../_lib/operational'
-import { createResponseTrace } from '../_lib/request-trace'
 import {
   getCloudflarePagesProject,
   listCloudflarePagesDeployments,
   resolveCloudflarePwAccount,
-} from '../_lib/cfpw-api'
+} from '../_lib/cfpw-api';
+import type { D1Database } from '../_lib/operational';
+import { logModuleOperationalEvent } from '../_lib/operational';
+import { createResponseTrace } from '../_lib/request-trace';
 
 type Context = {
-  request: Request
+  request: Request;
   env: {
-    BIGDATA_DB?: D1Database
-    CLOUDFLARE_PW?: string
-    CF_ACCOUNT_ID?: string
-  }
-}
+    BIGDATA_DB?: D1Database;
+    CLOUDFLARE_PW?: string;
+    CF_ACCOUNT_ID?: string;
+  };
+};
 
 type PartialWarning = {
-  code: string
-  message: string
-}
+  code: string;
+  message: string;
+};
 
 const toHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
-})
+});
 
-const toError = (message: string, trace: { request_id: string; timestamp: string }, status = 500) => new Response(JSON.stringify({
-  ok: false,
-  ...trace,
-  error: message,
-}), {
-  status,
-  headers: toHeaders(),
-})
+const toError = (message: string, trace: { request_id: string; timestamp: string }, status = 500) =>
+  new Response(
+    JSON.stringify({
+      ok: false,
+      ...trace,
+      error: message,
+    }),
+    {
+      status,
+      headers: toHeaders(),
+    },
+  );
 
-const toProjectName = (raw: string | null) => String(raw ?? '').trim()
+const toProjectName = (raw: string | null) => String(raw ?? '').trim();
 
 export async function onRequestGet(context: Context) {
-  const trace = createResponseTrace(context.request)
-  const url = new URL(context.request.url)
-  const projectName = toProjectName(url.searchParams.get('projectName'))
+  const trace = createResponseTrace(context.request);
+  const url = new URL(context.request.url);
+  const projectName = toProjectName(url.searchParams.get('projectName'));
 
   if (!projectName) {
-    return toError('Parâmetro projectName é obrigatório.', trace, 400)
+    return toError('Parâmetro projectName é obrigatório.', trace, 400);
   }
 
   try {
-    const accountInfo = await resolveCloudflarePwAccount(((context as any).data?.env || context.env))
+    const accountInfo = await resolveCloudflarePwAccount((context as any).data?.env || context.env);
 
     const [projectResult, deploymentsResult] = await Promise.allSettled([
-      getCloudflarePagesProject(((context as any).data?.env || context.env), accountInfo.accountId, projectName),
-      listCloudflarePagesDeployments(((context as any).data?.env || context.env), accountInfo.accountId, projectName),
-    ])
+      getCloudflarePagesProject((context as any).data?.env || context.env, accountInfo.accountId, projectName),
+      listCloudflarePagesDeployments((context as any).data?.env || context.env, accountInfo.accountId, projectName),
+    ]);
 
-    const warnings: PartialWarning[] = []
-    const project = projectResult.status === 'fulfilled' ? projectResult.value : null
-    const deployments = deploymentsResult.status === 'fulfilled' ? deploymentsResult.value : []
+    const warnings: PartialWarning[] = [];
+    const project = projectResult.status === 'fulfilled' ? projectResult.value : null;
+    const deployments = deploymentsResult.status === 'fulfilled' ? deploymentsResult.value : [];
 
     if (projectResult.status === 'rejected') {
-      const message = projectResult.reason instanceof Error ? projectResult.reason.message : 'Falha ao ler detalhes do projeto Pages.'
-      warnings.push({ code: 'CFPW-PAGE-DETAILS-PARTIAL-PROJECT', message })
+      const message =
+        projectResult.reason instanceof Error
+          ? projectResult.reason.message
+          : 'Falha ao ler detalhes do projeto Pages.';
+      warnings.push({ code: 'CFPW-PAGE-DETAILS-PARTIAL-PROJECT', message });
     }
 
     if (deploymentsResult.status === 'rejected') {
-      const message = deploymentsResult.reason instanceof Error ? deploymentsResult.reason.message : 'Falha ao listar deployments do projeto Pages.'
-      warnings.push({ code: 'CFPW-PAGE-DETAILS-PARTIAL-DEPLOYMENTS', message })
+      const message =
+        deploymentsResult.reason instanceof Error
+          ? deploymentsResult.reason.message
+          : 'Falha ao listar deployments do projeto Pages.';
+      warnings.push({ code: 'CFPW-PAGE-DETAILS-PARTIAL-DEPLOYMENTS', message });
     }
 
     if (!project && deployments.length === 0) {
-      const fatal = warnings[0]?.message || `Falha ao carregar detalhes do Pages ${projectName}.`
-      throw new Error(fatal)
+      const fatal = warnings[0]?.message || `Falha ao carregar detalhes do Pages ${projectName}.`;
+      throw new Error(fatal);
     }
 
     if (((context as any).data?.env || context.env).BIGDATA_DB) {
@@ -88,25 +98,28 @@ export async function onRequestGet(context: Context) {
             deployments: deployments.length,
             partialWarnings: warnings.length,
           },
-        })
+        });
       } catch {
         // Telemetria não bloqueia resposta.
       }
     }
 
-    return new Response(JSON.stringify({
-      ok: true,
-      ...trace,
-      accountId: accountInfo.accountId,
-      projectName,
-      project,
-      deployments,
-      warnings,
-    }), {
-      headers: toHeaders(),
-    })
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        ...trace,
+        accountId: accountInfo.accountId,
+        projectName,
+        project,
+        deployments,
+        warnings,
+      }),
+      {
+        headers: toHeaders(),
+      },
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : `Falha ao carregar detalhes do Pages ${projectName}.`
+    const message = error instanceof Error ? error.message : `Falha ao carregar detalhes do Pages ${projectName}.`;
 
     if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
@@ -121,12 +134,12 @@ export async function onRequestGet(context: Context) {
             provider: 'cloudflare-api',
             projectName,
           },
-        })
+        });
       } catch {
         // Telemetria não bloqueia resposta.
       }
     }
 
-    return toError(message, trace, 502)
+    return toError(message, trace, 502);
   }
 }

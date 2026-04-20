@@ -26,9 +26,7 @@
       "service": "admin-motor"
     }
   ],
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
   "ai": {
     "binding": "AI"
   },

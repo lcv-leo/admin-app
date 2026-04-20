@@ -70,17 +70,21 @@ export async function handleRatingsAdminAll(ctx: RatingsAdminContext): Promise<R
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     binds.push(limit);
 
-    const ratings = await db.prepare(`
+    const ratings = await db
+      .prepare(`
       SELECT r.*, p.title AS post_title
       FROM mainsite_ratings r
       LEFT JOIN mainsite_posts p ON p.id = r.post_id
       ${whereClause}
       ORDER BY r.created_at DESC
       LIMIT ?
-    `).bind(...binds).all<Record<string, unknown>>();
+    `)
+      .bind(...binds)
+      .all<Record<string, unknown>>();
 
     // Contagens agregadas
-    const stats = await db.prepare(`
+    const stats = await db
+      .prepare(`
       SELECT
         COUNT(*) AS total,
         COALESCE(AVG(rating), 0) AS avg_rating,
@@ -96,7 +100,9 @@ export async function handleRatingsAdminAll(ctx: RatingsAdminContext): Promise<R
         SUM(CASE WHEN reaction_type = 'inspiring' THEN 1 ELSE 0 END) AS react_inspiring,
         SUM(CASE WHEN reaction_type = 'beautiful' THEN 1 ELSE 0 END) AS react_beautiful
       FROM mainsite_ratings
-    `).bind().first<Record<string, number>>();
+    `)
+      .bind()
+      .first<Record<string, number>>();
 
     return json({
       ok: true,
@@ -133,7 +139,8 @@ export async function handleRatingsAdminStats(ctx: RatingsAdminContext): Promise
   if (!db) return json({ ok: false, error: 'BIGDATA_DB não disponível.' }, 503);
 
   try {
-    const stats = await db.prepare(`
+    const stats = await db
+      .prepare(`
       SELECT
         COUNT(*) AS total,
         COALESCE(AVG(rating), 0) AS avg_rating,
@@ -149,17 +156,22 @@ export async function handleRatingsAdminStats(ctx: RatingsAdminContext): Promise
         SUM(CASE WHEN reaction_type = 'inspiring' THEN 1 ELSE 0 END) AS react_inspiring,
         SUM(CASE WHEN reaction_type = 'beautiful' THEN 1 ELSE 0 END) AS react_beautiful
       FROM mainsite_ratings
-    `).bind().first<Record<string, number>>();
+    `)
+      .bind()
+      .first<Record<string, number>>();
 
     // Top posts por avaliações
-    const topPosts = await db.prepare(`
+    const topPosts = await db
+      .prepare(`
       SELECT r.post_id, p.title AS post_title, COUNT(*) AS vote_count, AVG(r.rating) AS avg_rating
       FROM mainsite_ratings r
       LEFT JOIN mainsite_posts p ON p.id = r.post_id
       GROUP BY r.post_id
       ORDER BY vote_count DESC
       LIMIT 10
-    `).bind().all<{ post_id: number; post_title: string | null; vote_count: number; avg_rating: number }>();
+    `)
+      .bind()
+      .all<{ post_id: number; post_title: string | null; vote_count: number; avg_rating: number }>();
 
     return json({
       ok: true,
@@ -196,7 +208,7 @@ export async function handleRatingsAdminUpdate(ctx: RatingsAdminContext, ratingI
   if (!db) return json({ ok: false, error: 'BIGDATA_DB não disponível.' }, 503);
 
   try {
-    const body = await ctx.request.json() as { rating?: number; reaction_type?: string | null };
+    const body = (await ctx.request.json()) as { rating?: number; reaction_type?: string | null };
 
     // Validar que pelo menos um campo foi fornecido
     if (body.rating === undefined && body.reaction_type === undefined) {
@@ -213,7 +225,7 @@ export async function handleRatingsAdminUpdate(ctx: RatingsAdminContext, ratingI
 
     // Validar reaction_type se fornecido
     if (body.reaction_type !== undefined && body.reaction_type !== null) {
-      if (!VALID_REACTIONS.includes(body.reaction_type as typeof VALID_REACTIONS[number])) {
+      if (!VALID_REACTIONS.includes(body.reaction_type as (typeof VALID_REACTIONS)[number])) {
         return json({ ok: false, error: `Reação inválida. Use: ${VALID_REACTIONS.join(', ')}` }, 400);
       }
     }
@@ -233,9 +245,12 @@ export async function handleRatingsAdminUpdate(ctx: RatingsAdminContext, ratingI
 
     binds.push(ratingId);
 
-    await db.prepare(`
+    await db
+      .prepare(`
       UPDATE mainsite_ratings SET ${sets.join(', ')} WHERE id = ?
-    `).bind(...binds).run();
+    `)
+      .bind(...binds)
+      .run();
 
     return json({ ok: true, id: ratingId });
   } catch (error) {
@@ -264,7 +279,7 @@ export async function handleRatingsAdminBulk(ctx: RatingsAdminContext): Promise<
   if (!db) return json({ ok: false, error: 'BIGDATA_DB não disponível.' }, 503);
 
   try {
-    const body = await ctx.request.json() as { ids?: number[]; action?: string };
+    const body = (await ctx.request.json()) as { ids?: number[]; action?: string };
     const { ids, action } = body;
 
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -276,7 +291,10 @@ export async function handleRatingsAdminBulk(ctx: RatingsAdminContext): Promise<
     }
 
     const placeholders = ids.map(() => '?').join(',');
-    await db.prepare(`DELETE FROM mainsite_ratings WHERE id IN (${placeholders})`).bind(...ids).run();
+    await db
+      .prepare(`DELETE FROM mainsite_ratings WHERE id IN (${placeholders})`)
+      .bind(...ids)
+      .run();
 
     return json({ ok: true, action, count: ids.length });
   } catch (error) {

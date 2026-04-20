@@ -6,52 +6,67 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+
 import {
-  Activity, AlertTriangle, BarChart3, Clock, Download, ExternalLink,
-  Loader2, Play, Radio, RefreshCw, Search, Server, Square, Trash2, Wifi, XCircle,
-} from 'lucide-react'
-import { useNotification } from '../../components/Notification'
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  Clock,
+  Download,
+  ExternalLink,
+  Loader2,
+  Play,
+  Radio,
+  RefreshCw,
+  Search,
+  Server,
+  Square,
+  Trash2,
+  Wifi,
+  XCircle,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNotification } from '../../components/Notification';
 
 // ── Types ──
 
 type ObsQueryResponse = {
-  ok: boolean
-  error?: string
-  result?: Record<string, unknown>
-}
+  ok: boolean;
+  error?: string;
+  result?: Record<string, unknown>;
+};
 
 type ObsDestination = {
-  name: string
-  slug?: string
-  enabled: boolean
+  name: string;
+  slug?: string;
+  enabled: boolean;
   configuration?: {
-    type?: string
-    logpushDataset?: string
-    url?: string
-    headers?: Record<string, string>
-  }
-}
+    type?: string;
+    logpushDataset?: string;
+    url?: string;
+    headers?: Record<string, string>;
+  };
+};
 
 type ObsDestinationsResponse = {
-  ok: boolean
-  error?: string
-  destinations?: ObsDestination[]
-}
+  ok: boolean;
+  error?: string;
+  destinations?: ObsDestination[];
+};
 
 type CalcAggregate = {
-  value: number
-  count: number
-  groups?: Array<{ key: string; value: string | number | boolean }>
-}
+  value: number;
+  count: number;
+  groups?: Array<{ key: string; value: string | number | boolean }>;
+};
 
 type CalcResult = {
-  calculation: string
-  alias?: string
-  aggregates: CalcAggregate[]
-}
+  calculation: string;
+  alias?: string;
+  aggregates: CalcAggregate[];
+};
 
-type EventRow = Record<string, unknown>
+type EventRow = Record<string, unknown>;
 
 // ── Constants ──
 
@@ -61,7 +76,7 @@ const TIME_RANGES = [
   { label: '24h', ms: 86_400_000 },
   { label: '3d', ms: 259_200_000 },
   { label: '7d', ms: 604_800_000 },
-] as const
+] as const;
 
 const OBS_TABS = [
   { key: 'dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -70,37 +85,37 @@ const OBS_TABS = [
   { key: 'errors', label: 'Erros', icon: XCircle },
   { key: 'latency', label: 'Latência', icon: Clock },
   { key: 'destinations', label: 'Destinos', icon: Download },
-] as const
+] as const;
 
-type ObsTabKey = typeof OBS_TABS[number]['key']
+type ObsTabKey = (typeof OBS_TABS)[number]['key'];
 
 // ── Helpers ──
 
 const formatMs = (ms: number): string => {
-  if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`
-  if (ms < 1000) return `${ms.toFixed(1)}ms`
-  return `${(ms / 1000).toFixed(2)}s`
-}
+  if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
+  if (ms < 1000) return `${ms.toFixed(1)}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+};
 
 const formatDate = (ts: number | string): string => {
   try {
-    const d = typeof ts === 'number' ? new Date(ts) : new Date(ts)
-    return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    const d = typeof ts === 'number' ? new Date(ts) : new Date(ts);
+    return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   } catch {
-    return String(ts)
+    return String(ts);
   }
-}
+};
 
-const generateQueryId = () => `obs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+const generateQueryId = () => `obs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 // ── API calls ──
 
 async function safeJson<T>(res: Response): Promise<T> {
-  const ct = res.headers.get('content-type') || ''
+  const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {
-    throw new Error(`Observability API retornou HTTP ${res.status} (não-JSON).`)
+    throw new Error(`Observability API retornou HTTP ${res.status} (não-JSON).`);
   }
-  return res.json() as Promise<T>
+  return res.json() as Promise<T>;
 }
 
 const obsPost = async (action: string, body?: Record<string, unknown>, slug?: string): Promise<ObsQueryResponse> => {
@@ -108,69 +123,71 @@ const obsPost = async (action: string, body?: Record<string, unknown>, slug?: st
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, body, slug }),
-  })
-  return safeJson<ObsQueryResponse>(res)
-}
+  });
+  return safeJson<ObsQueryResponse>(res);
+};
 
 const obsGet = async (): Promise<ObsDestinationsResponse> => {
-  const res = await fetch('/api/cfpw/observability')
-  return safeJson<ObsDestinationsResponse>(res)
-}
+  const res = await fetch('/api/cfpw/observability');
+  return safeJson<ObsDestinationsResponse>(res);
+};
 
 // ── Component ──
 
 export function ObservabilityBlock() {
-  const { showNotification } = useNotification()
-  const [tab, setTab] = useState<ObsTabKey>('dashboard')
-  const [timeRange, setTimeRange] = useState(2) // index into TIME_RANGES (24h)
-  const [loading, setLoading] = useState(false)
-  const [liveActive, setLiveActive] = useState(false)
-  const [searchNeedle, setSearchNeedle] = useState('')
+  const { showNotification } = useNotification();
+  const [tab, setTab] = useState<ObsTabKey>('dashboard');
+  const [timeRange, setTimeRange] = useState(2); // index into TIME_RANGES (24h)
+  const [loading, setLoading] = useState(false);
+  const [liveActive, setLiveActive] = useState(false);
+  const [searchNeedle, setSearchNeedle] = useState('');
 
   // Dashboard state
-  const [dashCalcs, setDashCalcs] = useState<CalcResult[]>([])
-  const [dashErrorCount, setDashErrorCount] = useState<number>(0)
-  const [dashTotalCount, setDashTotalCount] = useState<number>(0)
+  const [dashCalcs, setDashCalcs] = useState<CalcResult[]>([]);
+  const [dashErrorCount, setDashErrorCount] = useState<number>(0);
+  const [dashTotalCount, setDashTotalCount] = useState<number>(0);
 
   // Events state
-  const [events, setEvents] = useState<EventRow[]>([])
-  const [eventsLoading, setEventsLoading] = useState(false)
+  const [events, setEvents] = useState<EventRow[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
 
   // Live state
-  const [liveEvents, setLiveEvents] = useState<EventRow[]>([])
-  const [liveLoading, setLiveLoading] = useState(false)
+  const [liveEvents, setLiveEvents] = useState<EventRow[]>([]);
+  const [liveLoading, setLiveLoading] = useState(false);
 
   // Errors state
-  const [errors, setErrors] = useState<EventRow[]>([])
-  const [errorsLoading, setErrorsLoading] = useState(false)
+  const [errors, setErrors] = useState<EventRow[]>([]);
+  const [errorsLoading, setErrorsLoading] = useState(false);
 
   // Latency state
-  const [latencyCalcs, setLatencyCalcs] = useState<CalcResult[]>([])
-  const [latencyLoading, setLatencyLoading] = useState(false)
+  const [latencyCalcs, setLatencyCalcs] = useState<CalcResult[]>([]);
+  const [latencyLoading, setLatencyLoading] = useState(false);
 
   // Destinations state
-  const [destinations, setDestinations] = useState<ObsDestination[]>([])
-  const [destsLoading, setDestsLoading] = useState(false)
+  const [destinations, setDestinations] = useState<ObsDestination[]>([]);
+  const [destsLoading, setDestsLoading] = useState(false);
 
   // Expanded event detail
-  const [expandedEventKey, setExpandedEventKey] = useState<string | null>(null)
+  const [expandedEventKey, setExpandedEventKey] = useState<string | null>(null);
 
   // Destination form
-  const [newDestName, setNewDestName] = useState('')
-  const [newDestUrl, setNewDestUrl] = useState('')
-  const [newDestDataset, setNewDestDataset] = useState<'opentelemetry-traces' | 'opentelemetry-logs'>('opentelemetry-traces')
-  const [newDestHeaderKey, setNewDestHeaderKey] = useState('')
-  const [newDestHeaderValue, setNewDestHeaderValue] = useState('')
+  const [newDestName, setNewDestName] = useState('');
+  const [newDestUrl, setNewDestUrl] = useState('');
+  const [newDestDataset, setNewDestDataset] = useState<'opentelemetry-traces' | 'opentelemetry-logs'>(
+    'opentelemetry-traces',
+  );
+  const [newDestHeaderKey, setNewDestHeaderKey] = useState('');
+  const [newDestHeaderValue, setNewDestHeaderValue] = useState('');
 
   const timeframe = useMemo(() => {
-    const now = Date.now()
-    return { from: now - TIME_RANGES[timeRange].ms, to: now }
-  }, [timeRange])
+    const now = Date.now();
+    return { from: now - TIME_RANGES[timeRange].ms, to: now };
+  }, [timeRange]);
 
   // ── Dashboard queries ──
 
   const loadDashboard = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       // Query 1: COUNT grouped by $workers.scriptName
       const countRes = await obsPost('query', {
@@ -183,17 +200,17 @@ export function ObservabilityBlock() {
           orderBy: { value: 'total', order: 'desc' },
           limit: 50,
         },
-      })
+      });
 
       if (countRes.ok && countRes.result) {
-        const rawCalcs = (countRes.result as { calculations?: CalcResult[] }).calculations
-        const calcs = Array.isArray(rawCalcs) ? rawCalcs : []
-        setDashCalcs(calcs)
+        const rawCalcs = (countRes.result as { calculations?: CalcResult[] }).calculations;
+        const calcs = Array.isArray(rawCalcs) ? rawCalcs : [];
+        setDashCalcs(calcs);
         // Compute total from aggregates
-        const totalCalc = calcs.find(c => c.alias === 'total' || c.calculation === 'COUNT')
-        const aggs = Array.isArray(totalCalc?.aggregates) ? totalCalc.aggregates : []
-        const total = aggs.reduce((sum, a) => sum + (a.count || 0), 0)
-        setDashTotalCount(total)
+        const totalCalc = calcs.find((c) => c.alias === 'total' || c.calculation === 'COUNT');
+        const aggs = Array.isArray(totalCalc?.aggregates) ? totalCalc.aggregates : [];
+        const total = aggs.reduce((sum, a) => sum + (a.count || 0), 0);
+        setDashTotalCount(total);
       }
 
       // Query 2: Error count
@@ -203,36 +220,38 @@ export function ObservabilityBlock() {
         view: 'calculations',
         parameters: {
           calculations: [{ operator: 'COUNT', alias: 'errors' }],
-          filters: [{
-            kind: 'filter',
-            key: '$metadata.error',
-            operation: 'EXISTS',
-            type: 'string',
-          }],
+          filters: [
+            {
+              kind: 'filter',
+              key: '$metadata.error',
+              operation: 'EXISTS',
+              type: 'string',
+            },
+          ],
         },
-      })
+      });
 
       if (errRes.ok && errRes.result) {
-        const rawErrCalcs = (errRes.result as { calculations?: CalcResult[] }).calculations
-        const errCalcs = Array.isArray(rawErrCalcs) ? rawErrCalcs : []
-        const errCalc = errCalcs.find(c => c.alias === 'errors' || c.calculation === 'COUNT')
-        const errAggs = Array.isArray(errCalc?.aggregates) ? errCalc.aggregates : []
-        const errTotal = errAggs.reduce((sum, a) => sum + (a.count || 0), 0)
-        setDashErrorCount(errTotal)
+        const rawErrCalcs = (errRes.result as { calculations?: CalcResult[] }).calculations;
+        const errCalcs = Array.isArray(rawErrCalcs) ? rawErrCalcs : [];
+        const errCalc = errCalcs.find((c) => c.alias === 'errors' || c.calculation === 'COUNT');
+        const errAggs = Array.isArray(errCalc?.aggregates) ? errCalc.aggregates : [];
+        const errTotal = errAggs.reduce((sum, a) => sum + (a.count || 0), 0);
+        setDashErrorCount(errTotal);
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Erro ao carregar dashboard.', 'error')
+      showNotification(err instanceof Error ? err.message : 'Erro ao carregar dashboard.', 'error');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [timeframe, showNotification])
+  }, [timeframe, showNotification]);
 
   // ── Events query ──
 
   const loadEvents = useCallback(async () => {
-    setEventsLoading(true)
+    setEventsLoading(true);
     try {
-      const needle = searchNeedle.trim()
+      const needle = searchNeedle.trim();
       const res = await obsPost('query', {
         queryId: generateQueryId(),
         timeframe,
@@ -241,25 +260,25 @@ export function ObservabilityBlock() {
         parameters: {
           ...(needle ? { needle: { value: needle, matchCase: false } } : {}),
         },
-      })
+      });
 
       if (res.ok && res.result) {
         // CF API: result.events é um objeto { events: [], fields: [], count: N }
-        const eventsWrapper = (res.result as { events?: { events?: EventRow[] } }).events
-        const rawEvts = eventsWrapper?.events
-        setEvents(Array.isArray(rawEvts) ? rawEvts : [])
+        const eventsWrapper = (res.result as { events?: { events?: EventRow[] } }).events;
+        const rawEvts = eventsWrapper?.events;
+        setEvents(Array.isArray(rawEvts) ? rawEvts : []);
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Erro ao carregar eventos.', 'error')
+      showNotification(err instanceof Error ? err.message : 'Erro ao carregar eventos.', 'error');
     } finally {
-      setEventsLoading(false)
+      setEventsLoading(false);
     }
-  }, [timeframe, searchNeedle, showNotification])
+  }, [timeframe, searchNeedle, showNotification]);
 
   // ── Errors query ──
 
   const loadErrors = useCallback(async () => {
-    setErrorsLoading(true)
+    setErrorsLoading(true);
     try {
       const res = await obsPost('query', {
         queryId: generateQueryId(),
@@ -267,31 +286,33 @@ export function ObservabilityBlock() {
         view: 'events',
         limit: 50,
         parameters: {
-          filters: [{
-            kind: 'filter',
-            key: '$metadata.error',
-            operation: 'EXISTS',
-            type: 'string',
-          }],
+          filters: [
+            {
+              kind: 'filter',
+              key: '$metadata.error',
+              operation: 'EXISTS',
+              type: 'string',
+            },
+          ],
         },
-      })
+      });
 
       if (res.ok && res.result) {
-        const eventsWrapper = (res.result as { events?: { events?: EventRow[] } }).events
-        const rawEvts = eventsWrapper?.events
-        setErrors(Array.isArray(rawEvts) ? rawEvts : [])
+        const eventsWrapper = (res.result as { events?: { events?: EventRow[] } }).events;
+        const rawEvts = eventsWrapper?.events;
+        setErrors(Array.isArray(rawEvts) ? rawEvts : []);
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Erro ao carregar erros.', 'error')
+      showNotification(err instanceof Error ? err.message : 'Erro ao carregar erros.', 'error');
     } finally {
-      setErrorsLoading(false)
+      setErrorsLoading(false);
     }
-  }, [timeframe, showNotification])
+  }, [timeframe, showNotification]);
 
   // ── Latency query ──
 
   const loadLatency = useCallback(async () => {
-    setLatencyLoading(true)
+    setLatencyLoading(true);
     try {
       const res = await obsPost('query', {
         queryId: generateQueryId(),
@@ -308,49 +329,49 @@ export function ObservabilityBlock() {
           orderBy: { value: 'p99', order: 'desc' },
           limit: 50,
         },
-      })
+      });
 
       if (res.ok && res.result) {
-        const rawCalcs = (res.result as { calculations?: CalcResult[] }).calculations
-        setLatencyCalcs(Array.isArray(rawCalcs) ? rawCalcs : [])
+        const rawCalcs = (res.result as { calculations?: CalcResult[] }).calculations;
+        setLatencyCalcs(Array.isArray(rawCalcs) ? rawCalcs : []);
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Erro ao carregar latência.', 'error')
+      showNotification(err instanceof Error ? err.message : 'Erro ao carregar latência.', 'error');
     } finally {
-      setLatencyLoading(false)
+      setLatencyLoading(false);
     }
-  }, [timeframe, showNotification])
+  }, [timeframe, showNotification]);
 
   // ── Destinations actions ──
 
   const loadDestinations = useCallback(async () => {
-    setDestsLoading(true)
+    setDestsLoading(true);
     try {
-      const res = await obsGet()
+      const res = await obsGet();
       if (res.ok) {
-        const rawDests = res.destinations
-        setDestinations(Array.isArray(rawDests) ? rawDests : [])
+        const rawDests = res.destinations;
+        setDestinations(Array.isArray(rawDests) ? rawDests : []);
       }
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Erro ao carregar destinos.', 'error')
+      showNotification(err instanceof Error ? err.message : 'Erro ao carregar destinos.', 'error');
     } finally {
-      setDestsLoading(false)
+      setDestsLoading(false);
     }
-  }, [showNotification])
+  }, [showNotification]);
 
   const handleCreateDestination = useCallback(async () => {
-    const name = newDestName.trim()
-    const url = newDestUrl.trim()
+    const name = newDestName.trim();
+    const url = newDestUrl.trim();
     if (!name || !url) {
-      showNotification('Nome e URL são obrigatórios.', 'error')
-      return
+      showNotification('Nome e URL são obrigatórios.', 'error');
+      return;
     }
 
-    setDestsLoading(true)
+    setDestsLoading(true);
     try {
-      const headers: Record<string, string> = {}
+      const headers: Record<string, string> = {};
       if (newDestHeaderKey.trim() && newDestHeaderValue.trim()) {
-        headers[newDestHeaderKey.trim()] = newDestHeaderValue.trim()
+        headers[newDestHeaderKey.trim()] = newDestHeaderValue.trim();
       }
 
       const res = await obsPost('create-destination', {
@@ -362,178 +383,192 @@ export function ObservabilityBlock() {
           url,
           headers,
         },
-      })
+      });
 
-      if (!res.ok) throw new Error(res.error || 'Falha ao criar destino.')
-      showNotification('Destino criado com sucesso.', 'success')
-      setNewDestName('')
-      setNewDestUrl('')
-      setNewDestHeaderKey('')
-      setNewDestHeaderValue('')
-      await loadDestinations()
+      if (!res.ok) throw new Error(res.error || 'Falha ao criar destino.');
+      showNotification('Destino criado com sucesso.', 'success');
+      setNewDestName('');
+      setNewDestUrl('');
+      setNewDestHeaderKey('');
+      setNewDestHeaderValue('');
+      await loadDestinations();
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Erro ao criar destino.', 'error')
+      showNotification(err instanceof Error ? err.message : 'Erro ao criar destino.', 'error');
     } finally {
-      setDestsLoading(false)
+      setDestsLoading(false);
     }
-  }, [newDestName, newDestUrl, newDestDataset, newDestHeaderKey, newDestHeaderValue, showNotification, loadDestinations])
+  }, [
+    newDestName,
+    newDestUrl,
+    newDestDataset,
+    newDestHeaderKey,
+    newDestHeaderValue,
+    showNotification,
+    loadDestinations,
+  ]);
 
-  const handleDeleteDestination = useCallback(async (slug: string) => {
-    setDestsLoading(true)
-    try {
-      const res = await obsPost('delete-destination', undefined, slug)
-      if (!res.ok) throw new Error(res.error || 'Falha ao remover destino.')
-      showNotification('Destino removido.', 'success')
-      await loadDestinations()
-    } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'Erro ao remover destino.', 'error')
-    } finally {
-      setDestsLoading(false)
-    }
-  }, [showNotification, loadDestinations])
+  const handleDeleteDestination = useCallback(
+    async (slug: string) => {
+      setDestsLoading(true);
+      try {
+        const res = await obsPost('delete-destination', undefined, slug);
+        if (!res.ok) throw new Error(res.error || 'Falha ao remover destino.');
+        showNotification('Destino removido.', 'success');
+        await loadDestinations();
+      } catch (err) {
+        showNotification(err instanceof Error ? err.message : 'Erro ao remover destino.', 'error');
+      } finally {
+        setDestsLoading(false);
+      }
+    },
+    [showNotification, loadDestinations],
+  );
 
   // ── Live tail query ──
 
   const loadLiveEvents = useCallback(async () => {
-    setLiveLoading(true)
+    setLiveLoading(true);
     try {
-      const now = Date.now()
+      const now = Date.now();
       const res = await obsPost('query', {
         queryId: generateQueryId(),
         timeframe: { from: now - 90_000, to: now }, // 90s window to account for ~30s CF ingestion delay
         view: 'events',
         limit: 100,
         parameters: {},
-      })
+      });
 
       if (res.ok && res.result) {
-        const eventsWrapper = (res.result as { events?: { events?: EventRow[] } }).events
-        const rawEvts = eventsWrapper?.events
-        const newEvts = Array.isArray(rawEvts) ? rawEvts : []
-        setLiveEvents(prev => {
-          const safePrev = Array.isArray(prev) ? prev : []
+        const eventsWrapper = (res.result as { events?: { events?: EventRow[] } }).events;
+        const rawEvts = eventsWrapper?.events;
+        const newEvts = Array.isArray(rawEvts) ? rawEvts : [];
+        setLiveEvents((prev) => {
+          const safePrev = Array.isArray(prev) ? prev : [];
           // Helper to extract a stable unique key from nested event structure
           const eventKey = (e: EventRow): string => {
-            const meta = (e['$metadata'] ?? {}) as Record<string, unknown>
-            return String(meta['id'] ?? meta['requestId'] ?? e['timestamp'] ?? Math.random())
-          }
+            const meta = (e.$metadata ?? {}) as Record<string, unknown>;
+            return String(meta.id ?? meta.requestId ?? e.timestamp ?? Math.random());
+          };
           // Merge: prepend new events, deduplicate by key, cap at 200
-          const existing = new Set(safePrev.map(eventKey))
-          const fresh = newEvts.filter(e => !existing.has(eventKey(e)))
-          return [...fresh, ...safePrev].slice(0, 200)
-        })
+          const existing = new Set(safePrev.map(eventKey));
+          const fresh = newEvts.filter((e) => !existing.has(eventKey(e)));
+          return [...fresh, ...safePrev].slice(0, 200);
+        });
       }
     } catch {
       // Silent fail during live tail to avoid notification spam
     } finally {
-      setLiveLoading(false)
+      setLiveLoading(false);
     }
-  }, []) // No deps — always polls latest 30s
+  }, []); // No deps — always polls latest 30s
 
   // ── Effects ──
 
   useEffect(() => {
-    if (tab === 'dashboard') void loadDashboard()
-  }, [tab, loadDashboard])
+    if (tab === 'dashboard') void loadDashboard();
+  }, [tab, loadDashboard]);
 
   useEffect(() => {
-    if (tab === 'events') void loadEvents()
-  }, [tab, loadEvents])
+    if (tab === 'events') void loadEvents();
+  }, [tab, loadEvents]);
 
   useEffect(() => {
-    if (tab === 'errors') void loadErrors()
-  }, [tab, loadErrors])
+    if (tab === 'errors') void loadErrors();
+  }, [tab, loadErrors]);
 
   useEffect(() => {
-    if (tab === 'latency') void loadLatency()
-  }, [tab, loadLatency])
+    if (tab === 'latency') void loadLatency();
+  }, [tab, loadLatency]);
 
   useEffect(() => {
-    if (tab === 'destinations') void loadDestinations()
-  }, [tab, loadDestinations])
+    if (tab === 'destinations') void loadDestinations();
+  }, [tab, loadDestinations]);
 
   // Auto-activate live mode when switching to Live tab
   useEffect(() => {
     if (tab === 'live') {
-      setLiveActive(true)
-      setLiveEvents([])
-      void loadLiveEvents()
+      setLiveActive(true);
+      setLiveEvents([]);
+      void loadLiveEvents();
     } else {
-      setLiveActive(false)
+      setLiveActive(false);
     }
-  }, [tab, loadLiveEvents])
+  }, [tab, loadLiveEvents]);
 
   // Live polling interval (3s)
   useEffect(() => {
-    if (!liveActive) return
-    const interval = setInterval(() => void loadLiveEvents(), 3_000)
-    return () => clearInterval(interval)
-  }, [liveActive, loadLiveEvents])
+    if (!liveActive) return;
+    const interval = setInterval(() => void loadLiveEvents(), 3_000);
+    return () => clearInterval(interval);
+  }, [liveActive, loadLiveEvents]);
 
   // Auto-refresh every 60s for non-live tabs
   useEffect(() => {
     const interval = setInterval(() => {
-      if (tab === 'dashboard') void loadDashboard()
-      else if (tab === 'events') void loadEvents()
-      else if (tab === 'errors') void loadErrors()
-      else if (tab === 'latency') void loadLatency()
-    }, 60_000)
-    return () => clearInterval(interval)
-  }, [tab, loadDashboard, loadEvents, loadErrors, loadLatency])
+      if (tab === 'dashboard') void loadDashboard();
+      else if (tab === 'events') void loadEvents();
+      else if (tab === 'errors') void loadErrors();
+      else if (tab === 'latency') void loadLatency();
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [tab, loadDashboard, loadEvents, loadErrors, loadLatency]);
 
   // ── Extract per-worker data from calculations ──
 
   const perWorkerData = useMemo(() => {
-    if (!Array.isArray(dashCalcs)) return []
-    const totalCalc = dashCalcs.find(c => c.alias === 'total' || c.calculation === 'COUNT')
-    const aggs = Array.isArray(totalCalc?.aggregates) ? totalCalc.aggregates : []
-    if (aggs.length === 0) return []
+    if (!Array.isArray(dashCalcs)) return [];
+    const totalCalc = dashCalcs.find((c) => c.alias === 'total' || c.calculation === 'COUNT');
+    const aggs = Array.isArray(totalCalc?.aggregates) ? totalCalc.aggregates : [];
+    if (aggs.length === 0) return [];
 
     return aggs
-      .filter(a => a.groups && Array.isArray(a.groups) && a.groups.length > 0)
-      .map(a => ({
+      .filter((a) => a.groups && Array.isArray(a.groups) && a.groups.length > 0)
+      .map((a) => ({
         scriptName: String(a.groups?.[0]?.value ?? '(unknown)'),
         count: a.count || 0,
         value: a.value || 0,
       }))
-      .sort((a, b) => b.count - a.count)
-  }, [dashCalcs])
+      .sort((a, b) => b.count - a.count);
+  }, [dashCalcs]);
 
   // ── Extract per-worker latency data ──
 
   const perWorkerLatency = useMemo(() => {
-    if (!Array.isArray(latencyCalcs) || latencyCalcs.length === 0) return []
+    if (!Array.isArray(latencyCalcs) || latencyCalcs.length === 0) return [];
 
-    const p50Calc = latencyCalcs.find(c => c.alias === 'p50')
-    const p95Calc = latencyCalcs.find(c => c.alias === 'p95')
-    const p99Calc = latencyCalcs.find(c => c.alias === 'p99')
-    const avgCalc = latencyCalcs.find(c => c.alias === 'avg')
+    const p50Calc = latencyCalcs.find((c) => c.alias === 'p50');
+    const p95Calc = latencyCalcs.find((c) => c.alias === 'p95');
+    const p99Calc = latencyCalcs.find((c) => c.alias === 'p99');
+    const avgCalc = latencyCalcs.find((c) => c.alias === 'avg');
 
     // Build map of scriptName -> metrics
-    const map = new Map<string, { p50: number; p95: number; p99: number; avg: number }>()
+    const map = new Map<string, { p50: number; p95: number; p99: number; avg: number }>();
 
     const processCalc = (calc: CalcResult | undefined, metric: 'p50' | 'p95' | 'p99' | 'avg') => {
-      if (!calc?.aggregates || !Array.isArray(calc.aggregates)) return
+      if (!calc?.aggregates || !Array.isArray(calc.aggregates)) return;
       for (const agg of calc.aggregates) {
-        const name = String(agg.groups?.[0]?.value ?? '(unknown)')
-        if (!map.has(name)) map.set(name, { p50: 0, p95: 0, p99: 0, avg: 0 })
-        const entry = map.get(name)!
-        entry[metric] = agg.value || 0
+        const name = String(agg.groups?.[0]?.value ?? '(unknown)');
+        let entry = map.get(name);
+        if (!entry) {
+          entry = { p50: 0, p95: 0, p99: 0, avg: 0 };
+          map.set(name, entry);
+        }
+        entry[metric] = agg.value || 0;
       }
-    }
+    };
 
-    processCalc(p50Calc, 'p50')
-    processCalc(p95Calc, 'p95')
-    processCalc(p99Calc, 'p99')
-    processCalc(avgCalc, 'avg')
+    processCalc(p50Calc, 'p50');
+    processCalc(p95Calc, 'p95');
+    processCalc(p99Calc, 'p99');
+    processCalc(avgCalc, 'avg');
 
     return [...map.entries()]
       .map(([name, metrics]) => ({ scriptName: name, ...metrics }))
-      .sort((a, b) => b.p99 - a.p99)
-  }, [latencyCalcs])
+      .sort((a, b) => b.p99 - a.p99);
+  }, [latencyCalcs]);
 
   // Error rate
-  const errorRate = dashTotalCount > 0 ? ((dashErrorCount / dashTotalCount) * 100).toFixed(2) : '0.00'
+  const errorRate = dashTotalCount > 0 ? ((dashErrorCount / dashTotalCount) * 100).toFixed(2) : '0.00';
 
   // ── Renderers ──
 
@@ -550,7 +585,7 @@ export function ObservabilityBlock() {
         </button>
       ))}
     </div>
-  )
+  );
 
   const renderDashboard = () => (
     <div className="cfpw-obs-content">
@@ -596,9 +631,13 @@ export function ObservabilityBlock() {
 
       {/* Per-worker breakdown */}
       <div className="cfpw-obs-section">
-        <h4><Server size={16} /> Eventos por Worker</h4>
+        <h4>
+          <Server size={16} /> Eventos por Worker
+        </h4>
         {loading ? (
-          <div className="cfpw-obs-loading"><Loader2 size={20} className="spin" /> Carregando...</div>
+          <div className="cfpw-obs-loading">
+            <Loader2 size={20} className="spin" /> Carregando...
+          </div>
         ) : perWorkerData.length === 0 ? (
           <div className="cfpw-obs-empty">Nenhum dado de telemetria neste período.</div>
         ) : (
@@ -612,9 +651,11 @@ export function ObservabilityBlock() {
                 </tr>
               </thead>
               <tbody>
-                {perWorkerData.map(w => (
+                {perWorkerData.map((w) => (
                   <tr key={w.scriptName}>
-                    <td><code>{w.scriptName}</code></td>
+                    <td>
+                      <code>{w.scriptName}</code>
+                    </td>
                     <td style={{ textAlign: 'right' }}>{w.count.toLocaleString('pt-BR')}</td>
                     <td style={{ textAlign: 'right' }}>
                       {dashTotalCount > 0 ? ((w.count / dashTotalCount) * 100).toFixed(1) : '0'}%
@@ -627,43 +668,43 @@ export function ObservabilityBlock() {
         )}
       </div>
     </div>
-  )
+  );
 
   // Render nested object as flat key→value pairs for the detail panel
   const flattenObject = (obj: unknown, prefix = ''): Array<[string, string]> => {
-    const entries: Array<[string, string]> = []
+    const entries: Array<[string, string]> = [];
     if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
       for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-        const key = prefix ? `${prefix}.${k}` : k
+        const key = prefix ? `${prefix}.${k}` : k;
         if (v && typeof v === 'object' && !Array.isArray(v)) {
-          entries.push(...flattenObject(v, key))
+          entries.push(...flattenObject(v, key));
         } else {
-          entries.push([key, String(v ?? '—')])
+          entries.push([key, String(v ?? '—')]);
         }
       }
     }
-    return entries
-  }
+    return entries;
+  };
 
   const renderEventRow = (evt: EventRow, idx: number) => {
     // CF Observability retorna objetos nested: { timestamp, $workers: {...}, $metadata: {...}, source: {...} }
-    const workers = (evt['$workers'] ?? {}) as Record<string, unknown>
-    const meta = (evt['$metadata'] ?? {}) as Record<string, unknown>
-    const source = (evt['source'] ?? {}) as Record<string, unknown>
-    const workerEvent = (workers['event'] ?? {}) as Record<string, unknown>
-    const workerReq = (workerEvent['request'] ?? {}) as Record<string, unknown>
+    const workers = (evt.$workers ?? {}) as Record<string, unknown>;
+    const meta = (evt.$metadata ?? {}) as Record<string, unknown>;
+    const source = (evt.source ?? {}) as Record<string, unknown>;
+    const workerEvent = (workers.event ?? {}) as Record<string, unknown>;
+    const workerReq = (workerEvent.request ?? {}) as Record<string, unknown>;
 
-    const ts = (evt['timestamp'] ?? meta['startTime']) as number | undefined
-    const service = String(workers['scriptName'] ?? meta['service'] ?? '—')
-    const level = String(meta['level'] ?? source['level'] ?? 'log')
-    const message = String(meta['message'] ?? source['message'] ?? '—')
-    const error = (meta['error'] ?? source['error']) as string | undefined
-    const outcome = String(workers['outcome'] ?? '—')
-    const method = String(workerReq['method'] ?? source['method'] ?? '')
-    const path = String(workerReq['path'] ?? source['pathname'] ?? '')
+    const ts = (evt.timestamp ?? meta.startTime) as number | undefined;
+    const service = String(workers.scriptName ?? meta.service ?? '—');
+    const level = String(meta.level ?? source.level ?? 'log');
+    const message = String(meta.message ?? source.message ?? '—');
+    const error = (meta.error ?? source.error) as string | undefined;
+    const outcome = String(workers.outcome ?? '—');
+    const method = String(workerReq.method ?? source.method ?? '');
+    const path = String(workerReq.path ?? source.pathname ?? '');
 
-    const rowKey = String(meta['id'] ?? meta['requestId'] ?? `${ts}-${idx}`)
-    const isExpanded = expandedEventKey === rowKey
+    const rowKey = String(meta.id ?? meta.requestId ?? `${ts}-${idx}`);
+    const isExpanded = expandedEventKey === rowKey;
 
     return (
       <>
@@ -673,13 +714,25 @@ export function ObservabilityBlock() {
           onClick={() => setExpandedEventKey(isExpanded ? null : rowKey)}
         >
           <td className="cfpw-obs-cell-ts">{ts ? formatDate(ts) : '—'}</td>
-          <td><code>{service}</code></td>
+          <td>
+            <code>{service}</code>
+          </td>
           <td>
             <span className={`cfpw-obs-level cfpw-obs-level-${level}`}>{level}</span>
           </td>
           <td className="cfpw-obs-cell-msg">
-            {method && path ? <span className="cfpw-obs-req-tag">{method} {path}</span> : null}
-            {error ? <span className="cfpw-obs-error-text">{error}</span> : message !== '—' ? message : `outcome: ${outcome}`}
+            {method && path ? (
+              <span className="cfpw-obs-req-tag">
+                {method} {path}
+              </span>
+            ) : null}
+            {error ? (
+              <span className="cfpw-obs-error-text">{error}</span>
+            ) : message !== '—' ? (
+              message
+            ) : (
+              `outcome: ${outcome}`
+            )}
           </td>
         </tr>
         {isExpanded && (
@@ -727,8 +780,8 @@ export function ObservabilityBlock() {
           </tr>
         )}
       </>
-    )
-  }
+    );
+  };
 
   const renderEvents = () => (
     <div className="cfpw-obs-content">
@@ -738,16 +791,25 @@ export function ObservabilityBlock() {
           type="text"
           placeholder="Buscar nos eventos (full-text)..."
           value={searchNeedle}
-          onChange={e => setSearchNeedle(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') void loadEvents() }}
+          onChange={(e) => setSearchNeedle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void loadEvents();
+          }}
         />
-        <button type="button" className="cfpw-obs-search-btn" onClick={() => void loadEvents()} disabled={eventsLoading}>
+        <button
+          type="button"
+          className="cfpw-obs-search-btn"
+          onClick={() => void loadEvents()}
+          disabled={eventsLoading}
+        >
           {eventsLoading ? <Loader2 size={14} className="spin" /> : 'Buscar'}
         </button>
       </div>
 
       {eventsLoading && events.length === 0 ? (
-        <div className="cfpw-obs-loading"><Loader2 size={20} className="spin" /> Carregando eventos...</div>
+        <div className="cfpw-obs-loading">
+          <Loader2 size={20} className="spin" /> Carregando eventos...
+        </div>
       ) : events.length === 0 ? (
         <div className="cfpw-obs-empty">Nenhum evento encontrado neste período.</div>
       ) : (
@@ -761,24 +823,26 @@ export function ObservabilityBlock() {
                 <th>Detalhes</th>
               </tr>
             </thead>
-            <tbody>
-              {events.map((evt, i) => renderEventRow(evt, i))}
-            </tbody>
+            <tbody>{events.map((evt, i) => renderEventRow(evt, i))}</tbody>
           </table>
           <div className="cfpw-obs-table-footer">{events.length} evento(s) exibidos</div>
         </div>
       )}
     </div>
-  )
+  );
 
   const renderErrors = () => (
     <div className="cfpw-obs-content">
       <div className="cfpw-obs-section">
-        <h4><AlertTriangle size={16} /> Eventos com Erro ({errors.length})</h4>
+        <h4>
+          <AlertTriangle size={16} /> Eventos com Erro ({errors.length})
+        </h4>
       </div>
 
       {errorsLoading && errors.length === 0 ? (
-        <div className="cfpw-obs-loading"><Loader2 size={20} className="spin" /> Carregando erros...</div>
+        <div className="cfpw-obs-loading">
+          <Loader2 size={20} className="spin" /> Carregando erros...
+        </div>
       ) : errors.length === 0 ? (
         <div className="cfpw-obs-empty" style={{ color: '#34a853' }}>
           ✓ Nenhum erro detectado neste período.
@@ -794,24 +858,26 @@ export function ObservabilityBlock() {
                 <th>Detalhes do Erro</th>
               </tr>
             </thead>
-            <tbody>
-              {errors.map((evt, i) => renderEventRow(evt, i))}
-            </tbody>
+            <tbody>{errors.map((evt, i) => renderEventRow(evt, i))}</tbody>
           </table>
           <div className="cfpw-obs-table-footer">{errors.length} erro(s) exibidos</div>
         </div>
       )}
     </div>
-  )
+  );
 
   const renderLatency = () => (
     <div className="cfpw-obs-content">
       <div className="cfpw-obs-section">
-        <h4><Clock size={16} /> Percentis de Latência por Worker</h4>
+        <h4>
+          <Clock size={16} /> Percentis de Latência por Worker
+        </h4>
       </div>
 
       {latencyLoading ? (
-        <div className="cfpw-obs-loading"><Loader2 size={20} className="spin" /> Calculando latência...</div>
+        <div className="cfpw-obs-loading">
+          <Loader2 size={20} className="spin" /> Calculando latência...
+        </div>
       ) : perWorkerLatency.length === 0 ? (
         <div className="cfpw-obs-empty">Nenhum dado de latência disponível neste período.</div>
       ) : (
@@ -827,16 +893,24 @@ export function ObservabilityBlock() {
               </tr>
             </thead>
             <tbody>
-              {perWorkerLatency.map(w => (
+              {perWorkerLatency.map((w) => (
                 <tr key={w.scriptName}>
-                  <td><code>{w.scriptName}</code></td>
+                  <td>
+                    <code>{w.scriptName}</code>
+                  </td>
                   <td style={{ textAlign: 'right' }}>{formatMs(w.avg)}</td>
                   <td style={{ textAlign: 'right' }}>{formatMs(w.p50)}</td>
                   <td style={{ textAlign: 'right' }}>
                     <span className={w.p95 > 1000 ? 'cfpw-obs-latency-warn' : ''}>{formatMs(w.p95)}</span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <span className={w.p99 > 3000 ? 'cfpw-obs-latency-critical' : w.p99 > 1000 ? 'cfpw-obs-latency-warn' : ''}>{formatMs(w.p99)}</span>
+                    <span
+                      className={
+                        w.p99 > 3000 ? 'cfpw-obs-latency-critical' : w.p99 > 1000 ? 'cfpw-obs-latency-warn' : ''
+                      }
+                    >
+                      {formatMs(w.p99)}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -845,21 +919,25 @@ export function ObservabilityBlock() {
         </div>
       )}
     </div>
-  )
+  );
 
   const renderDestinations = () => (
     <div className="cfpw-obs-content">
       {/* Active destinations */}
       <div className="cfpw-obs-section">
-        <h4><Wifi size={16} /> Destinos OTel Configurados ({destinations.length})</h4>
+        <h4>
+          <Wifi size={16} /> Destinos OTel Configurados ({destinations.length})
+        </h4>
 
         {destsLoading && destinations.length === 0 ? (
-          <div className="cfpw-obs-loading"><Loader2 size={20} className="spin" /> Carregando destinos...</div>
+          <div className="cfpw-obs-loading">
+            <Loader2 size={20} className="spin" /> Carregando destinos...
+          </div>
         ) : destinations.length === 0 ? (
           <div className="cfpw-obs-empty">Nenhum destino de export configurado.</div>
         ) : (
           <div className="cfpw-obs-dest-list">
-            {destinations.map(dest => (
+            {destinations.map((dest) => (
               <div className="cfpw-obs-dest-card" key={dest.slug || dest.name}>
                 <div className="cfpw-obs-dest-info">
                   <strong>{dest.name}</strong>
@@ -886,53 +964,64 @@ export function ObservabilityBlock() {
 
       {/* Create destination form */}
       <div className="cfpw-obs-section">
-        <h4><Download size={16} /> Criar Novo Destino</h4>
+        <h4>
+          <Download size={16} /> Criar Novo Destino
+        </h4>
         <div className="cfpw-obs-dest-form">
           <div className="cfpw-obs-dest-form-row">
             <div className="cfpw-obs-field">
-              <label>Nome (slug)</label>
+              <label htmlFor="cfpw-obs-newDestName">Nome (slug)</label>
               <input
+                id="cfpw-obs-newDestName"
                 placeholder="meu-destino-grafana"
                 value={newDestName}
-                onChange={e => setNewDestName(e.target.value)}
+                onChange={(e) => setNewDestName(e.target.value)}
                 disabled={destsLoading}
                 pattern="^[a-z0-9][a-z0-9-]*[a-z0-9]$"
               />
             </div>
             <div className="cfpw-obs-field">
-              <label>Dataset</label>
-              <select value={newDestDataset} onChange={e => setNewDestDataset(e.target.value as typeof newDestDataset)} disabled={destsLoading}>
+              <label htmlFor="cfpw-obs-newDestDataset">Dataset</label>
+              <select
+                id="cfpw-obs-newDestDataset"
+                value={newDestDataset}
+                onChange={(e) => setNewDestDataset(e.target.value as typeof newDestDataset)}
+                disabled={destsLoading}
+              >
                 <option value="opentelemetry-traces">OpenTelemetry Traces</option>
                 <option value="opentelemetry-logs">OpenTelemetry Logs</option>
               </select>
             </div>
           </div>
           <div className="cfpw-obs-field">
-            <label>Endpoint URL (OTLP)</label>
+            <label htmlFor="cfpw-obs-newDestUrl">Endpoint URL (OTLP)</label>
             <input
+              id="cfpw-obs-newDestUrl"
               placeholder="https://otel-collector.example.com/v1/traces"
               value={newDestUrl}
-              onChange={e => setNewDestUrl(e.target.value)}
+              onChange={(e) => setNewDestUrl(e.target.value)}
               disabled={destsLoading}
             />
           </div>
           <div className="cfpw-obs-dest-form-row">
             <div className="cfpw-obs-field">
-              <label>Header Key (opcional)</label>
+              <label htmlFor="cfpw-obs-newDestHeaderKey">Header Key (opcional)</label>
               <input
+                id="cfpw-obs-newDestHeaderKey"
                 placeholder="Authorization"
                 value={newDestHeaderKey}
-                onChange={e => setNewDestHeaderKey(e.target.value)}
+                onChange={(e) => setNewDestHeaderKey(e.target.value)}
                 disabled={destsLoading}
               />
             </div>
             <div className="cfpw-obs-field">
-              <label>Header Value</label>
+              <label htmlFor="cfpw-obs-newDestHeaderValue">Header Value</label>
               <input
+                id="cfpw-obs-newDestHeaderValue"
                 type="password"
                 placeholder="Bearer token..."
                 value={newDestHeaderValue}
-                onChange={e => setNewDestHeaderValue(e.target.value)}
+                onChange={(e) => setNewDestHeaderValue(e.target.value)}
                 disabled={destsLoading}
               />
             </div>
@@ -951,34 +1040,54 @@ export function ObservabilityBlock() {
 
       {/* Tutorial */}
       <div className="cfpw-obs-tutorial">
-        <h4><ExternalLink size={16} /> Guia: Configuração via Cloudflare Dashboard</h4>
+        <h4>
+          <ExternalLink size={16} /> Guia: Configuração via Cloudflare Dashboard
+        </h4>
         <ol>
           <li>
-            Acesse <a href="https://dash.cloudflare.com" target="_blank" rel="noreferrer">dash.cloudflare.com</a>
-            {' '}→ <strong>Workers &amp; Pages</strong> → <strong>Observability</strong> (menu lateral).
+            Acesse{' '}
+            <a href="https://dash.cloudflare.com" target="_blank" rel="noreferrer">
+              dash.cloudflare.com
+            </a>{' '}
+            → <strong>Workers &amp; Pages</strong> → <strong>Observability</strong> (menu lateral).
           </li>
           <li>
             Em <strong>"Export telemetry"</strong>, clique em <strong>"Add destination"</strong>.
           </li>
           <li>
-            Selecione o tipo de dataset (<code>traces</code> ou <code>logs</code>) e configure o endpoint OTLP do seu provider:
+            Selecione o tipo de dataset (<code>traces</code> ou <code>logs</code>) e configure o endpoint OTLP do seu
+            provider:
             <ul>
-              <li><strong>Grafana Cloud</strong>: Use o endpoint OTLP do Grafana + header <code>Authorization: Basic base64(user:token)</code></li>
-              <li><strong>Honeycomb</strong>: <code>https://api.honeycomb.io/v1/traces</code> + header <code>x-honeycomb-team: &lt;API_KEY&gt;</code></li>
-              <li><strong>Axiom</strong>: <code>https://api.axiom.co/v1/traces</code> + header <code>Authorization: Bearer &lt;TOKEN&gt;</code></li>
-              <li><strong>New Relic</strong>: <code>https://otlp.nr-data.net/v1/traces</code> + header <code>api-key: &lt;INGEST_KEY&gt;</code></li>
+              <li>
+                <strong>Grafana Cloud</strong>: Use o endpoint OTLP do Grafana + header{' '}
+                <code>Authorization: Basic base64(user:token)</code>
+              </li>
+              <li>
+                <strong>Honeycomb</strong>: <code>https://api.honeycomb.io/v1/traces</code> + header{' '}
+                <code>x-honeycomb-team: &lt;API_KEY&gt;</code>
+              </li>
+              <li>
+                <strong>Axiom</strong>: <code>https://api.axiom.co/v1/traces</code> + header{' '}
+                <code>Authorization: Bearer &lt;TOKEN&gt;</code>
+              </li>
+              <li>
+                <strong>New Relic</strong>: <code>https://otlp.nr-data.net/v1/traces</code> + header{' '}
+                <code>api-key: &lt;INGEST_KEY&gt;</code>
+              </li>
             </ul>
           </li>
+          <li>Habilite o destino e salve. Os dados aparecerão no seu provider em poucos minutos.</li>
           <li>
-            Habilite o destino e salve. Os dados aparecerão no seu provider em poucos minutos.
-          </li>
-          <li>
-            <strong>Não é necessário alterar <code>wrangler.json</code></strong> — a configuração de observability no Dashboard é global para a conta e se aplica a todos os Workers automaticamente.
+            <strong>
+              Não é necessário alterar <code>wrangler.json</code>
+            </strong>{' '}
+            — a configuração de observability no Dashboard é global para a conta e se aplica a todos os Workers
+            automaticamente.
           </li>
         </ol>
       </div>
     </div>
-  )
+  );
 
   const renderLive = () => (
     <div className="cfpw-obs-content">
@@ -1002,9 +1111,7 @@ export function ObservabilityBlock() {
       </div>
 
       {liveEvents.length === 0 ? (
-        <div className="cfpw-obs-empty">
-          {liveActive ? 'Aguardando eventos...' : 'Live desativado.'}
-        </div>
+        <div className="cfpw-obs-empty">{liveActive ? 'Aguardando eventos...' : 'Live desativado.'}</div>
       ) : (
         <div className="cfpw-obs-table-wrap" style={{ maxHeight: '500px', overflowY: 'auto' }}>
           <table className="cfpw-obs-table cfpw-obs-events-table">
@@ -1016,14 +1123,12 @@ export function ObservabilityBlock() {
                 <th>Detalhes</th>
               </tr>
             </thead>
-            <tbody>
-              {liveEvents.map((evt, i) => renderEventRow(evt, i))}
-            </tbody>
+            <tbody>{liveEvents.map((evt, i) => renderEventRow(evt, i))}</tbody>
           </table>
         </div>
       )}
     </div>
-  )
+  );
 
   const tabRenderers: Record<ObsTabKey, () => React.ReactNode> = {
     dashboard: renderDashboard,
@@ -1032,7 +1137,7 @@ export function ObservabilityBlock() {
     errors: renderErrors,
     latency: renderLatency,
     destinations: renderDestinations,
-  }
+  };
 
   return (
     <div className="cfpw-obs-block">
@@ -1050,11 +1155,11 @@ export function ObservabilityBlock() {
             className={`cfpw-obs-live-btn ${liveActive ? 'active' : ''}`}
             onClick={() => {
               if (liveActive) {
-                setLiveActive(false)
-                if (tab === 'live') setTab('dashboard')
+                setLiveActive(false);
+                if (tab === 'live') setTab('dashboard');
               } else {
-                setLiveActive(true)
-                setTab('live')
+                setLiveActive(true);
+                setTab('live');
               }
             }}
           >
@@ -1066,17 +1171,22 @@ export function ObservabilityBlock() {
             type="button"
             className="ghost-button cfpw-obs-refresh"
             onClick={() => {
-              if (tab === 'dashboard') void loadDashboard()
-              else if (tab === 'live') void loadLiveEvents()
-              else if (tab === 'events') void loadEvents()
-              else if (tab === 'errors') void loadErrors()
-              else if (tab === 'latency') void loadLatency()
-              else if (tab === 'destinations') void loadDestinations()
+              if (tab === 'dashboard') void loadDashboard();
+              else if (tab === 'live') void loadLiveEvents();
+              else if (tab === 'events') void loadEvents();
+              else if (tab === 'errors') void loadErrors();
+              else if (tab === 'latency') void loadLatency();
+              else if (tab === 'destinations') void loadDestinations();
             }}
             disabled={loading || eventsLoading || errorsLoading || latencyLoading || destsLoading || liveLoading}
             title="Atualizar"
           >
-            <RefreshCw size={16} className={(loading || eventsLoading || errorsLoading || latencyLoading || destsLoading || liveLoading) ? 'spin' : ''} />
+            <RefreshCw
+              size={16}
+              className={
+                loading || eventsLoading || errorsLoading || latencyLoading || destsLoading || liveLoading ? 'spin' : ''
+              }
+            />
           </button>
         </div>
       </div>
@@ -1099,5 +1209,5 @@ export function ObservabilityBlock() {
       {/* Content */}
       {tabRenderers[tab]()}
     </div>
-  )
+  );
 }

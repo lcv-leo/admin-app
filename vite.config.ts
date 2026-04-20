@@ -1,11 +1,15 @@
 /// <reference types="vitest/config" />
-import { fileURLToPath } from 'url'
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { visualizer } from 'rollup-plugin-visualizer'
+
+import { fileURLToPath } from 'node:url';
+import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
+import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [react(), ...(process.env.ANALYZE ? [visualizer({ filename: 'dist/stats.html', open: true, gzipSize: true })] : [])],
+  plugins: [
+    react(),
+    ...(process.env.ANALYZE ? [visualizer({ filename: 'dist/stats.html', open: true, gzipSize: true })] : []),
+  ],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
@@ -16,22 +20,22 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) return
+          if (!id.includes('node_modules')) return;
 
           if (id.includes('@tiptap') || id.includes('prosemirror')) {
-            return 'vendor-tiptap'
+            return 'vendor-tiptap';
           }
 
           if (id.includes('lowlight') || id.includes('highlight.js')) {
-            return 'vendor-editor-highlight'
+            return 'vendor-editor-highlight';
           }
 
           if (id.includes('lucide-react')) {
-            return 'vendor-icons'
+            return 'vendor-icons';
           }
 
           if (id.includes('react') || id.includes('scheduler')) {
-            return 'vendor-react'
+            return 'vendor-react';
           }
         },
       },
@@ -42,7 +46,7 @@ export default defineConfig({
   },
   // Desabilita lightningcss para resolver problema em Windows
   optimizeDeps: {
-    exclude: ['lightningcss']
+    exclude: ['lightningcss'],
   },
   test: {
     environment: 'happy-dom',
@@ -55,4 +59,4 @@ export default defineConfig({
       thresholds: { lines: 60, functions: 60, branches: 50, statements: 60 },
     },
   },
-})
+});

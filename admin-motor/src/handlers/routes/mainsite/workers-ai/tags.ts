@@ -13,21 +13,30 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const messages = [
-      { role: 'system', content: 'You are a precise tag generator. Return exactly 5 comma-separated keywords or short phrases that summarize the given text. Return ONLY the comma-separated words, nothing else.' },
-      { role: 'user', content: data.text }
+      {
+        role: 'system',
+        content:
+          'You are a precise tag generator. Return exactly 5 comma-separated keywords or short phrases that summarize the given text. Return ONLY the comma-separated words, nothing else.',
+      },
+      { role: 'user', content: data.text },
     ];
 
     const response = await ((context as any).data?.env || context.env).AI.run('@cf/meta/llama-3-8b-instruct', {
-      messages
+      messages,
     });
 
     const output = (response as { response: string }).response;
-    const tags = output.split(',').map(t => t.trim()).filter(Boolean);
+    const tags = output
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
 
     return new Response(JSON.stringify({ ok: true, tags }), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }), { status: 500 });
+    return new Response(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }), {
+      status: 500,
+    });
   }
 };

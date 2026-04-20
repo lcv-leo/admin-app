@@ -10,7 +10,6 @@ type InsightsContext = {
   env: InsightsEnv;
 };
 
- 
 type AnyRecord = Record<string, any>;
 
 const FINANCIAL_CUTOFF_BRT = '2026-03-01T00:00:00-03:00';
@@ -52,14 +51,20 @@ export const handleFinanceiroInsightsGet = async (context: InsightsContext) => {
         const amount = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 10;
         const currency = (url.searchParams.get('currency') || 'BRL').toUpperCase();
 
-        const data = await client.checkouts.listAvailablePaymentMethods(merchantCode, { amount, currency }) as AnyRecord;
+        const data = (await client.checkouts.listAvailablePaymentMethods(merchantCode, {
+          amount,
+          currency,
+        })) as AnyRecord;
         const methods = Array.isArray(data?.available_payment_methods)
           ? data.available_payment_methods.map((m: AnyRecord) => m.id).filter(Boolean)
           : [];
 
         return Response.json({ success: true, amount, currency, methods });
       } catch (err) {
-        return Response.json({ error: err instanceof Error ? err.message : 'Falha ao listar métodos SumUp.' }, { status: 500 });
+        return Response.json(
+          { error: err instanceof Error ? err.message : 'Falha ao listar métodos SumUp.' },
+          { status: 500 },
+        );
       }
     }
 
@@ -67,11 +72,15 @@ export const handleFinanceiroInsightsGet = async (context: InsightsContext) => {
       try {
         const limitRaw = Number(url.searchParams.get('limit'));
         const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 50;
-        const changesSince = getStartIsoWithCutoff(url.searchParams.get('changes_since') || url.searchParams.get('start_date'));
+        const changesSince = getStartIsoWithCutoff(
+          url.searchParams.get('changes_since') || url.searchParams.get('start_date'),
+        );
 
-        const txData = await client.transactions.list(merchantCode, {
-          order: 'descending', limit, changes_since: changesSince,
-        }) as AnyRecord;
+        const txData = (await client.transactions.list(merchantCode, {
+          order: 'descending',
+          limit,
+          changes_since: changesSince,
+        })) as AnyRecord;
 
         const rawItems: AnyRecord[] = Array.isArray(txData?.items) ? txData.items : [];
         const items = rawItems.filter((tx) => isOnOrAfterCutoff(tx?.timestamp));
@@ -88,7 +97,12 @@ export const handleFinanceiroInsightsGet = async (context: InsightsContext) => {
         }
 
         return Response.json({
-          success: true, scanned: items.length, limit, totalAmount, byStatus, byType,
+          success: true,
+          scanned: items.length,
+          limit,
+          totalAmount,
+          byStatus,
+          byType,
           hasMore: Array.isArray(txData?.links) && txData.links.length > 0,
         });
       } catch (err) {
@@ -100,35 +114,44 @@ export const handleFinanceiroInsightsGet = async (context: InsightsContext) => {
       try {
         const limitRaw = Number(url.searchParams.get('limit'));
         const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 50;
-        const changesSince = getStartIsoWithCutoff(url.searchParams.get('changes_since') || url.searchParams.get('start_date'));
+        const changesSince = getStartIsoWithCutoff(
+          url.searchParams.get('changes_since') || url.searchParams.get('start_date'),
+        );
 
-        const txData = await client.transactions.list(merchantCode, {
-          order: 'descending', limit, changes_since: changesSince,
-        }) as AnyRecord;
+        const txData = (await client.transactions.list(merchantCode, {
+          order: 'descending',
+          limit,
+          changes_since: changesSince,
+        })) as AnyRecord;
 
         const rawItems: AnyRecord[] = Array.isArray(txData?.items) ? txData.items : [];
-        const normalized = rawItems.filter((tx) => isOnOrAfterCutoff(tx?.timestamp)).map((tx) => ({
-          id: tx?.id || tx?.transaction_id || null,
-          transactionCode: tx?.transaction_code || null,
-          amount: Number(tx?.amount || 0),
-          currency: tx?.currency || 'BRL',
-          status: tx?.status || 'UNKNOWN',
-          type: tx?.type || 'UNKNOWN',
-          paymentType: tx?.payment_type || 'UNKNOWN',
-          entryMode: tx?.entry_mode || null,
-          cardType: tx?.card_type || null,
-          timestamp: tx?.timestamp || null,
-          user: tx?.user || null,
-          payerEmail: typeof tx?.user === 'string' && tx.user.includes('@') ? tx.user : null,
-          refundedAmount: Number(tx?.refunded_amount || 0),
-          authCode: tx?.auth_code || null,
-          internalId: tx?.internal_id || null,
-          installments: tx?.installments_count || null,
-        }));
+        const normalized = rawItems
+          .filter((tx) => isOnOrAfterCutoff(tx?.timestamp))
+          .map((tx) => ({
+            id: tx?.id || tx?.transaction_id || null,
+            transactionCode: tx?.transaction_code || null,
+            amount: Number(tx?.amount || 0),
+            currency: tx?.currency || 'BRL',
+            status: tx?.status || 'UNKNOWN',
+            type: tx?.type || 'UNKNOWN',
+            paymentType: tx?.payment_type || 'UNKNOWN',
+            entryMode: tx?.entry_mode || null,
+            cardType: tx?.card_type || null,
+            timestamp: tx?.timestamp || null,
+            user: tx?.user || null,
+            payerEmail: typeof tx?.user === 'string' && tx.user.includes('@') ? tx.user : null,
+            refundedAmount: Number(tx?.refunded_amount || 0),
+            authCode: tx?.auth_code || null,
+            internalId: tx?.internal_id || null,
+            installments: tx?.installments_count || null,
+          }));
 
         return Response.json({ success: true, total: normalized.length, items: normalized });
       } catch (err) {
-        return Response.json({ error: err instanceof Error ? err.message : 'Falha em transações avançadas SumUp.' }, { status: 500 });
+        return Response.json(
+          { error: err instanceof Error ? err.message : 'Falha em transações avançadas SumUp.' },
+          { status: 500 },
+        );
       }
     }
 
@@ -139,9 +162,12 @@ export const handleFinanceiroInsightsGet = async (context: InsightsContext) => {
         const startDate = requestedStart < FINANCIAL_CUTOFF_DATE ? FINANCIAL_CUTOFF_DATE : requestedStart;
         const endDate = url.searchParams.get('end_date') || now.toISOString().slice(0, 10);
 
-        const payouts = await client.payouts.list(merchantCode, {
-          start_date: startDate, end_date: endDate, order: 'desc', limit: 100,
-        }) as AnyRecord[];
+        const payouts = (await client.payouts.list(merchantCode, {
+          start_date: startDate,
+          end_date: endDate,
+          order: 'desc',
+          limit: 100,
+        })) as AnyRecord[];
 
         const list: AnyRecord[] = Array.isArray(payouts) ? payouts : [];
         let totalAmount = 0;
@@ -155,9 +181,20 @@ export const handleFinanceiroInsightsGet = async (context: InsightsContext) => {
           byStatus[status] = (byStatus[status] || 0) + 1;
         }
 
-        return Response.json({ success: true, startDate, endDate, count: list.length, totalAmount, totalFee, byStatus });
+        return Response.json({
+          success: true,
+          startDate,
+          endDate,
+          count: list.length,
+          totalAmount,
+          totalFee,
+          byStatus,
+        });
       } catch (err) {
-        return Response.json({ error: err instanceof Error ? err.message : 'Falha em payouts SumUp.' }, { status: 500 });
+        return Response.json(
+          { error: err instanceof Error ? err.message : 'Falha em payouts SumUp.' },
+          { status: 500 },
+        );
       }
     }
   }

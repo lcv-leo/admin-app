@@ -18,7 +18,9 @@
   padding: 0.85rem 1rem;
   text-align: center;
   border: 1px solid var(--border, #333);
-  transition: border-color 0.2s, transform 0.2s;
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
 }
 
 .deploy-cleanup__stat:hover {
@@ -56,7 +58,9 @@
   border-radius: 10px;
   padding: 0.85rem 1rem;
   border-left: 3px solid var(--border, #333);
-  transition: border-color 0.25s, box-shadow 0.25s;
+  transition:
+    border-color 0.25s,
+    box-shadow 0.25s;
 }
 
 .deploy-cleanup__project--clean {
@@ -110,7 +114,7 @@
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 1rem;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", "JetBrains Mono", monospace;
   font-size: 0.72rem;
   line-height: 1.7;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
@@ -139,9 +143,15 @@
   border-radius: 50%;
 }
 
-.deploy-cleanup__terminal-dot:nth-child(1) { background: #ff5f57; }
-.deploy-cleanup__terminal-dot:nth-child(2) { background: #febc2e; }
-.deploy-cleanup__terminal-dot:nth-child(3) { background: #28c840; }
+.deploy-cleanup__terminal-dot:nth-child(1) {
+  background: #ff5f57;
+}
+.deploy-cleanup__terminal-dot:nth-child(2) {
+  background: #febc2e;
+}
+.deploy-cleanup__terminal-dot:nth-child(3) {
+  background: #28c840;
+}
 
 .deploy-cleanup__terminal-body {
   padding: 0.75rem 1rem;
@@ -334,23 +344,44 @@
 
 /* ── Animations ── */
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes logLineIn {
-  from { opacity: 0; transform: translateX(-6px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 @keyframes pulseGlow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 .deploy-cleanup__scanning-label {
@@ -384,7 +415,7 @@
   transform: translate(-50%, -50%);
   z-index: 100000;
   background: var(--surface-1, #fff);
-  border: 1px solid var(--border, rgba(0,0,0,0.1));
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
   border-radius: 16px;
   padding: 1.6rem 1.8rem 1.4rem;
   width: min(400px, 92vw);
@@ -432,8 +463,12 @@
 }
 
 @keyframes confirmOverlayIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes confirmModalIn {

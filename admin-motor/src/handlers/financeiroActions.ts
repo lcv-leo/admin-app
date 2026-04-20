@@ -106,7 +106,8 @@ export const handleSumupCancelPost = async (context: Context) => {
         // Mantem mensagem original.
       }
 
-      const isConflict = errMsg.includes('cancelado no estado atual') || (apiErr instanceof Error && apiErr.message.includes('409'));
+      const isConflict =
+        errMsg.includes('cancelado no estado atual') || (apiErr instanceof Error && apiErr.message.includes('409'));
       if (isConflict) {
         try {
           const checkRes = await fetch(`https://api.sumup.com/v0.1/checkouts/${id}`, {
@@ -121,7 +122,14 @@ export const handleSumupCancelPost = async (context: Context) => {
             const rawStatus = String(txStatus || checkoutData.status || 'UNKNOWN').toUpperCase();
             const realStatus = rawStatus === 'PAID' ? 'SUCCESSFUL' : rawStatus;
             if (checkoutData.status === 'PAID' || realStatus === 'SUCCESSFUL') {
-              return json({ success: false, error: 'A transacao foi confirmada/paga na SumUp. Atualize o painel e utilize Estornar Transacao (Refund) ao inves de cancelar.' }, 400);
+              return json(
+                {
+                  success: false,
+                  error:
+                    'A transacao foi confirmada/paga na SumUp. Atualize o painel e utilize Estornar Transacao (Refund) ao inves de cancelar.',
+                },
+                400,
+              );
             }
           }
         } catch {
@@ -137,4 +145,3 @@ export const handleSumupCancelPost = async (context: Context) => {
     return json({ success: false, error: err instanceof Error ? err.message : 'Falha estrutural ao cancelar.' }, 500);
   }
 };
-

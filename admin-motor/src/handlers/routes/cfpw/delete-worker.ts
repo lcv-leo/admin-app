@@ -1,62 +1,66 @@
-import { logModuleOperationalEvent } from '../_lib/operational'
-import type { D1Database } from '../_lib/operational'
-import { createResponseTrace } from '../_lib/request-trace'
-import { deleteCloudflareWorker, resolveCloudflarePwAccount } from '../_lib/cfpw-api'
+import { deleteCloudflareWorker, resolveCloudflarePwAccount } from '../_lib/cfpw-api';
+import type { D1Database } from '../_lib/operational';
+import { logModuleOperationalEvent } from '../_lib/operational';
+import { createResponseTrace } from '../_lib/request-trace';
 
 type Context = {
-  request: Request
+  request: Request;
   env: {
-    BIGDATA_DB?: D1Database
-    CLOUDFLARE_PW?: string
-    CF_ACCOUNT_ID?: string
-  }
-}
+    BIGDATA_DB?: D1Database;
+    CLOUDFLARE_PW?: string;
+    CF_ACCOUNT_ID?: string;
+  };
+};
 
 type DeleteWorkerPayload = {
-  scriptName?: unknown
-  confirmation?: unknown
-}
+  scriptName?: unknown;
+  confirmation?: unknown;
+};
 
 const toHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
-})
+});
 
-const toError = (message: string, trace: { request_id: string; timestamp: string }, status = 500) => new Response(JSON.stringify({
-  ok: false,
-  ...trace,
-  error: message,
-}), {
-  status,
-  headers: toHeaders(),
-})
+const toError = (message: string, trace: { request_id: string; timestamp: string }, status = 500) =>
+  new Response(
+    JSON.stringify({
+      ok: false,
+      ...trace,
+      error: message,
+    }),
+    {
+      status,
+      headers: toHeaders(),
+    },
+  );
 
-const toText = (value: unknown) => String(value ?? '').trim()
+const toText = (value: unknown) => String(value ?? '').trim();
 
 export async function onRequestPost(context: Context) {
-  const trace = createResponseTrace(context.request)
+  const trace = createResponseTrace(context.request);
 
-  let payload: DeleteWorkerPayload
+  let payload: DeleteWorkerPayload;
   try {
-    payload = await context.request.json() as DeleteWorkerPayload
+    payload = (await context.request.json()) as DeleteWorkerPayload;
   } catch {
-    return toError('JSON inválido no corpo da requisição.', trace, 400)
+    return toError('JSON inválido no corpo da requisição.', trace, 400);
   }
 
-  const scriptName = toText(payload.scriptName)
-  const confirmation = toText(payload.confirmation)
+  const scriptName = toText(payload.scriptName);
+  const confirmation = toText(payload.confirmation);
 
   if (!scriptName) {
-    return toError('Campo scriptName é obrigatório.', trace, 400)
+    return toError('Campo scriptName é obrigatório.', trace, 400);
   }
 
   if (confirmation !== scriptName) {
-    return toError(`Confirmação inválida. Digite exatamente o nome do Worker (${scriptName}).`, trace, 400)
+    return toError(`Confirmação inválida. Digite exatamente o nome do Worker (${scriptName}).`, trace, 400);
   }
 
   try {
-    const accountInfo = await resolveCloudflarePwAccount(((context as any).data?.env || context.env))
-    await deleteCloudflareWorker(((context as any).data?.env || context.env), accountInfo.accountId, scriptName)
+    const accountInfo = await resolveCloudflarePwAccount((context as any).data?.env || context.env);
+    await deleteCloudflareWorker((context as any).data?.env || context.env, accountInfo.accountId, scriptName);
 
     if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
@@ -71,21 +75,24 @@ export async function onRequestPost(context: Context) {
             accountId: accountInfo.accountId,
             scriptName,
           },
-        })
+        });
       } catch {
         // Telemetria não bloqueia resposta.
       }
     }
 
-    return new Response(JSON.stringify({
-      ok: true,
-      ...trace,
-      message: `Worker ${scriptName} removido com sucesso.`,
-    }), {
-      headers: toHeaders(),
-    })
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        ...trace,
+        message: `Worker ${scriptName} removido com sucesso.`,
+      }),
+      {
+        headers: toHeaders(),
+      },
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : `Falha ao remover Worker ${scriptName}.`
+    const message = error instanceof Error ? error.message : `Falha ao remover Worker ${scriptName}.`;
 
     if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
@@ -100,12 +107,12 @@ export async function onRequestPost(context: Context) {
             provider: 'cloudflare-api',
             scriptName,
           },
-        })
+        });
       } catch {
         // Telemetria não bloqueia resposta.
       }
     }
 
-    return toError(message, trace, 502)
+    return toError(message, trace, 502);
   }
 }

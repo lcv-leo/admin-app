@@ -5,49 +5,49 @@
  */
 
 interface R2ObjectBody {
-  body: ReadableStream
-  etag: string
-  httpMetadata?: { contentType?: string }
+  body: ReadableStream;
+  etag: string;
+  httpMetadata?: { contentType?: string };
 }
 
 interface R2BucketLike {
-  get(key: string): Promise<R2ObjectBody | null>
+  get(key: string): Promise<R2ObjectBody | null>;
 }
 
 interface Env {
-  MEDIA_BUCKET: R2BucketLike
-  [key: string]: unknown
+  MEDIA_BUCKET: R2BucketLike;
+  [key: string]: unknown;
 }
 
 interface MediaContext {
-  request: Request
-  env: Env
-  params: Record<string, string>
+  request: Request;
+  env: Env;
+  params: Record<string, string>;
 }
 
 export async function onRequestGet(context: MediaContext): Promise<Response> {
-  const filename = context.params?.filename as string
+  const filename = context.params?.filename as string;
   if (!filename) {
-    return new Response('Arquivo não especificado.', { status: 400 })
+    return new Response('Arquivo não especificado.', { status: 400 });
   }
 
   // Path traversal protection: block directory traversal and null bytes
   if (filename.includes('..') || filename.includes('/') || filename.includes('\\') || filename.includes('\0')) {
-    return new Response('Nome de arquivo inválido.', { status: 400 })
+    return new Response('Nome de arquivo inválido.', { status: 400 });
   }
 
   try {
-    const object = await context.env.MEDIA_BUCKET.get(filename)
+    const object = await context.env.MEDIA_BUCKET.get(filename);
     if (!object) {
-      return new Response('Arquivo não encontrado.', { status: 404 })
+      return new Response('Arquivo não encontrado.', { status: 404 });
     }
 
-    const headers = new Headers()
-    headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream')
-    headers.set('ETag', object.etag)
+    const headers = new Headers();
+    headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+    headers.set('ETag', object.etag);
 
-    return new Response(object.body, { headers })
+    return new Response(object.body, { headers });
   } catch {
-    return new Response('Erro ao recuperar arquivo.', { status: 500 })
+    return new Response('Erro ao recuperar arquivo.', { status: 500 });
   }
 }

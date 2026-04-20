@@ -1,26 +1,26 @@
-import { finishSyncRun, logModuleOperationalEvent, startSyncRun } from '../../../../../functions/api/_lib/operational'
-import type { D1Database } from '../../../../../functions/api/_lib/operational'
+import type { D1Database } from '../../../../../functions/api/_lib/operational';
+import { finishSyncRun, logModuleOperationalEvent, startSyncRun } from '../../../../../functions/api/_lib/operational';
 
 type Env = {
-  BIGDATA_DB?: D1Database
-}
+  BIGDATA_DB?: D1Database;
+};
 
 type Context = {
-  request: Request
-  env: Env
-}
+  request: Request;
+  env: Env;
+};
 
-type CountRow = { total?: number }
+type CountRow = { total?: number };
 
 type SettingRow = {
-  id?: string
-  payload?: string
-}
+  id?: string;
+  payload?: string;
+};
 
 const toHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
-})
+});
 
 const DEFAULT_SETTINGS: Array<{ id: string; payload: Record<string, unknown> }> = [
   {
@@ -50,55 +50,58 @@ const DEFAULT_SETTINGS: Array<{ id: string; payload: Record<string, unknown> }> 
       items: [{ id: 'default', title: 'Aviso', text: 'Texto de exemplo.', buttonText: 'Concordo' }],
     },
   },
-]
+];
 
 const isValidJson = (raw: string | undefined) => {
   if (!raw?.trim()) {
-    return false
+    return false;
   }
   try {
-    JSON.parse(raw)
-    return true
+    JSON.parse(raw);
+    return true;
   } catch {
-    return false
+    return false;
   }
-}
+};
 
 export async function onRequestPost(context: Context) {
   const env = context.env;
 
   if (!env.BIGDATA_DB) {
-    return new Response(JSON.stringify({
-      ok: false,
-      error: 'BIGDATA_DB não configurado no runtime.',
-    }), {
-      status: 503,
-      headers: toHeaders(),
-    })
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: 'BIGDATA_DB não configurado no runtime.',
+      }),
+      {
+        status: 503,
+        headers: toHeaders(),
+      },
+    );
   }
 
-  const startedAt = Date.now()
+  const startedAt = Date.now();
   const syncRunId = await startSyncRun(env.BIGDATA_DB, {
     module: 'mainsite',
     status: 'running',
     startedAt,
     metadata: {},
-  })
+  });
 
   try {
     const [postsCountRow, settingsRowsRaw] = await Promise.all([
       env.BIGDATA_DB.prepare('SELECT COUNT(1) AS total FROM mainsite_posts').first<CountRow>(),
       env.BIGDATA_DB.prepare('SELECT id, payload FROM mainsite_settings').all<SettingRow>(),
-    ])
+    ]);
 
-    const settingsRows = settingsRowsRaw.results ?? []
-    const settingsMap = new Map(settingsRows.map((row) => [String(row.id ?? ''), row]))
+    const settingsRows = settingsRowsRaw.results ?? [];
+    const settingsMap = new Map(settingsRows.map((row) => [String(row.id ?? ''), row]));
 
-    let settingsInserted = 0
-    let settingsFixed = 0
+    let settingsInserted = 0;
+    let settingsFixed = 0;
 
     for (const entry of DEFAULT_SETTINGS) {
-      const current = settingsMap.get(entry.id)
+      const current = settingsMap.get(entry.id);
 
       if (!current) {
         await env.BIGDATA_DB.prepare(`
@@ -106,9 +109,9 @@ export async function onRequestPost(context: Context) {
           VALUES (?, ?, CURRENT_TIMESTAMP)
         `)
           .bind(entry.id, JSON.stringify(entry.payload))
-          .run()
-        settingsInserted += 1
-        continue
+          .run();
+        settingsInserted += 1;
+        continue;
       }
 
       if (!isValidJson(current.payload)) {
@@ -118,15 +121,14 @@ export async function onRequestPost(context: Context) {
           WHERE id = ?
         `)
           .bind(JSON.stringify(entry.payload), entry.id)
-          .run()
-        settingsFixed += 1
+          .run();
+        settingsFixed += 1;
       }
     }
 
-    const recordsRead = Number(postsCountRow?.total ?? 0)
-      + settingsRows.length
+    const recordsRead = Number(postsCountRow?.total ?? 0) + settingsRows.length;
 
-    const recordsUpserted = settingsInserted + settingsFixed
+    const recordsUpserted = settingsInserted + settingsFixed;
 
     await finishSyncRun(env.BIGDATA_DB, {
       id: syncRunId,
@@ -134,7 +136,7 @@ export async function onRequestPost(context: Context) {
       finishedAt: Date.now(),
       recordsRead,
       recordsUpserted,
-    })
+    });
 
     await logModuleOperationalEvent(env.BIGDATA_DB, {
       module: 'mainsite',
@@ -150,31 +152,34 @@ export async function onRequestPost(context: Context) {
         settingsInseridos: settingsInserted,
         settingsCorrigidos: settingsFixed,
       },
-    })
+    });
 
-    return new Response(JSON.stringify({
-      ok: true,
-      syncRunId,
-      recordsRead,
-      recordsUpserted,
-      posts: {
-        lidos: Number(postsCountRow?.total ?? 0),
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        syncRunId,
+        recordsRead,
+        recordsUpserted,
+        posts: {
+          lidos: Number(postsCountRow?.total ?? 0),
+        },
+        financialLogs: {
+          lidos: 0,
+        },
+        settings: {
+          lidos: settingsRows.length,
+          inseridos: settingsInserted,
+          corrigidos: settingsFixed,
+        },
+        startedAt,
+        finishedAt: Date.now(),
+      }),
+      {
+        headers: toHeaders(),
       },
-      financialLogs: {
-        lidos: 0,
-      },
-      settings: {
-        lidos: settingsRows.length,
-        inseridos: settingsInserted,
-        corrigidos: settingsFixed,
-      },
-      startedAt,
-      finishedAt: Date.now(),
-    }), {
-      headers: toHeaders(),
-    })
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Falha inesperada no sync do MainSite'
+    const message = error instanceof Error ? error.message : 'Falha inesperada no sync do MainSite';
 
     await finishSyncRun(env.BIGDATA_DB, {
       id: syncRunId,
@@ -183,7 +188,7 @@ export async function onRequestPost(context: Context) {
       recordsRead: 0,
       recordsUpserted: 0,
       errorMessage: message,
-    })
+    });
 
     await logModuleOperationalEvent(env.BIGDATA_DB, {
       module: 'mainsite',
@@ -195,15 +200,18 @@ export async function onRequestPost(context: Context) {
         action: 'sync',
         pulledFrom: 'bigdata_db',
       },
-    })
+    });
 
-    return new Response(JSON.stringify({
-      ok: false,
-      error: message,
-      syncRunId,
-    }), {
-      status: 500,
-      headers: toHeaders(),
-    })
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: message,
+        syncRunId,
+      }),
+      {
+        status: 500,
+        headers: toHeaders(),
+      },
+    );
   }
 }

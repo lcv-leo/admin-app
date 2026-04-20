@@ -2,9 +2,10 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { Component, lazy, Suspense, type ComponentType, type ErrorInfo, type ReactNode } from 'react';
+
 import { useParams } from '@tanstack/react-router';
 import { Loader2 } from 'lucide-react';
+import { Component, type ComponentType, type ErrorInfo, lazy, type ReactNode, Suspense } from 'react';
 import type { ModuleId } from './App';
 
 /* ─── Lazy-load recovery infrastructure ─── */
@@ -15,10 +16,7 @@ const CHUNK_IMPORT_ERROR_REGEX =
 
 type LazyModuleErrorBoundaryState = { hasError: boolean; message: string };
 
-class LazyModuleErrorBoundary extends Component<
-  { children: ReactNode },
-  LazyModuleErrorBoundaryState
-> {
+class LazyModuleErrorBoundary extends Component<{ children: ReactNode }, LazyModuleErrorBoundaryState> {
   constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false, message: '' };
@@ -59,9 +57,7 @@ class LazyModuleErrorBoundary extends Component<
   }
 }
 
-function lazyWithAccessRecovery<T extends ComponentType<unknown>>(
-  importer: () => Promise<{ default: T }>,
-) {
+function lazyWithAccessRecovery<T extends ComponentType<unknown>>(importer: () => Promise<{ default: T }>) {
   return lazy(async () => {
     try {
       const loadedModule = await importer();
@@ -165,7 +161,13 @@ export function ModuleView() {
 
   return (
     <LazyModuleErrorBoundary key={moduleId}>
-      <Suspense fallback={<div className="module-loading"><Loader2 size={24} className="spin" /></div>}>
+      <Suspense
+        fallback={
+          <div className="module-loading">
+            <Loader2 size={24} className="spin" />
+          </div>
+        }
+      >
         {ModuleComponent ? (
           <ModuleComponent />
         ) : (

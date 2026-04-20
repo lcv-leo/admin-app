@@ -9,7 +9,7 @@ const LEGAL_PUBLIC_BASE = `${import.meta.env.BASE_URL}legal/`;
 const LEGAL_FILES = {
   LICENSE: `${LEGAL_PUBLIC_BASE}LICENSE.txt`,
   NOTICE: `${LEGAL_PUBLIC_BASE}NOTICE.txt`,
-  THIRDPARTY: `${LEGAL_PUBLIC_BASE}THIRDPARTY.md`
+  THIRDPARTY: `${LEGAL_PUBLIC_BASE}THIRDPARTY.md`,
 } as const;
 
 type DocsState = {
@@ -22,7 +22,7 @@ export function LicencasModule() {
   const [content, setContent] = useState<DocsState>({
     LICENSE: 'Carregando...',
     NOTICE: 'Carregando...',
-    THIRDPARTY: 'Carregando...'
+    THIRDPARTY: 'Carregando...',
   });
 
   useEffect(() => {
@@ -39,19 +39,19 @@ export function LicencasModule() {
         const [licenseText, noticeText, thirdPartyText] = await Promise.all([
           fetchFile('LICENSE', LEGAL_FILES.LICENSE),
           fetchFile('NOTICE', LEGAL_FILES.NOTICE),
-          fetchFile('THIRDPARTY', LEGAL_FILES.THIRDPARTY)
+          fetchFile('THIRDPARTY', LEGAL_FILES.THIRDPARTY),
         ]);
 
         setContent({
           LICENSE: licenseText,
           NOTICE: noticeText,
-          THIRDPARTY: thirdPartyText
+          THIRDPARTY: thirdPartyText,
         });
       } catch {
         setContent({
           LICENSE: 'Erro ao carregar LICENSE.',
           NOTICE: 'Erro ao carregar NOTICE.',
-          THIRDPARTY: 'Erro ao carregar THIRDPARTY.md.'
+          THIRDPARTY: 'Erro ao carregar THIRDPARTY.md.',
         });
       }
     };
@@ -64,7 +64,7 @@ export function LicencasModule() {
     backgroundColor: '#ffffff',
     padding: '24px',
     borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   };
 
   const paragraphStyle = {
@@ -72,7 +72,7 @@ export function LicencasModule() {
     textAlign: 'justify' as const,
     textIndent: '2em',
     lineHeight: 1.8,
-    color: '#202124'
+    color: '#202124',
   };
 
   const preStyle = {
@@ -84,7 +84,7 @@ export function LicencasModule() {
     color: '#202124',
     fontFamily: 'monospace',
     whiteSpace: 'pre-wrap' as const,
-    wordWrap: 'break-word' as const
+    wordWrap: 'break-word' as const,
   };
 
   const renderJustifiedParagraphs = (raw: string) => {
@@ -94,6 +94,7 @@ export function LicencasModule() {
       .filter(Boolean);
 
     return paragraphs.map((paragraph, index) => (
+      // biome-ignore lint/suspicious/noArrayIndexKey: paragraphs derived from static split, stable order
       <p key={`paragraph-${index}`} style={paragraphStyle}>
         {paragraph}
       </p>
@@ -101,10 +102,20 @@ export function LicencasModule() {
   };
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '32px 16px', fontFamily: 'var(--font-family, Inter, sans-serif)' }}>
-      <h1 style={{ color: '#202124', marginBottom: '8px', fontSize: '2rem' }}>Conformidade e Licenças (Open Source Compliance)</h1>
+    <div
+      style={{
+        maxWidth: '1000px',
+        margin: '0 auto',
+        padding: '32px 16px',
+        fontFamily: 'var(--font-family, Inter, sans-serif)',
+      }}
+    >
+      <h1 style={{ color: '#202124', marginBottom: '8px', fontSize: '2rem' }}>
+        Conformidade e Licenças (Open Source Compliance)
+      </h1>
       <p style={{ color: '#5f6368', marginBottom: '32px' }}>
-        Este sistema opera sob a GNU Affero General Public License v3 (AGPLv3), com avisos e componentes de terceiros sob Apache License 2.0 devidamente documentados em NOTICE e THIRDPARTY.md.
+        Este sistema opera sob a GNU Affero General Public License v3 (AGPLv3), com avisos e componentes de terceiros
+        sob Apache License 2.0 devidamente documentados em NOTICE e THIRDPARTY.md.
       </p>
 
       <section style={sectionStyle}>

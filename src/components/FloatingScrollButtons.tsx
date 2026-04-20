@@ -8,52 +8,52 @@
  * Observa o elemento scrollável do painel de conteúdo do admin-app.
  */
 
-import { useCallback, useEffect, useState } from 'react'
-import { ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowDown, ArrowUp } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
-const SCROLL_THRESHOLD = 200
+const SCROLL_THRESHOLD = 200;
 
 export function FloatingScrollButtons() {
-  const [showTop, setShowTop] = useState(false)
-  const [showBottom, setShowBottom] = useState(false)
+  const [showTop, setShowTop] = useState(false);
+  const [showBottom, setShowBottom] = useState(false);
 
   const updateVisibility = useCallback(() => {
     // O painel scrollável do admin-app é .content
-    const el = document.querySelector('.content') as HTMLElement | null
-    if (!el) return
+    const el = document.querySelector('.content') as HTMLElement | null;
+    if (!el) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = el
-    setShowTop(scrollTop > SCROLL_THRESHOLD)
-    setShowBottom(scrollHeight - scrollTop - clientHeight > SCROLL_THRESHOLD)
-  }, [])
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    setShowTop(scrollTop > SCROLL_THRESHOLD);
+    setShowBottom(scrollHeight - scrollTop - clientHeight > SCROLL_THRESHOLD);
+  }, []);
 
   useEffect(() => {
-    const el = document.querySelector('.content') as HTMLElement | null
-    if (!el) return
+    const el = document.querySelector('.content') as HTMLElement | null;
+    if (!el) return;
 
-    requestAnimationFrame(updateVisibility)
-    el.addEventListener('scroll', updateVisibility, { passive: true })
+    requestAnimationFrame(updateVisibility);
+    el.addEventListener('scroll', updateVisibility, { passive: true });
 
     // Também observar mudanças de conteúdo (navegação entre módulos)
-    const observer = new MutationObserver(updateVisibility)
-    observer.observe(el, { childList: true, subtree: true })
+    const observer = new MutationObserver(updateVisibility);
+    observer.observe(el, { childList: true, subtree: true });
 
     return () => {
-      el.removeEventListener('scroll', updateVisibility)
-      observer.disconnect()
-    }
-  }, [updateVisibility])
+      el.removeEventListener('scroll', updateVisibility);
+      observer.disconnect();
+    };
+  }, [updateVisibility]);
 
   const scrollTo = useCallback((direction: 'top' | 'bottom') => {
-    const el = document.querySelector('.content') as HTMLElement | null
-    if (!el) return
+    const el = document.querySelector('.content') as HTMLElement | null;
+    if (!el) return;
     el.scrollTo({
       top: direction === 'top' ? 0 : el.scrollHeight,
       behavior: 'smooth',
-    })
-  }, [])
+    });
+  }, []);
 
-  if (!showTop && !showBottom) return null
+  if (!showTop && !showBottom) return null;
 
   return (
     <div className="floating-scroll-btns">
@@ -80,5 +80,5 @@ export function FloatingScrollButtons() {
         </button>
       )}
     </div>
-  )
+  );
 }

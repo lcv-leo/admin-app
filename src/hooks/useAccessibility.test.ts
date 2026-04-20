@@ -2,9 +2,10 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useAccessibility, KeyboardPattern } from './useAccessibility';
+
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { KeyboardPattern, useAccessibility } from './useAccessibility';
 
 describe('useAccessibility — keyboard navigation helpers', () => {
   it('getNextIndex wraps around with circular=true', () => {

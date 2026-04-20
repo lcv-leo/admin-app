@@ -1,29 +1,37 @@
-import { logModuleOperationalEvent } from '../../../../../functions/api/_lib/operational'
-import { readLatestParams, SUPPORTED_ROUTES, toHeaders, toRate, validateRate, type Context } from '../../../../../functions/api/_lib/calculadora-admin'
-import { resolveAdminActorFromRequest } from '../../../../../functions/api/_lib/admin-actor'
-import { createResponseTrace } from '../../../../../functions/api/_lib/request-trace'
+import { resolveAdminActorFromRequest } from '../../../../../functions/api/_lib/admin-actor';
+import {
+  type Context,
+  readLatestParams,
+  SUPPORTED_ROUTES,
+  toHeaders,
+  toRate,
+  validateRate,
+} from '../../../../../functions/api/_lib/calculadora-admin';
+import { logModuleOperationalEvent } from '../../../../../functions/api/_lib/operational';
+import { createResponseTrace } from '../../../../../functions/api/_lib/request-trace';
 
-const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
-  status,
-  headers: toHeaders(),
-})
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: toHeaders(),
+  });
 
-const resolveParametrosDb = (context: Context) => ((context as any).data?.env || context.env).BIGDATA_DB
-const resolveOperationalSource = () => 'bigdata_db' as const
+const resolveParametrosDb = (context: Context) => ((context as any).data?.env || context.env).BIGDATA_DB;
+const resolveOperationalSource = () => 'bigdata_db' as const;
 
 export async function onRequestGet(context: Context) {
   const env = context.env;
-  const trace = createResponseTrace(context.request)
-  const adminActor = resolveAdminActorFromRequest(context.request)
-  const db = resolveParametrosDb(context)
-  const source = resolveOperationalSource(context)
+  const trace = createResponseTrace(context.request);
+  const adminActor = resolveAdminActorFromRequest(context.request);
+  const db = resolveParametrosDb(context);
+  const source = resolveOperationalSource(context);
 
   if (!db) {
-    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503)
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503);
   }
 
   try {
-    const parametros = await readLatestParams(db)
+    const parametros = await readLatestParams(db);
 
     if (env.BIGDATA_DB) {
       try {
@@ -38,7 +46,7 @@ export async function onRequestGet(context: Context) {
             totalCampos: Object.keys(parametros).length,
             rotasRateLimitSuportadas: SUPPORTED_ROUTES,
           },
-        })
+        });
       } catch {
         // Não bloquear por telemetria.
       }
@@ -60,9 +68,9 @@ export async function onRequestGet(context: Context) {
         backtest_mape_boa_percent: parametros.backtest_mape_boa_percent,
         backtest_mape_atencao_percent: parametros.backtest_mape_atencao_percent,
       },
-    })
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Falha ao carregar parâmetros da Calculadora'
+    const message = error instanceof Error ? error.message : 'Falha ao carregar parâmetros da Calculadora';
 
     if (env.BIGDATA_DB) {
       try {
@@ -73,38 +81,38 @@ export async function onRequestGet(context: Context) {
           ok: false,
           errorMessage: message,
           metadata: { action: 'read-parametros' },
-        })
+        });
       } catch {
         // Não bloquear por telemetria.
       }
     }
 
-    return json({ ok: false, error: message, ...trace }, 500)
+    return json({ ok: false, error: message, ...trace }, 500);
   }
 }
 
 export async function onRequestPost(context: Context) {
   const env = context.env;
-  const trace = createResponseTrace(context.request)
-  const db = resolveParametrosDb(context)
-  const source = resolveOperationalSource(context)
+  const trace = createResponseTrace(context.request);
+  const db = resolveParametrosDb(context);
+  const source = resolveOperationalSource(context);
 
   if (!db) {
-    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503)
+    return json({ ok: false, error: 'Nenhum binding D1 disponível (BIGDATA_DB).', ...trace }, 503);
   }
 
   try {
-    const body = await context.request.json() as Record<string, unknown>
-    const adminActor = resolveAdminActorFromRequest(context.request, body)
+    const body = (await context.request.json()) as Record<string, unknown>;
+    const adminActor = resolveAdminActorFromRequest(context.request, body);
 
-    const iofCartao = toRate(body.iof_cartao_percent)
-    const iofGlobal = toRate(body.iof_global_percent)
-    const spreadCartao = toRate(body.spread_cartao_percent)
-    const spreadAberto = toRate(body.spread_global_aberto_percent)
-    const spreadFechado = toRate(body.spread_global_fechado_percent)
-    const calibragem = Number(body.fator_calibragem_global)
-    const mapeBoa = Number(body.backtest_mape_boa_percent)
-    const mapeAtencao = Number(body.backtest_mape_atencao_percent)
+    const iofCartao = toRate(body.iof_cartao_percent);
+    const iofGlobal = toRate(body.iof_global_percent);
+    const spreadCartao = toRate(body.spread_cartao_percent);
+    const spreadAberto = toRate(body.spread_global_aberto_percent);
+    const spreadFechado = toRate(body.spread_global_fechado_percent);
+    const calibragem = Number(body.fator_calibragem_global);
+    const mapeBoa = Number(body.backtest_mape_boa_percent);
+    const mapeAtencao = Number(body.backtest_mape_atencao_percent);
 
     const validations = [
       validateRate('IOF Cartão', iofCartao),
@@ -118,10 +126,10 @@ export async function onRequestPost(context: Context) {
       Number.isFinite(mapeBoa) && Number.isFinite(mapeAtencao) && mapeAtencao <= mapeBoa
         ? 'MAPE Atenção deve ser maior que MAPE Boa.'
         : null,
-    ].filter(Boolean)
+    ].filter(Boolean);
 
     if (validations.length) {
-      return json({ ok: false, error: validations[0], ...trace }, 400)
+      return json({ ok: false, error: validations[0], ...trace }, 400);
     }
 
     const values = {
@@ -133,26 +141,34 @@ export async function onRequestPost(context: Context) {
       fator_calibragem_global: calibragem,
       backtest_mape_boa_percent: mapeBoa,
       backtest_mape_atencao_percent: mapeAtencao,
-    }
+    };
 
-    const atuais = await readLatestParams(db)
+    const atuais = await readLatestParams(db);
 
     const mudancas = Object.entries(values)
-      .filter(([chave, valorNovo]) => !Number.isFinite(atuais[chave as keyof typeof atuais]) || Number(atuais[chave as keyof typeof atuais]) !== Number(valorNovo))
+      .filter(
+        ([chave, valorNovo]) =>
+          !Number.isFinite(atuais[chave as keyof typeof atuais]) ||
+          Number(atuais[chave as keyof typeof atuais]) !== Number(valorNovo),
+      )
       .map(([chave, valorNovo]) => ({
         chave,
-        valorAnterior: Number.isFinite(atuais[chave as keyof typeof atuais]) ? atuais[chave as keyof typeof atuais] : null,
+        valorAnterior: Number.isFinite(atuais[chave as keyof typeof atuais])
+          ? atuais[chave as keyof typeof atuais]
+          : null,
         valorNovo,
-      }))
+      }));
 
     for (const [chave, valor] of Object.entries(values)) {
-      await db.prepare('INSERT INTO calc_parametros_customizados (chave, valor) VALUES (?, ?)')
+      await db
+        .prepare('INSERT INTO calc_parametros_customizados (chave, valor) VALUES (?, ?)')
         .bind(chave, String(valor))
-        .run()
+        .run();
     }
 
     for (const mudanca of mudancas) {
-      await db.prepare(`
+      await db
+        .prepare(`
         INSERT INTO calc_parametros_auditoria (created_at, admin_email, chave, valor_anterior, valor_novo, origem)
         VALUES (?, ?, ?, ?, ?, ?)
       `)
@@ -164,7 +180,7 @@ export async function onRequestPost(context: Context) {
           String(mudanca.valorNovo),
           'admin-app',
         )
-        .run()
+        .run();
     }
 
     if (env.BIGDATA_DB) {
@@ -180,7 +196,7 @@ export async function onRequestPost(context: Context) {
             mudancas: mudancas.length,
             chaves: mudancas.map((item) => item.chave),
           },
-        })
+        });
       } catch {
         // Não bloquear por telemetria.
       }
@@ -194,9 +210,9 @@ export async function onRequestPost(context: Context) {
       saved_at: new Date().toISOString(),
       parametros_salvos: values,
       mudancas_registradas: mudancas.length,
-    })
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Falha ao salvar parâmetros da Calculadora'
+    const message = error instanceof Error ? error.message : 'Falha ao salvar parâmetros da Calculadora';
 
     if (env.BIGDATA_DB) {
       try {
@@ -207,12 +223,12 @@ export async function onRequestPost(context: Context) {
           ok: false,
           errorMessage: message,
           metadata: { action: 'save-parametros' },
-        })
+        });
       } catch {
         // Não bloquear por telemetria.
       }
     }
 
-    return json({ ok: false, error: message, ...trace }, 500)
+    return json({ ok: false, error: message, ...trace }, 500);
   }
 }

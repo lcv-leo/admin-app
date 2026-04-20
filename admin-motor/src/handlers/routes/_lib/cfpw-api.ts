@@ -1,136 +1,134 @@
 type CloudflareApiError = {
-  message?: string
-}
+  message?: string;
+};
 
 type CloudflareApiResponse<T> = {
-  success?: boolean
-  errors?: CloudflareApiError[]
-  result?: T
-}
+  success?: boolean;
+  errors?: CloudflareApiError[];
+  result?: T;
+};
 
 export type CfpwAccount = {
-  id: string
-  name: string
-}
+  id: string;
+  name: string;
+};
 
 export type CfpwWorkerScript = {
-  id?: string
-  tag?: string
-  etag?: string
-  handlers?: string[]
-  modified_on?: string
-  created_on?: string
-}
+  id?: string;
+  tag?: string;
+  etag?: string;
+  handlers?: string[];
+  modified_on?: string;
+  created_on?: string;
+};
 
 export type CfpwWorkerDeployment = {
-  id?: string
-  source?: string
-  strategy?: string
-  author_email?: string
-  created_on?: string
-  annotations?: Record<string, unknown>
-}
+  id?: string;
+  source?: string;
+  strategy?: string;
+  author_email?: string;
+  created_on?: string;
+  annotations?: Record<string, unknown>;
+};
 
 export type CfpwPageProject = {
-  id?: string
-  name?: string
-  subdomain?: string
-  domains?: string[]
-  production_branch?: string
-  created_on?: string
+  id?: string;
+  name?: string;
+  subdomain?: string;
+  domains?: string[];
+  production_branch?: string;
+  created_on?: string;
   canonical_deployment?: {
-    id?: string
-    created_on?: string
-    environment?: string
-    url?: string
-  }
+    id?: string;
+    created_on?: string;
+    environment?: string;
+    url?: string;
+  };
   latest_deployment?: {
-    id?: string
-    created_on?: string
-    environment?: string
-    url?: string
-  }
-}
+    id?: string;
+    created_on?: string;
+    environment?: string;
+    url?: string;
+  };
+};
 
 export type CfpwPageDeployment = {
-  id?: string
-  short_id?: string
-  created_on?: string
-  environment?: string
-  url?: string
+  id?: string;
+  short_id?: string;
+  created_on?: string;
+  environment?: string;
+  url?: string;
   deployment_trigger?: {
-    type?: string
+    type?: string;
     metadata?: {
-      branch?: string
-      commit_ref?: string
-      commit_hash?: string
-      commit_message?: string
-      commit_dirty?: boolean
-    }
-  }
+      branch?: string;
+      commit_ref?: string;
+      commit_hash?: string;
+      commit_message?: string;
+      commit_dirty?: boolean;
+    };
+  };
   latest_stage?: {
-    name?: string
-    status?: string
-  }
-}
+    name?: string;
+    status?: string;
+  };
+};
 
 export type CfpwWorkerSchedule = {
-  cron?: string
-  created_on?: string
-  modified_on?: string
-}
+  cron?: string;
+  created_on?: string;
+  modified_on?: string;
+};
 
 export type CfpwWorkerSecret = {
-  name?: string
-  type?: string
-}
+  name?: string;
+  type?: string;
+};
 
 export type CfpwPageDomain = {
-  name?: string
-  status?: string
-  verification_data?: Record<string, unknown>
-}
+  name?: string;
+  status?: string;
+  verification_data?: Record<string, unknown>;
+};
 
 type EnvWithCloudflarePwToken = {
-  CLOUDFLARE_PW?: string
-  CF_ACCOUNT_ID?: string
-  CLOUDFLARE_DNS?: string
-  CLOUDFLARE_CACHE?: string
-}
+  CLOUDFLARE_PW?: string;
+  CF_ACCOUNT_ID?: string;
+  CLOUDFLARE_DNS?: string;
+  CLOUDFLARE_CACHE?: string;
+};
 
 const resolveToken = (env: EnvWithCloudflarePwToken) => {
-  const byPwToken = env.CLOUDFLARE_PW?.trim()
+  const byPwToken = env.CLOUDFLARE_PW?.trim();
   if (byPwToken) {
-    return byPwToken
+    return byPwToken;
   }
 
-  return ''
-}
+  return '';
+};
 
 const parseJsonOrThrow = <T>(rawText: string, fallback: string, response: Response): T => {
-  const trimmed = rawText.trim()
+  const trimmed = rawText.trim();
   if (!trimmed) {
-    throw new Error(`${fallback}: corpo vazio inesperado (HTTP ${response.status}).`)
+    throw new Error(`${fallback}: corpo vazio inesperado (HTTP ${response.status}).`);
   }
 
-  const looksLikeHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')
+  const looksLikeHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html');
   if (looksLikeHtml) {
-    throw new Error(`${fallback}: resposta HTML inesperada da API Cloudflare (HTTP ${response.status}).`)
+    throw new Error(`${fallback}: resposta HTML inesperada da API Cloudflare (HTTP ${response.status}).`);
   }
 
   try {
-    return JSON.parse(trimmed) as T
+    return JSON.parse(trimmed) as T;
   } catch {
-    throw new Error(`${fallback}: resposta não-JSON da API Cloudflare (HTTP ${response.status}).`)
+    throw new Error(`${fallback}: resposta não-JSON da API Cloudflare (HTTP ${response.status}).`);
   }
-}
+};
 
 const toFirstError = (payload: CloudflareApiResponse<unknown>) => {
-  const firstError = Array.isArray(payload.errors) && payload.errors.length > 0
-    ? payload.errors[0]
-    : null
-  return firstError?.message?.trim() || null
-}
+  const firstError = Array.isArray(payload.errors) && payload.errors.length > 0 ? payload.errors[0] : null;
+  return firstError?.message?.trim() || null;
+};
 
 const cloudflareRequest = async <T>(
   env: EnvWithCloudflarePwToken,
@@ -139,15 +137,13 @@ const cloudflareRequest = async <T>(
   init?: RequestInit,
   overrideToken?: string,
 ) => {
-  const token = overrideToken || resolveToken(env)
+  const token = overrideToken || resolveToken(env);
   if (!token) {
-    throw new Error('Token Cloudflare ausente no runtime (configure CLOUDFLARE_PW ou use token override).')
+    throw new Error('Token Cloudflare ausente no runtime (configure CLOUDFLARE_PW ou use token override).');
   }
 
-  const hasContentTypeHeader = Boolean(
-    init?.headers && new Headers(init.headers).has('Content-Type'),
-  )
-  const isFormDataBody = typeof FormData !== 'undefined' && init?.body instanceof FormData
+  const hasContentTypeHeader = Boolean(init?.headers && new Headers(init.headers).has('Content-Type'));
+  const isFormDataBody = typeof FormData !== 'undefined' && init?.body instanceof FormData;
 
   const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
     method: init?.method ?? 'GET',
@@ -158,94 +154,92 @@ const cloudflareRequest = async <T>(
       ...(init?.headers ?? {}),
     },
     body: init?.body,
-  })
+  });
 
-  const rawText = await response.text()
-  const payload = parseJsonOrThrow<CloudflareApiResponse<T>>(rawText, fallback, response)
+  const rawText = await response.text();
+  const payload = parseJsonOrThrow<CloudflareApiResponse<T>>(rawText, fallback, response);
 
   if (!response.ok || payload.success !== true) {
-    const message = toFirstError(payload)
-    throw new Error(message ? `${fallback}: ${message}` : `${fallback}: HTTP ${response.status}`)
+    const message = toFirstError(payload);
+    throw new Error(message ? `${fallback}: ${message}` : `${fallback}: HTTP ${response.status}`);
   }
 
-  return payload.result as T
-}
+  return payload.result as T;
+};
 
 /**
  * Paths permitidos para o raw request de CF API.
  * Restringe ao subconjunto de endpoints legitimamente necessários para operações de Workers e Pages.
  */
 const ALLOWED_CF_PATH_PATTERNS: RegExp[] = [
-  /^\/accounts(\?|$)/,                                     // listar contas
-  /^\/accounts\/[^/]+\/workers\//,                         // Workers scripts, settings, deployments, schedules, secrets
-  /^\/accounts\/[^/]+\/pages\//,                           // Pages projects, deployments, domains
-  /^\/zones(\?|$)/,                                        // listar zones
-  /^\/zones\/[^/]+\/workers\/routes(\/|$|\?)/,             // rotas de Workers
-  /^\/zones\/[^/]+\/purge_cache(\/|$|\?)/,                 // purge de cache
-]
+  /^\/accounts(\?|$)/, // listar contas
+  /^\/accounts\/[^/]+\/workers\//, // Workers scripts, settings, deployments, schedules, secrets
+  /^\/accounts\/[^/]+\/pages\//, // Pages projects, deployments, domains
+  /^\/zones(\?|$)/, // listar zones
+  /^\/zones\/[^/]+\/workers\/routes(\/|$|\?)/, // rotas de Workers
+  /^\/zones\/[^/]+\/purge_cache(\/|$|\?)/, // purge de cache
+];
 
 const validateCloudflareApiPath = (path: string) => {
-  const normalized = path.trim()
+  const normalized = path.trim();
   if (!normalized.startsWith('/')) {
-    throw new Error('O path precisa iniciar com "/" para acessar a API Cloudflare.')
+    throw new Error('O path precisa iniciar com "/" para acessar a API Cloudflare.');
   }
 
   if (normalized.includes('..')) {
-    throw new Error('Path inválido para operação avançada: uso de ".." não é permitido.')
+    throw new Error('Path inválido para operação avançada: uso de ".." não é permitido.');
   }
 
-  const isAllowed = ALLOWED_CF_PATH_PATTERNS.some((re) => re.test(normalized))
+  const isAllowed = ALLOWED_CF_PATH_PATTERNS.some((re) => re.test(normalized));
   if (!isAllowed) {
-    throw new Error('Path fora do escopo permitido para operações da API Cloudflare.')
+    throw new Error('Path fora do escopo permitido para operações da API Cloudflare.');
   }
 
-  return normalized
-}
+  return normalized;
+};
 
 const parseJsonSafe = (value: string, fieldName: string) => {
-  const trimmed = value.trim()
+  const trimmed = value.trim();
   if (!trimmed) {
-    return null
+    return null;
   }
 
   try {
-    return JSON.parse(trimmed) as unknown
+    return JSON.parse(trimmed) as unknown;
   } catch {
-    throw new Error(`JSON inválido no campo ${fieldName}.`)
+    throw new Error(`JSON inválido no campo ${fieldName}.`);
   }
-}
+};
 
 const normalizeAccount = (account: { id?: string; name?: string }) => ({
   id: String(account.id ?? '').trim(),
   name: String(account.name ?? '').trim(),
-})
+});
 
 export const listCloudflareAccounts = async (env: EnvWithCloudflarePwToken) => {
   const accounts = await cloudflareRequest<Array<{ id?: string; name?: string }>>(
     env,
     '/accounts?page=1&per_page=50',
     'Falha ao carregar contas da Cloudflare',
-  )
+  );
 
-  return (Array.isArray(accounts) ? accounts : [])
-    .map(normalizeAccount)
-    .filter((account) => account.id)
-}
+  return (Array.isArray(accounts) ? accounts : []).map(normalizeAccount).filter((account) => account.id);
+};
 
 export const resolveCloudflarePwAccount = async (env: EnvWithCloudflarePwToken) => {
-  const byEnv = String(env.CF_ACCOUNT_ID ?? '').trim()
+  const byEnv = String(env.CF_ACCOUNT_ID ?? '').trim();
   if (byEnv) {
     return {
       accountId: byEnv,
       accountName: null,
       source: 'CF_ACCOUNT_ID' as const,
       accounts: [] as CfpwAccount[],
-    }
+    };
   }
 
-  const accounts = await listCloudflareAccounts(env)
+  const accounts = await listCloudflareAccounts(env);
   if (accounts.length === 0) {
-    throw new Error('Nenhuma conta Cloudflare disponível para o token informado.')
+    throw new Error('Nenhuma conta Cloudflare disponível para o token informado.');
   }
 
   return {
@@ -253,61 +247,65 @@ export const resolveCloudflarePwAccount = async (env: EnvWithCloudflarePwToken) 
     accountName: accounts[0].name || null,
     source: 'auto-discovery' as const,
     accounts,
-  }
-}
+  };
+};
 
 export const listCloudflareWorkers = async (env: EnvWithCloudflarePwToken, accountId: string) => {
-  const normalizedAccountId = accountId.trim()
+  const normalizedAccountId = accountId.trim();
   if (!normalizedAccountId) {
-    throw new Error('Account ID é obrigatório para listar Workers.')
+    throw new Error('Account ID é obrigatório para listar Workers.');
   }
 
   const workers = await cloudflareRequest<CfpwWorkerScript[]>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/workers/scripts`,
     'Falha ao listar Workers',
-  )
+  );
 
-  return Array.isArray(workers) ? workers : []
-}
+  return Array.isArray(workers) ? workers : [];
+};
 
 export const getCloudflareWorker = async (env: EnvWithCloudflarePwToken, accountId: string, scriptName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para ler Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para ler Worker.');
   }
 
   const worker = await cloudflareRequest<Record<string, unknown>>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/workers/scripts/${encodeURIComponent(normalizedScript)}/settings`,
     `Falha ao ler Worker ${normalizedScript}`,
-  )
+  );
 
-  return worker
-}
+  return worker;
+};
 
-export const listCloudflareWorkerDeployments = async (env: EnvWithCloudflarePwToken, accountId: string, scriptName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+export const listCloudflareWorkerDeployments = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  scriptName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para listar deployments de Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para listar deployments de Worker.');
   }
 
   const deployments = await cloudflareRequest<CfpwWorkerDeployment[]>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/workers/scripts/${encodeURIComponent(normalizedScript)}/deployments`,
     `Falha ao listar deployments do Worker ${normalizedScript}`,
-  )
+  );
 
-  return Array.isArray(deployments) ? deployments : []
-}
+  return Array.isArray(deployments) ? deployments : [];
+};
 
 export const deleteCloudflareWorker = async (env: EnvWithCloudflarePwToken, accountId: string, scriptName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para remover Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para remover Worker.');
   }
 
   await cloudflareRequest<Record<string, unknown>>(
@@ -317,61 +315,73 @@ export const deleteCloudflareWorker = async (env: EnvWithCloudflarePwToken, acco
     {
       method: 'DELETE',
     },
-  )
-}
+  );
+};
 
 export const listCloudflarePagesProjects = async (env: EnvWithCloudflarePwToken, accountId: string) => {
-  const normalizedAccountId = accountId.trim()
+  const normalizedAccountId = accountId.trim();
   if (!normalizedAccountId) {
-    throw new Error('Account ID é obrigatório para listar Pages.')
+    throw new Error('Account ID é obrigatório para listar Pages.');
   }
 
   const projects = await cloudflareRequest<CfpwPageProject[]>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/pages/projects`,
     'Falha ao listar projetos Pages',
-  )
+  );
 
-  return Array.isArray(projects) ? projects : []
-}
+  return Array.isArray(projects) ? projects : [];
+};
 
-export const getCloudflarePagesProject = async (env: EnvWithCloudflarePwToken, accountId: string, projectName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
+export const getCloudflarePagesProject = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  projectName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
   if (!normalizedAccountId || !normalizedProject) {
-    throw new Error('Account ID e projectName são obrigatórios para ler projeto Pages.')
+    throw new Error('Account ID e projectName são obrigatórios para ler projeto Pages.');
   }
 
   const project = await cloudflareRequest<CfpwPageProject>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/pages/projects/${encodeURIComponent(normalizedProject)}`,
     `Falha ao ler projeto Pages ${normalizedProject}`,
-  )
+  );
 
-  return project
-}
+  return project;
+};
 
-export const listCloudflarePagesDeployments = async (env: EnvWithCloudflarePwToken, accountId: string, projectName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
+export const listCloudflarePagesDeployments = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  projectName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
   if (!normalizedAccountId || !normalizedProject) {
-    throw new Error('Account ID e projectName são obrigatórios para listar deployments de Pages.')
+    throw new Error('Account ID e projectName são obrigatórios para listar deployments de Pages.');
   }
 
   const deployments = await cloudflareRequest<CfpwPageDeployment[]>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/pages/projects/${encodeURIComponent(normalizedProject)}/deployments`,
     `Falha ao listar deployments de Pages ${normalizedProject}`,
-  )
+  );
 
-  return Array.isArray(deployments) ? deployments : []
-}
+  return Array.isArray(deployments) ? deployments : [];
+};
 
-export const deleteCloudflarePagesProject = async (env: EnvWithCloudflarePwToken, accountId: string, projectName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
+export const deleteCloudflarePagesProject = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  projectName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
   if (!normalizedAccountId || !normalizedProject) {
-    throw new Error('Account ID e projectName são obrigatórios para remover projeto Pages.')
+    throw new Error('Account ID e projectName são obrigatórios para remover projeto Pages.');
   }
 
   await cloudflareRequest<Record<string, unknown>>(
@@ -381,8 +391,8 @@ export const deleteCloudflarePagesProject = async (env: EnvWithCloudflarePwToken
     {
       method: 'DELETE',
     },
-  )
-}
+  );
+};
 
 export const deleteCloudflarePagesDeployment = async (
   env: EnvWithCloudflarePwToken,
@@ -391,14 +401,14 @@ export const deleteCloudflarePagesDeployment = async (
   deploymentId: string,
   force = false,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
-  const normalizedDeploymentId = deploymentId.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
+  const normalizedDeploymentId = deploymentId.trim();
   if (!normalizedAccountId || !normalizedProject || !normalizedDeploymentId) {
-    throw new Error('Account ID, projectName e deploymentId são obrigatórios para remover deployment de Pages.')
+    throw new Error('Account ID, projectName e deploymentId são obrigatórios para remover deployment de Pages.');
   }
 
-  const queryString = force ? '?force=true' : ''
+  const queryString = force ? '?force=true' : '';
 
   await cloudflareRequest<Record<string, unknown>>(
     env,
@@ -407,24 +417,28 @@ export const deleteCloudflarePagesDeployment = async (
     {
       method: 'DELETE',
     },
-  )
-}
+  );
+};
 
-export const getCloudflareWorkerSchedules = async (env: EnvWithCloudflarePwToken, accountId: string, scriptName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+export const getCloudflareWorkerSchedules = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  scriptName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para ler cron triggers do Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para ler cron triggers do Worker.');
   }
 
   const schedules = await cloudflareRequest<CfpwWorkerSchedule[]>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/workers/scripts/${encodeURIComponent(normalizedScript)}/schedules`,
     `Falha ao ler cron triggers do Worker ${normalizedScript}`,
-  )
+  );
 
-  return Array.isArray(schedules) ? schedules : []
-}
+  return Array.isArray(schedules) ? schedules : [];
+};
 
 export const updateCloudflareWorkerSchedules = async (
   env: EnvWithCloudflarePwToken,
@@ -432,10 +446,10 @@ export const updateCloudflareWorkerSchedules = async (
   scriptName: string,
   schedules: Array<{ cron: string }>,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para atualizar cron triggers do Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para atualizar cron triggers do Worker.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -446,22 +460,26 @@ export const updateCloudflareWorkerSchedules = async (
       method: 'PUT',
       body: JSON.stringify(schedules),
     },
-  )
-}
+  );
+};
 
-export const getCloudflareWorkerUsageModel = async (env: EnvWithCloudflarePwToken, accountId: string, scriptName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+export const getCloudflareWorkerUsageModel = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  scriptName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para ler usage model do Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para ler usage model do Worker.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/workers/scripts/${encodeURIComponent(normalizedScript)}/usage-model`,
     `Falha ao ler usage model do Worker ${normalizedScript}`,
-  )
-}
+  );
+};
 
 export const updateCloudflareWorkerUsageModel = async (
   env: EnvWithCloudflarePwToken,
@@ -469,10 +487,10 @@ export const updateCloudflareWorkerUsageModel = async (
   scriptName: string,
   usageModel: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para atualizar usage model do Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para atualizar usage model do Worker.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -483,24 +501,28 @@ export const updateCloudflareWorkerUsageModel = async (
       method: 'PUT',
       body: JSON.stringify({ usage_model: usageModel.trim() }),
     },
-  )
-}
+  );
+};
 
-export const listCloudflareWorkerSecrets = async (env: EnvWithCloudflarePwToken, accountId: string, scriptName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+export const listCloudflareWorkerSecrets = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  scriptName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para listar secrets do Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para listar secrets do Worker.');
   }
 
   const secrets = await cloudflareRequest<CfpwWorkerSecret[]>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/workers/scripts/${encodeURIComponent(normalizedScript)}/secrets`,
     `Falha ao listar secrets do Worker ${normalizedScript}`,
-  )
+  );
 
-  return Array.isArray(secrets) ? secrets : []
-}
+  return Array.isArray(secrets) ? secrets : [];
+};
 
 export const addCloudflareWorkerSecret = async (
   env: EnvWithCloudflarePwToken,
@@ -509,10 +531,10 @@ export const addCloudflareWorkerSecret = async (
   name: string,
   text: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para adicionar secret do Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para adicionar secret do Worker.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -527,8 +549,8 @@ export const addCloudflareWorkerSecret = async (
         type: 'secret_text',
       }),
     },
-  )
-}
+  );
+};
 
 export const deleteCloudflareWorkerSecret = async (
   env: EnvWithCloudflarePwToken,
@@ -536,11 +558,11 @@ export const deleteCloudflareWorkerSecret = async (
   scriptName: string,
   secretName: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
-  const normalizedSecret = secretName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
+  const normalizedSecret = secretName.trim();
   if (!normalizedAccountId || !normalizedScript || !normalizedSecret) {
-    throw new Error('Account ID, scriptName e secretName são obrigatórios para remover secret do Worker.')
+    throw new Error('Account ID, scriptName e secretName são obrigatórios para remover secret do Worker.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -550,31 +572,40 @@ export const deleteCloudflareWorkerSecret = async (
     {
       method: 'DELETE',
     },
-  )
-}
+  );
+};
 
-export const listCloudflarePagesDomains = async (env: EnvWithCloudflarePwToken, accountId: string, projectName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
+export const listCloudflarePagesDomains = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  projectName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
   if (!normalizedAccountId || !normalizedProject) {
-    throw new Error('Account ID e projectName são obrigatórios para listar domínios do Pages.')
+    throw new Error('Account ID e projectName são obrigatórios para listar domínios do Pages.');
   }
 
   const domains = await cloudflareRequest<CfpwPageDomain[]>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/pages/projects/${encodeURIComponent(normalizedProject)}/domains`,
     `Falha ao listar domínios do projeto ${normalizedProject}`,
-  )
+  );
 
-  return Array.isArray(domains) ? domains : []
-}
+  return Array.isArray(domains) ? domains : [];
+};
 
-export const addCloudflarePagesDomain = async (env: EnvWithCloudflarePwToken, accountId: string, projectName: string, domainName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
-  const normalizedDomain = domainName.trim()
+export const addCloudflarePagesDomain = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  projectName: string,
+  domainName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
+  const normalizedDomain = domainName.trim();
   if (!normalizedAccountId || !normalizedProject || !normalizedDomain) {
-    throw new Error('Account ID, projectName e domainName são obrigatórios para adicionar domínio no Pages.')
+    throw new Error('Account ID, projectName e domainName são obrigatórios para adicionar domínio no Pages.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -585,15 +616,20 @@ export const addCloudflarePagesDomain = async (env: EnvWithCloudflarePwToken, ac
       method: 'POST',
       body: JSON.stringify({ name: normalizedDomain }),
     },
-  )
-}
+  );
+};
 
-export const deleteCloudflarePagesDomain = async (env: EnvWithCloudflarePwToken, accountId: string, projectName: string, domainName: string) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
-  const normalizedDomain = domainName.trim()
+export const deleteCloudflarePagesDomain = async (
+  env: EnvWithCloudflarePwToken,
+  accountId: string,
+  projectName: string,
+  domainName: string,
+) => {
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
+  const normalizedDomain = domainName.trim();
   if (!normalizedAccountId || !normalizedProject || !normalizedDomain) {
-    throw new Error('Account ID, projectName e domainName são obrigatórios para remover domínio do Pages.')
+    throw new Error('Account ID, projectName e domainName são obrigatórios para remover domínio do Pages.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -603,8 +639,8 @@ export const deleteCloudflarePagesDomain = async (env: EnvWithCloudflarePwToken,
     {
       method: 'DELETE',
     },
-  )
-}
+  );
+};
 
 export const getCloudflarePagesDeployment = async (
   env: EnvWithCloudflarePwToken,
@@ -612,24 +648,24 @@ export const getCloudflarePagesDeployment = async (
   projectName: string,
   deploymentId: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
-  const normalizedDeploymentId = deploymentId.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
+  const normalizedDeploymentId = deploymentId.trim();
   if (!normalizedAccountId || !normalizedProject || !normalizedDeploymentId) {
-    throw new Error('Account ID, projectName e deploymentId são obrigatórios para ler deployment de Pages.')
+    throw new Error('Account ID, projectName e deploymentId são obrigatórios para ler deployment de Pages.');
   }
 
   return cloudflareRequest<CfpwPageDeployment>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/pages/projects/${encodeURIComponent(normalizedProject)}/deployments/${encodeURIComponent(normalizedDeploymentId)}`,
     `Falha ao ler deployment ${normalizedDeploymentId}`,
-  )
-}
+  );
+};
 
 const isDirectUploadLikeTrigger = (triggerType: string) => {
-  const normalized = triggerType.trim().toLowerCase()
-  return normalized === 'ad_hoc' || normalized === 'direct_upload'
-}
+  const normalized = triggerType.trim().toLowerCase();
+  return normalized === 'ad_hoc' || normalized === 'direct_upload';
+};
 
 export const retryCloudflarePagesDeployment = async (
   env: EnvWithCloudflarePwToken,
@@ -637,19 +673,24 @@ export const retryCloudflarePagesDeployment = async (
   projectName: string,
   deploymentId: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
-  const normalizedDeploymentId = deploymentId.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
+  const normalizedDeploymentId = deploymentId.trim();
   if (!normalizedAccountId || !normalizedProject || !normalizedDeploymentId) {
-    throw new Error('Account ID, projectName e deploymentId são obrigatórios para retry de deployment.')
+    throw new Error('Account ID, projectName e deploymentId são obrigatórios para retry de deployment.');
   }
 
-  const deployment = await getCloudflarePagesDeployment(env, normalizedAccountId, normalizedProject, normalizedDeploymentId)
-  const triggerType = String(deployment.deployment_trigger?.type ?? '').trim()
+  const deployment = await getCloudflarePagesDeployment(
+    env,
+    normalizedAccountId,
+    normalizedProject,
+    normalizedDeploymentId,
+  );
+  const triggerType = String(deployment.deployment_trigger?.type ?? '').trim();
   if (isDirectUploadLikeTrigger(triggerType)) {
     throw new Error(
       `Retry indisponível para deployment ${normalizedDeploymentId}: deployment do tipo ${triggerType || 'direct_upload'} não suporta retry (somente builds).`,
-    )
+    );
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -659,8 +700,8 @@ export const retryCloudflarePagesDeployment = async (
     {
       method: 'POST',
     },
-  )
-}
+  );
+};
 
 export const rollbackCloudflarePagesDeployment = async (
   env: EnvWithCloudflarePwToken,
@@ -668,11 +709,11 @@ export const rollbackCloudflarePagesDeployment = async (
   projectName: string,
   deploymentId: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
-  const normalizedDeploymentId = deploymentId.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
+  const normalizedDeploymentId = deploymentId.trim();
   if (!normalizedAccountId || !normalizedProject || !normalizedDeploymentId) {
-    throw new Error('Account ID, projectName e deploymentId são obrigatórios para rollback de deployment.')
+    throw new Error('Account ID, projectName e deploymentId são obrigatórios para rollback de deployment.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -682,8 +723,8 @@ export const rollbackCloudflarePagesDeployment = async (
     {
       method: 'POST',
     },
-  )
-}
+  );
+};
 
 export const getCloudflarePagesDeploymentLogs = async (
   env: EnvWithCloudflarePwToken,
@@ -691,19 +732,19 @@ export const getCloudflarePagesDeploymentLogs = async (
   projectName: string,
   deploymentId: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
-  const normalizedDeploymentId = deploymentId.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
+  const normalizedDeploymentId = deploymentId.trim();
   if (!normalizedAccountId || !normalizedProject || !normalizedDeploymentId) {
-    throw new Error('Account ID, projectName e deploymentId são obrigatórios para leitura de logs do deployment.')
+    throw new Error('Account ID, projectName e deploymentId são obrigatórios para leitura de logs do deployment.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/pages/projects/${encodeURIComponent(normalizedProject)}/deployments/${encodeURIComponent(normalizedDeploymentId)}/history/logs`,
     `Falha ao ler logs do deployment ${normalizedDeploymentId}`,
-  )
-}
+  );
+};
 
 export const createCloudflareWorkerFromTemplate = async (
   env: EnvWithCloudflarePwToken,
@@ -712,24 +753,26 @@ export const createCloudflareWorkerFromTemplate = async (
   templateCode: string,
   usageModel?: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para criar Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para criar Worker.');
   }
 
-  const compatibilityDate = new Date().toISOString().slice(0, 10)
+  const compatibilityDate = new Date().toISOString().slice(0, 10);
   const metadata = {
     main_module: 'index.js',
     compatibility_date: compatibilityDate,
     usage_model: usageModel?.trim() || 'standard',
-  }
+  };
 
-  const content = templateCode.trim() || `export default {\n  async fetch(request) {\n    return new Response('Worker ${normalizedScript} ativo', {\n      status: 200,\n      headers: { 'content-type': 'text/plain; charset=utf-8' },\n    })\n  },\n}\n`
+  const content =
+    templateCode.trim() ||
+    `export default {\n  async fetch(request) {\n    return new Response('Worker ${normalizedScript} ativo', {\n      status: 200,\n      headers: { 'content-type': 'text/plain; charset=utf-8' },\n    })\n  },\n}\n`;
 
-  const form = new FormData()
-  form.append('metadata', JSON.stringify(metadata))
-  form.append('index.js', new Blob([content], { type: 'application/javascript' }), 'index.js')
+  const form = new FormData();
+  form.append('metadata', JSON.stringify(metadata));
+  form.append('index.js', new Blob([content], { type: 'application/javascript' }), 'index.js');
 
   return cloudflareRequest<Record<string, unknown>>(
     env,
@@ -742,8 +785,8 @@ export const createCloudflareWorkerFromTemplate = async (
       },
       body: form,
     },
-  )
-}
+  );
+};
 
 export const createCloudflarePagesProject = async (
   env: EnvWithCloudflarePwToken,
@@ -751,13 +794,13 @@ export const createCloudflarePagesProject = async (
   projectName: string,
   productionBranch?: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
   if (!normalizedAccountId || !normalizedProject) {
-    throw new Error('Account ID e projectName são obrigatórios para criar projeto Pages.')
+    throw new Error('Account ID e projectName são obrigatórios para criar projeto Pages.');
   }
 
-  const branch = productionBranch?.trim() || 'main'
+  const branch = productionBranch?.trim() || 'main';
 
   return cloudflareRequest<Record<string, unknown>>(
     env,
@@ -770,8 +813,8 @@ export const createCloudflarePagesProject = async (
         production_branch: branch,
       }),
     },
-  )
-}
+  );
+};
 
 export const updateCloudflarePagesProjectSettings = async (
   env: EnvWithCloudflarePwToken,
@@ -779,10 +822,10 @@ export const updateCloudflarePagesProjectSettings = async (
   projectName: string,
   settings: Record<string, unknown>,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedProject = projectName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedProject = projectName.trim();
   if (!normalizedAccountId || !normalizedProject) {
-    throw new Error('Account ID e projectName são obrigatórios para atualizar settings do Pages.')
+    throw new Error('Account ID e projectName são obrigatórios para atualizar settings do Pages.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -793,28 +836,28 @@ export const updateCloudflarePagesProjectSettings = async (
       method: 'PATCH',
       body: JSON.stringify(settings),
     },
-  )
-}
+  );
+};
 
 export const listCloudflareWorkerVersions = async (
   env: EnvWithCloudflarePwToken,
   accountId: string,
   scriptName: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedAccountId || !normalizedScript) {
-    throw new Error('Account ID e scriptName são obrigatórios para listar versões do Worker.')
+    throw new Error('Account ID e scriptName são obrigatórios para listar versões do Worker.');
   }
 
   const versions = await cloudflareRequest<Array<Record<string, unknown>>>(
     env,
     `/accounts/${encodeURIComponent(normalizedAccountId)}/workers/scripts/${encodeURIComponent(normalizedScript)}/versions`,
     `Falha ao listar versões do Worker ${normalizedScript}`,
-  )
+  );
 
-  return Array.isArray(versions) ? versions : []
-}
+  return Array.isArray(versions) ? versions : [];
+};
 
 export const deployCloudflareWorkerVersion = async (
   env: EnvWithCloudflarePwToken,
@@ -822,11 +865,11 @@ export const deployCloudflareWorkerVersion = async (
   scriptName: string,
   versionId: string,
 ) => {
-  const normalizedAccountId = accountId.trim()
-  const normalizedScript = scriptName.trim()
-  const normalizedVersion = versionId.trim()
+  const normalizedAccountId = accountId.trim();
+  const normalizedScript = scriptName.trim();
+  const normalizedVersion = versionId.trim();
   if (!normalizedAccountId || !normalizedScript || !normalizedVersion) {
-    throw new Error('Account ID, scriptName e versionId são obrigatórios para promover versão do Worker.')
+    throw new Error('Account ID, scriptName e versionId são obrigatórios para promover versão do Worker.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -844,26 +887,23 @@ export const deployCloudflareWorkerVersion = async (
         ],
       }),
     },
-  )
-}
+  );
+};
 
-export const listCloudflareWorkerRoutes = async (
-  env: EnvWithCloudflarePwToken,
-  zoneId: string,
-) => {
-  const normalizedZoneId = zoneId.trim()
+export const listCloudflareWorkerRoutes = async (env: EnvWithCloudflarePwToken, zoneId: string) => {
+  const normalizedZoneId = zoneId.trim();
   if (!normalizedZoneId) {
-    throw new Error('zoneId é obrigatório para listar rotas de Worker.')
+    throw new Error('zoneId é obrigatório para listar rotas de Worker.');
   }
 
   const routes = await cloudflareRequest<Array<Record<string, unknown>>>(
     env,
     `/zones/${encodeURIComponent(normalizedZoneId)}/workers/routes`,
     `Falha ao listar rotas de Worker da zona ${normalizedZoneId}`,
-  )
+  );
 
-  return Array.isArray(routes) ? routes : []
-}
+  return Array.isArray(routes) ? routes : [];
+};
 
 export const addCloudflareWorkerRoute = async (
   env: EnvWithCloudflarePwToken,
@@ -871,11 +911,11 @@ export const addCloudflareWorkerRoute = async (
   pattern: string,
   scriptName: string,
 ) => {
-  const normalizedZoneId = zoneId.trim()
-  const normalizedPattern = pattern.trim()
-  const normalizedScript = scriptName.trim()
+  const normalizedZoneId = zoneId.trim();
+  const normalizedPattern = pattern.trim();
+  const normalizedScript = scriptName.trim();
   if (!normalizedZoneId || !normalizedPattern || !normalizedScript) {
-    throw new Error('zoneId, pattern e scriptName são obrigatórios para adicionar rota de Worker.')
+    throw new Error('zoneId, pattern e scriptName são obrigatórios para adicionar rota de Worker.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -889,18 +929,14 @@ export const addCloudflareWorkerRoute = async (
         script: normalizedScript,
       }),
     },
-  )
-}
+  );
+};
 
-export const deleteCloudflareWorkerRoute = async (
-  env: EnvWithCloudflarePwToken,
-  zoneId: string,
-  routeId: string,
-) => {
-  const normalizedZoneId = zoneId.trim()
-  const normalizedRouteId = routeId.trim()
+export const deleteCloudflareWorkerRoute = async (env: EnvWithCloudflarePwToken, zoneId: string, routeId: string) => {
+  const normalizedZoneId = zoneId.trim();
+  const normalizedRouteId = routeId.trim();
   if (!normalizedZoneId || !normalizedRouteId) {
-    throw new Error('zoneId e routeId são obrigatórios para remover rota de Worker.')
+    throw new Error('zoneId e routeId são obrigatórios para remover rota de Worker.');
   }
 
   return cloudflareRequest<Record<string, unknown>>(
@@ -910,8 +946,8 @@ export const deleteCloudflareWorkerRoute = async (
     {
       method: 'DELETE',
     },
-  )
-}
+  );
+};
 
 export const runCloudflareRawRequest = async (
   env: EnvWithCloudflarePwToken,
@@ -919,20 +955,20 @@ export const runCloudflareRawRequest = async (
   path: string,
   bodyJson?: string,
 ) => {
-  const normalizedPath = validateCloudflareApiPath(path)
-  const normalizedMethod = method.trim().toUpperCase()
+  const normalizedPath = validateCloudflareApiPath(path);
+  const normalizedMethod = method.trim().toUpperCase();
 
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(normalizedMethod)) {
-    throw new Error(`Método não suportado para operação raw: ${normalizedMethod}`)
+    throw new Error(`Método não suportado para operação raw: ${normalizedMethod}`);
   }
 
-  const parsedBody = parseJsonSafe(bodyJson ?? '', 'rawBodyJson')
+  const parsedBody = parseJsonSafe(bodyJson ?? '', 'rawBodyJson');
   const requestInit: RequestInit = {
     method: normalizedMethod,
-  }
+  };
 
   if (parsedBody != null && normalizedMethod !== 'GET') {
-    requestInit.body = JSON.stringify(parsedBody)
+    requestInit.body = JSON.stringify(parsedBody);
   }
 
   return cloudflareRequest<Record<string, unknown> | Array<Record<string, unknown>>>(
@@ -940,22 +976,20 @@ export const runCloudflareRawRequest = async (
     normalizedPath,
     `Falha na operação raw ${normalizedMethod} ${normalizedPath}`,
     requestInit,
-  )
-}
+  );
+};
 
 export type CfpwZone = {
-  id?: string
-  name?: string
-  status?: string
-}
-
-
+  id?: string;
+  name?: string;
+  status?: string;
+};
 
 export const listCloudflareZones = async (env: EnvWithCloudflarePwToken) => {
-  const token = env.CLOUDFLARE_CACHE?.trim()
+  const token = env.CLOUDFLARE_CACHE?.trim();
 
   if (!token) {
-    throw new Error('Nenhum token Cloudflare configurado no ambiente para ler zonas.')
+    throw new Error('Nenhum token Cloudflare configurado no ambiente para ler zonas.');
   }
 
   const zones = await cloudflareRequest<CfpwZone[]>(
@@ -964,40 +998,40 @@ export const listCloudflareZones = async (env: EnvWithCloudflarePwToken) => {
     'Falha ao carregar zonas da Cloudflare',
     undefined,
     token,
-  )
+  );
 
-  return Array.isArray(zones) ? zones : []
-}
+  return Array.isArray(zones) ? zones : [];
+};
 
 export const purgeCloudflareZoneCache = async (
   env: EnvWithCloudflarePwToken,
   zoneId: string,
-  options: { hosts?: string[]; purge_everything?: boolean }
+  options: { hosts?: string[]; purge_everything?: boolean },
 ) => {
-  const normalizedZoneId = zoneId.trim()
+  const normalizedZoneId = zoneId.trim();
   if (!normalizedZoneId) {
-    throw new Error('zoneId é obrigatório para realizar purge de cache.')
+    throw new Error('zoneId é obrigatório para realizar purge de cache.');
   }
 
-  const hasHosts = Array.isArray(options.hosts) && options.hosts.length > 0
-  const isEverything = Boolean(options.purge_everything)
+  const hasHosts = Array.isArray(options.hosts) && options.hosts.length > 0;
+  const isEverything = Boolean(options.purge_everything);
 
   if (!hasHosts && !isEverything) {
-    throw new Error('Forneça `hosts` ou `purge_everything: true` para o purge_cache.')
+    throw new Error('Forneça `hosts` ou `purge_everything: true` para o purge_cache.');
   }
 
-  const payload: Record<string, unknown> = {}
+  const payload: Record<string, unknown> = {};
   if (hasHosts) {
-    payload.hosts = options.hosts
+    payload.hosts = options.hosts;
   }
   if (isEverything) {
-    payload.purge_everything = true
+    payload.purge_everything = true;
   }
 
-  const token = env.CLOUDFLARE_CACHE?.trim()
+  const token = env.CLOUDFLARE_CACHE?.trim();
 
   if (!token) {
-    throw new Error('Token global ausente no runtime para Zone.CachePurge (configure CLOUDFLARE_CACHE).')
+    throw new Error('Token global ausente no runtime para Zone.CachePurge (configure CLOUDFLARE_CACHE).');
   }
 
   const result = await cloudflareRequest<Record<string, unknown>>(
@@ -1009,7 +1043,7 @@ export const purgeCloudflareZoneCache = async (
       body: JSON.stringify(payload),
     },
     token,
-  )
+  );
 
-  return result
-}
+  return result;
+};

@@ -1,5 +1,24 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!dist",
+      "!_cf_functions_build",
+      "!out",
+      "!functions",
+      "!public",
+      "!docs",
+      "!db",
+      "!scripts",
+      "!e2e",
+      "!tlsrpt-motor",
+      "!.tmp",
+      "!.wrangler",
+      "!**/.wrangler",
+      "!admin-motor/.wrangler"
+    ]
+  },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
@@ -11,6 +30,9 @@
       },
       "correctness": {
         "noUndeclaredVariables": "off"
+      },
+      "style": {
+        "noDescendingSpecificity": "off"
       }
     }
   },

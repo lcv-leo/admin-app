@@ -1,58 +1,61 @@
-import { ensureOperationalTables } from '../../../../../functions/api/_lib/operational'
-import type { D1Database } from '../../../../../functions/api/_lib/operational'
-import { createResponseTrace } from '../../../../../functions/api/_lib/request-trace'
+import type { D1Database } from '../../../../../functions/api/_lib/operational';
+import { ensureOperationalTables } from '../../../../../functions/api/_lib/operational';
+import { createResponseTrace } from '../../../../../functions/api/_lib/request-trace';
 
 type Env = {
-  BIGDATA_DB?: D1Database
-}
+  BIGDATA_DB?: D1Database;
+};
 
 type Context = {
-  request: Request
-  env: Env
-}
+  request: Request;
+  env: Env;
+};
 
 type EventAggRow = {
-  module?: string
-  total_events?: number
-  fallback_events?: number
-  error_events?: number
-  last_source?: string
-  last_ok?: number
-}
+  module?: string;
+  total_events?: number;
+  fallback_events?: number;
+  error_events?: number;
+  last_source?: string;
+  last_ok?: number;
+};
 
 type SyncAggRow = {
-  module?: string
-  total_runs?: number
-  success_runs?: number
-  error_runs?: number
-  last_status?: string
-  last_finished_at?: number | null
-}
+  module?: string;
+  total_runs?: number;
+  success_runs?: number;
+  error_runs?: number;
+  last_status?: string;
+  last_finished_at?: number | null;
+};
 
 const toResponseHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
-})
+});
 
 export async function onRequestGet(context: Context) {
   const env = context.env;
-  const trace = createResponseTrace(context.request)
+  const trace = createResponseTrace(context.request);
 
   if (!env.BIGDATA_DB) {
-    return new Response(JSON.stringify({
-      ok: true,
-      ...trace,
-      source: 'no-bigdata-binding',
-      modules: [],
-      sync: [],
-      generatedAt: Date.now(),
-    }), { headers: toResponseHeaders() })
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        ...trace,
+        source: 'no-bigdata-binding',
+        modules: [],
+        sync: [],
+        generatedAt: Date.now(),
+      }),
+      { headers: toResponseHeaders() },
+    );
   }
 
   try {
-    await ensureOperationalTables(env.BIGDATA_DB)
+    await ensureOperationalTables(env.BIGDATA_DB);
 
-    const since = Date.now() - (24 * 60 * 60 * 1000)
+    const since = Date.now() - 24 * 60 * 60 * 1000;
 
     const eventsAgg = await env.BIGDATA_DB.prepare(`
       SELECT
@@ -66,7 +69,9 @@ export async function onRequestGet(context: Context) {
       WHERE created_at >= ?
       GROUP BY module
       ORDER BY module ASC
-    `).bind(since).all<EventAggRow>()
+    `)
+      .bind(since)
+      .all<EventAggRow>();
 
     const syncAgg = await env.BIGDATA_DB.prepare(`
       SELECT
@@ -79,7 +84,7 @@ export async function onRequestGet(context: Context) {
       FROM adminapp_sync_runs s1
       GROUP BY module
       ORDER BY module ASC
-    `).all<SyncAggRow>()
+    `).all<SyncAggRow>();
 
     const modules = (eventsAgg.results ?? []).map((row) => ({
       module: String(row.module ?? 'unknown'),
@@ -88,7 +93,7 @@ export async function onRequestGet(context: Context) {
       errorEvents24h: Number(row.error_events ?? 0),
       lastSource: String(row.last_source ?? 'unknown'),
       lastOk: Number(row.last_ok ?? 0) === 1,
-    }))
+    }));
 
     const sync = (syncAgg.results ?? []).map((row) => ({
       module: String(row.module ?? 'unknown'),
@@ -97,28 +102,34 @@ export async function onRequestGet(context: Context) {
       errorRuns: Number(row.error_runs ?? 0),
       lastStatus: String(row.last_status ?? 'none'),
       lastFinishedAt: Number.isFinite(Number(row.last_finished_at)) ? Number(row.last_finished_at) : null,
-    }))
+    }));
 
-    return new Response(JSON.stringify({
-      ok: true,
-      ...trace,
-      source: 'bigdata_db',
-      generatedAt: Date.now(),
-      modules,
-      sync,
-    }), { headers: toResponseHeaders() })
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        ...trace,
+        source: 'bigdata_db',
+        generatedAt: Date.now(),
+        modules,
+        sync,
+      }),
+      { headers: toResponseHeaders() },
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Erro operacional desconhecido'
-    return new Response(JSON.stringify({
-      ok: false,
-      ...trace,
-      error: message,
-      modules: [],
-      sync: [],
-      generatedAt: Date.now(),
-    }), {
-      status: 500,
-      headers: toResponseHeaders(),
-    })
+    const message = error instanceof Error ? error.message : 'Erro operacional desconhecido';
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        ...trace,
+        error: message,
+        modules: [],
+        sync: [],
+        generatedAt: Date.now(),
+      }),
+      {
+        status: 500,
+        headers: toResponseHeaders(),
+      },
+    );
   }
 }

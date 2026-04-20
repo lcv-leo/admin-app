@@ -1,6 +1,6 @@
 /**
  * Design System - CSS Variables
- * 
+ *
  * Centralized design tokens for:
  * - Colors (brand, status, semantic) — Google Standard Palette
  * - Typography (sizes, weights, family)
@@ -8,7 +8,7 @@
  * - Border radius (component sizes)
  * - Shadows (elevation levels)
  * - Backdrop filters (glassmorphism)
- * 
+ *
  * Usage in components:
  * ```css
  * .button {
@@ -84,7 +84,8 @@
   /* ====================================================================== */
 
   /* Font Family */
-  --font-family-base: 'Google Sans', 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family-base:
+    "Google Sans", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-family-mono: ui-monospace, "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace;
 
   /* Font Sizes */

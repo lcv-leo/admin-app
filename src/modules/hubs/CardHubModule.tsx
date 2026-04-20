@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { HubCardsModule } from './HubCardsModule'
+import { HubCardsModule } from './HubCardsModule';
 
 /**
  * Card Hub — Painel unificado que empilha AdminHub e AppHub verticalmente.
@@ -27,5 +27,5 @@ export function CardHubModule() {
         adminActorFieldName="apphubAdminActor"
       />
     </div>
-  )
+  );
 }

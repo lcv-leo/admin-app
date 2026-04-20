@@ -1,77 +1,84 @@
-import { logModuleOperationalEvent } from '../_lib/operational'
-import { createResponseTrace } from '../_lib/request-trace'
-import { getCloudflareDnsSnapshot } from '../_lib/cloudflare-api'
+import { getCloudflareDnsSnapshot } from '../_lib/cloudflare-api';
+import { logModuleOperationalEvent } from '../_lib/operational';
+import { createResponseTrace } from '../_lib/request-trace';
 
 type PolicyResponse = {
-  savedPolicy: string | null
-  savedEmail: string | null
-  dnsTlsRptEmail: string | null
-  dnsMtaStsId: string | null
-  lastGeneratedId: string | null
-  mxRecords: string[]
-}
+  savedPolicy: string | null;
+  savedEmail: string | null;
+  dnsTlsRptEmail: string | null;
+  dnsMtaStsId: string | null;
+  lastGeneratedId: string | null;
+  mxRecords: string[];
+};
 
 type Context = {
-  request: Request
+  request: Request;
   env: {
-    BIGDATA_DB?: D1Database
-    CLOUDFLARE_DNS?: string
-    }
-}
+    BIGDATA_DB?: D1Database;
+    CLOUDFLARE_DNS?: string;
+  };
+};
 
 type D1PreparedStatement = {
-  bind: (...values: Array<string | number | null>) => D1PreparedStatement
-  first: <T>() => Promise<T | null>
-  all: <T>() => Promise<{ results?: T[] }>
-  run: () => Promise<unknown>
-}
+  bind: (...values: Array<string | number | null>) => D1PreparedStatement;
+  first: <T>() => Promise<T | null>;
+  all: <T>() => Promise<{ results?: T[] }>;
+  run: () => Promise<unknown>;
+};
 
 type D1Database = {
-  prepare: (query: string) => D1PreparedStatement
-}
+  prepare: (query: string) => D1PreparedStatement;
+};
 
 type DbPolicyRow = {
-  policy_text?: string | null
-  tlsrpt_email?: string | null
-}
+  policy_text?: string | null;
+  tlsrpt_email?: string | null;
+};
 
 type DbHistoryRow = {
-  gerado_em?: string | null
-}
+  gerado_em?: string | null;
+};
 
-const normalizeDomain = (rawValue: string | null) => String(rawValue ?? '').trim().toLowerCase()
+const normalizeDomain = (rawValue: string | null) =>
+  String(rawValue ?? '')
+    .trim()
+    .toLowerCase();
 
 const toHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
-})
+});
 
-const toError = (message: string, trace: { request_id: string; timestamp: string }, status = 500) => new Response(JSON.stringify({
-  ok: false,
-  ...trace,
-  error: message,
-}), {
-  status,
-  headers: toHeaders(),
-})
+const toError = (message: string, trace: { request_id: string; timestamp: string }, status = 500) =>
+  new Response(
+    JSON.stringify({
+      ok: false,
+      ...trace,
+      error: message,
+    }),
+    {
+      status,
+      headers: toHeaders(),
+    },
+  );
 
 export async function onRequestGet(context: Context) {
-  const trace = createResponseTrace(context.request)
-  const url = new URL(context.request.url)
-  const domain = normalizeDomain(url.searchParams.get('domain'))
-  const zoneId = String(url.searchParams.get('zoneId') ?? '').trim()
-  console.debug('[mtasts/policy] request:start', { domain, zoneId })
+  const trace = createResponseTrace(context.request);
+  const url = new URL(context.request.url);
+  const domain = normalizeDomain(url.searchParams.get('domain'));
+  const zoneId = String(url.searchParams.get('zoneId') ?? '').trim();
+  console.debug('[mtasts/policy] request:start', { domain, zoneId });
 
   if (!domain || !zoneId) {
-    return toError('Parâmetros domain e zoneId são obrigatórios.', trace, 400)
+    return toError('Parâmetros domain e zoneId são obrigatórios.', trace, 400);
   }
 
   try {
-    const dnsSnapshot = await getCloudflareDnsSnapshot(((context as any).data?.env || context.env), domain, zoneId)
+    const dnsSnapshot = await getCloudflareDnsSnapshot((context as any).data?.env || context.env, domain, zoneId);
 
-    let savedPolicy: string | null = null
-    let savedEmail: string | null = null
-    let lastGeneratedId: string | null = null
+    let savedPolicy: string | null = null;
+    let savedEmail: string | null = null;
+    let lastGeneratedId: string | null = null;
 
     if (((context as any).data?.env || context.env).BIGDATA_DB) {
       const policyRow = await ((context as any).data?.env || context.env).BIGDATA_DB.prepare(`
@@ -81,7 +88,7 @@ export async function onRequestGet(context: Context) {
         LIMIT 1
       `)
         .bind(domain)
-        .first<DbPolicyRow>()
+        .first<DbPolicyRow>();
 
       const historyRow = await ((context as any).data?.env || context.env).BIGDATA_DB.prepare(`
         SELECT gerado_em
@@ -91,11 +98,11 @@ export async function onRequestGet(context: Context) {
         LIMIT 1
       `)
         .bind(domain)
-        .first<DbHistoryRow>()
+        .first<DbHistoryRow>();
 
-      savedPolicy = typeof policyRow?.policy_text === 'string' ? policyRow.policy_text : null
-      savedEmail = typeof policyRow?.tlsrpt_email === 'string' ? policyRow.tlsrpt_email.trim().toLowerCase() : null
-      lastGeneratedId = typeof historyRow?.gerado_em === 'string' ? historyRow.gerado_em.trim() : null
+      savedPolicy = typeof policyRow?.policy_text === 'string' ? policyRow.policy_text : null;
+      savedEmail = typeof policyRow?.tlsrpt_email === 'string' ? policyRow.tlsrpt_email.trim().toLowerCase() : null;
+      lastGeneratedId = typeof historyRow?.gerado_em === 'string' ? historyRow.gerado_em.trim() : null;
     }
 
     const mapped: PolicyResponse = {
@@ -105,7 +112,7 @@ export async function onRequestGet(context: Context) {
       dnsMtaStsId: dnsSnapshot.dnsMtaStsId,
       lastGeneratedId,
       mxRecords: dnsSnapshot.mxRecords,
-    }
+    };
 
     if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
@@ -120,28 +127,31 @@ export async function onRequestGet(context: Context) {
             domain,
             hasSavedPolicy: Boolean(mapped.savedPolicy),
           },
-        })
+        });
       } catch {
         // Telemetria não deve bloquear resposta.
       }
     }
 
-    return new Response(JSON.stringify({
-      ok: true,
-      ...trace,
-      domain,
-      zoneId,
-      policy: mapped,
-    }), {
-      headers: toHeaders(),
-    })
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        ...trace,
+        domain,
+        zoneId,
+        policy: mapped,
+      }),
+      {
+        headers: toHeaders(),
+      },
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Falha ao carregar policy do domínio'
+    const message = error instanceof Error ? error.message : 'Falha ao carregar policy do domínio';
     console.error('[mtasts/policy] request:error', {
       domain,
       zoneId,
       error: message,
-    })
+    });
 
     if (((context as any).data?.env || context.env).BIGDATA_DB) {
       try {
@@ -156,14 +166,14 @@ export async function onRequestGet(context: Context) {
             provider: 'cloudflare-api',
             domain,
           },
-        })
+        });
       } catch {
         // Telemetria não deve bloquear resposta.
       }
     }
 
-    return toError(message, trace, 502)
+    return toError(message, trace, 502);
   } finally {
-    console.info('[mtasts/policy] request:end', { domain, zoneId })
+    console.info('[mtasts/policy] request:end', { domain, zoneId });
   }
 }

@@ -1,88 +1,93 @@
-import { finishSyncRun, logModuleOperationalEvent, startSyncRun } from '../../../../../functions/api/_lib/operational'
-import type { D1Database } from '../../../../../functions/api/_lib/operational'
-import { getCloudflareDnsSnapshot, listCloudflareZones } from '../../../../../functions/api/_lib/cloudflare-api'
+import { getCloudflareDnsSnapshot, listCloudflareZones } from '../../../../../functions/api/_lib/cloudflare-api';
+import type { D1Database } from '../../../../../functions/api/_lib/operational';
+import { finishSyncRun, logModuleOperationalEvent, startSyncRun } from '../../../../../functions/api/_lib/operational';
 
 type Env = {
-  BIGDATA_DB?: D1Database
-  CLOUDFLARE_DNS?: string
-  }
+  BIGDATA_DB?: D1Database;
+  CLOUDFLARE_DNS?: string;
+};
 
 type Context = {
-  request: Request
-  env: Env
-}
+  request: Request;
+  env: Env;
+};
 
 type HistoryRow = {
-  gerado_em?: string
-  domain?: string | null
-}
+  gerado_em?: string;
+  domain?: string | null;
+};
 
 type PolicyRow = {
-  domain: string
-  policy_text?: string | null
-  tlsrpt_email?: string | null
-}
+  domain: string;
+  policy_text?: string | null;
+  tlsrpt_email?: string | null;
+};
 
 const toHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
-})
+});
 
 export async function onRequestPost(context: Context) {
   const env = context.env;
 
   if (!env.BIGDATA_DB) {
-    return new Response(JSON.stringify({
-      ok: false,
-      error: 'BIGDATA_DB não configurado no runtime.',
-    }), {
-      status: 503,
-      headers: toHeaders(),
-    })
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: 'BIGDATA_DB não configurado no runtime.',
+      }),
+      {
+        status: 503,
+        headers: toHeaders(),
+      },
+    );
   }
 
-  const startedAt = Date.now()
+  const startedAt = Date.now();
   const syncRunId = await startSyncRun(env.BIGDATA_DB, {
     module: 'mtasts',
     status: 'running',
     startedAt,
     metadata: {},
-  })
+  });
 
   try {
     const [zones, historyRowsRaw, policyRowsRaw] = await Promise.all([
       listCloudflareZones(env),
       env.BIGDATA_DB.prepare('SELECT gerado_em, domain FROM mtasts_history ORDER BY id DESC').all<HistoryRow>(),
       env.BIGDATA_DB.prepare('SELECT domain, policy_text, tlsrpt_email FROM mtasts_mta_sts_policies').all<PolicyRow>(),
-    ])
+    ]);
 
     const historyRows = (historyRowsRaw.results ?? [])
       .map((row) => ({
         geradoEm: String(row.gerado_em ?? '').trim(),
         domain: row.domain == null ? null : String(row.domain).trim().toLowerCase(),
       }))
-      .filter((row) => row.geradoEm)
+      .filter((row) => row.geradoEm);
 
     const policyByDomain = new Map(
       (policyRowsRaw.results ?? [])
         .map((row) => ({
-          domain: String(row.domain ?? '').trim().toLowerCase(),
+          domain: String(row.domain ?? '')
+            .trim()
+            .toLowerCase(),
           policyText: String(row.policy_text ?? '').trim(),
           tlsrptEmail: row.tlsrpt_email == null ? null : String(row.tlsrpt_email).trim().toLowerCase(),
         }))
         .filter((row) => row.domain && row.policyText)
         .map((row) => [row.domain, row] as const),
-    )
+    );
 
     const dnsSnapshots = await Promise.all(
       zones.map(async (zone) => ({
         zone,
         dns: await getCloudflareDnsSnapshot(env, zone.name, zone.id),
       })),
-    )
+    );
 
-    let historyUpserted = 0
-    let policiesUpserted = 0
+    let historyUpserted = 0;
+    let policiesUpserted = 0;
 
     for (const row of historyRows) {
       await env.BIGDATA_DB.prepare(`
@@ -92,18 +97,18 @@ export async function onRequestPost(context: Context) {
           domain = excluded.domain
       `)
         .bind(row.geradoEm, row.domain)
-        .run()
+        .run();
 
-      historyUpserted += 1
+      historyUpserted += 1;
     }
 
     for (const item of dnsSnapshots) {
-      const domain = item.zone.name
-      const existing = policyByDomain.get(domain)
-      const policyText = existing?.policyText
+      const domain = item.zone.name;
+      const existing = policyByDomain.get(domain);
+      const policyText = existing?.policyText;
 
       if (!policyText) {
-        continue
+        continue;
       }
 
       await env.BIGDATA_DB.prepare(`
@@ -115,13 +120,13 @@ export async function onRequestPost(context: Context) {
           updated_at = CURRENT_TIMESTAMP
       `)
         .bind(domain, policyText, item.dns.dnsTlsRptEmail ?? existing.tlsrptEmail)
-        .run()
+        .run();
 
-      policiesUpserted += 1
+      policiesUpserted += 1;
     }
 
-    const recordsRead = historyRows.length + dnsSnapshots.length
-    const recordsUpserted = historyUpserted + policiesUpserted
+    const recordsRead = historyRows.length + dnsSnapshots.length;
+    const recordsUpserted = historyUpserted + policiesUpserted;
 
     await finishSyncRun(env.BIGDATA_DB, {
       id: syncRunId,
@@ -129,7 +134,7 @@ export async function onRequestPost(context: Context) {
       finishedAt: Date.now(),
       recordsRead,
       recordsUpserted,
-    })
+    });
 
     await logModuleOperationalEvent(env.BIGDATA_DB, {
       module: 'mtasts',
@@ -146,29 +151,32 @@ export async function onRequestPost(context: Context) {
         policiesUpserted: policiesUpserted,
         zonesAuditadas: zones.length,
       },
-    })
+    });
 
-    return new Response(JSON.stringify({
-      ok: true,
-      syncRunId,
-      recordsRead,
-      recordsUpserted,
-      history: {
-        lidos: historyRows.length,
-        upserted: historyUpserted,
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        syncRunId,
+        recordsRead,
+        recordsUpserted,
+        history: {
+          lidos: historyRows.length,
+          upserted: historyUpserted,
+        },
+        policies: {
+          lidas: dnsSnapshots.length,
+          upserted: policiesUpserted,
+        },
+        zonesAuditadas: zones.length,
+        startedAt,
+        finishedAt: Date.now(),
+      }),
+      {
+        headers: toHeaders(),
       },
-      policies: {
-        lidas: dnsSnapshots.length,
-        upserted: policiesUpserted,
-      },
-      zonesAuditadas: zones.length,
-      startedAt,
-      finishedAt: Date.now(),
-    }), {
-      headers: toHeaders(),
-    })
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Falha inesperada no sync do MTA-STS'
+    const message = error instanceof Error ? error.message : 'Falha inesperada no sync do MTA-STS';
 
     await finishSyncRun(env.BIGDATA_DB, {
       id: syncRunId,
@@ -177,7 +185,7 @@ export async function onRequestPost(context: Context) {
       recordsRead: 0,
       recordsUpserted: 0,
       errorMessage: message,
-    })
+    });
 
     await logModuleOperationalEvent(env.BIGDATA_DB, {
       module: 'mtasts',
@@ -190,15 +198,18 @@ export async function onRequestPost(context: Context) {
         pulledFrom: 'cloudflare-api+d1',
         provider: 'cloudflare-api',
       },
-    })
+    });
 
-    return new Response(JSON.stringify({
-      ok: false,
-      error: message,
-      syncRunId,
-    }), {
-      status: 500,
-      headers: toHeaders(),
-    })
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: message,
+        syncRunId,
+      }),
+      {
+        status: 500,
+        headers: toHeaders(),
+      },
+    );
   }
 }

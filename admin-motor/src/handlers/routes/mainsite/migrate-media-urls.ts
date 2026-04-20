@@ -8,54 +8,52 @@
  */
 
 interface Env {
-  BIGDATA_DB: D1Database
-  [key: string]: unknown
+  BIGDATA_DB: D1Database;
+  [key: string]: unknown;
 }
 
 interface PostRow {
-  id: number
-  content: string
+  id: number;
+  content: string;
 }
 
-const EXTERNAL_MEDIA_PATTERN = /https:\/\/mainsite-app\.lcv\.rio\.br\/api\/uploads\//g
-const INTERNAL_MEDIA_PREFIX = '/api/mainsite/media/'
+const EXTERNAL_MEDIA_PATTERN = /https:\/\/mainsite-app\.lcv\.rio\.br\/api\/uploads\//g;
+const INTERNAL_MEDIA_PREFIX = '/api/mainsite/media/';
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-  const db = ((context as any).data?.env || context.env).BIGDATA_DB
+  const db = ((context as any).data?.env || context.env).BIGDATA_DB;
   if (!db) {
-    return Response.json({ ok: false, error: 'BIGDATA_DB não configurado.' }, { status: 503 })
+    return Response.json({ ok: false, error: 'BIGDATA_DB não configurado.' }, { status: 503 });
   }
 
   try {
-    const { results } = await db.prepare(
-      "SELECT id, content FROM mainsite_posts WHERE content LIKE '%mainsite-app.lcv.rio.br/api/uploads/%'"
-    ).all<PostRow>()
+    const { results } = await db
+      .prepare("SELECT id, content FROM mainsite_posts WHERE content LIKE '%mainsite-app.lcv.rio.br/api/uploads/%'")
+      .all<PostRow>();
 
-    const posts = results ?? []
+    const posts = results ?? [];
 
     if (posts.length === 0) {
       return Response.json({
         ok: true,
         message: 'Nenhum post contém URLs externas de mídia. Nada a migrar.',
         postsAffected: 0,
-      })
+      });
     }
 
-    const migrated: Array<{ id: number; replacements: number }> = []
+    const migrated: Array<{ id: number; replacements: number }> = [];
 
     for (const post of posts) {
-      const matches = post.content.match(EXTERNAL_MEDIA_PATTERN)
-      const replacements = matches ? matches.length : 0
+      const matches = post.content.match(EXTERNAL_MEDIA_PATTERN);
+      const replacements = matches ? matches.length : 0;
 
-      if (replacements === 0) continue
+      if (replacements === 0) continue;
 
-      const newContent = post.content.replace(EXTERNAL_MEDIA_PATTERN, INTERNAL_MEDIA_PREFIX)
+      const newContent = post.content.replace(EXTERNAL_MEDIA_PATTERN, INTERNAL_MEDIA_PREFIX);
 
-      await db.prepare(
-        'UPDATE mainsite_posts SET content = ? WHERE id = ?'
-      ).bind(newContent, post.id).run()
+      await db.prepare('UPDATE mainsite_posts SET content = ? WHERE id = ?').bind(newContent, post.id).run();
 
-      migrated.push({ id: post.id, replacements })
+      migrated.push({ id: post.id, replacements });
     }
 
     return Response.json({
@@ -63,9 +61,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       postsAffected: migrated.length,
       totalReplacements: migrated.reduce((sum, m) => sum + m.replacements, 0),
       details: migrated,
-    })
+    });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Erro desconhecido na migração.'
-    return Response.json({ ok: false, error: message }, { status: 500 })
+    const message = err instanceof Error ? err.message : 'Erro desconhecido na migração.';
+    return Response.json({ ok: false, error: message }, { status: 500 });
   }
-}
+};

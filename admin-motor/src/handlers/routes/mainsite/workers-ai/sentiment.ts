@@ -13,13 +13,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const response = await ((context as any).data?.env || context.env).AI.run('@cf/huggingface/distilbert-sst-2-int8', {
-      text: data.text
+      text: data.text,
     });
 
     return new Response(JSON.stringify({ ok: true, sentiment: response }), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }), { status: 500 });
+    return new Response(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }), {
+      status: 500,
+    });
   }
 };

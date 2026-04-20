@@ -1,9 +1,9 @@
 import {
-  resolveCloudflarePwAccount,
-  listCloudflarePagesProjects,
-  listCloudflarePagesDeployments,
   deleteCloudflarePagesDeployment,
   getCloudflarePagesProject,
+  listCloudflarePagesDeployments,
+  listCloudflarePagesProjects,
+  resolveCloudflarePwAccount,
 } from '../../../functions/api/_lib/cfpw-api';
 
 type CleanupEnv = {
@@ -46,16 +46,22 @@ const TARGET_BRANCHES = new Set(['production', 'main', 'preview']);
 const getDeploymentBranch = (deployment: {
   deployment_trigger?: { metadata?: { branch?: string; commit_ref?: string } };
 }) => {
-  const byBranch = String(deployment.deployment_trigger?.metadata?.branch ?? '').trim().toLowerCase();
+  const byBranch = String(deployment.deployment_trigger?.metadata?.branch ?? '')
+    .trim()
+    .toLowerCase();
   if (byBranch) return byBranch;
-  return String(deployment.deployment_trigger?.metadata?.commit_ref ?? '').trim().toLowerCase();
+  return String(deployment.deployment_trigger?.metadata?.commit_ref ?? '')
+    .trim()
+    .toLowerCase();
 };
 
 const isInCleanupScope = (deployment: {
   environment?: string;
   deployment_trigger?: { metadata?: { branch?: string; commit_ref?: string } };
 }) => {
-  const environment = String(deployment.environment ?? '').trim().toLowerCase();
+  const environment = String(deployment.environment ?? '')
+    .trim()
+    .toLowerCase();
   if (environment === 'preview') return true;
   return TARGET_BRANCHES.has(getDeploymentBranch(deployment));
 };
@@ -64,7 +70,9 @@ const isPreviewDeployment = (deployment: {
   environment?: string;
   deployment_trigger?: { metadata?: { branch?: string; commit_ref?: string } };
 }) => {
-  const environment = String(deployment.environment ?? '').trim().toLowerCase();
+  const environment = String(deployment.environment ?? '')
+    .trim()
+    .toLowerCase();
   if (environment === 'preview') return true;
   return getDeploymentBranch(deployment) === 'preview';
 };
@@ -146,12 +154,11 @@ export const handleCleanupDeploymentsGet = async (context: CleanupContext) => {
 
           const activeForDisplayId = Array.from(protectedIds)[0] ?? '';
           const latestForDisplay = activeForDisplayId
-            ? scopedDeployments.find((d) => String(d.id) === activeForDisplayId) ?? scopedDeployments[0] ?? null
-            : scopedDeployments[0] ?? null;
+            ? (scopedDeployments.find((d) => String(d.id) === activeForDisplayId) ?? scopedDeployments[0] ?? null)
+            : (scopedDeployments[0] ?? null);
 
-          const obsolete = protectedIds.size > 0
-            ? scopedDeployments.filter((d) => !protectedIds.has(String(d.id ?? '')))
-            : [];
+          const obsolete =
+            protectedIds.size > 0 ? scopedDeployments.filter((d) => !protectedIds.has(String(d.id ?? ''))) : [];
 
           totalDeployments += scopedDeployments.length;
           totalObsolete += obsolete.length;
@@ -218,7 +225,10 @@ export const handleCleanupDeploymentsPost = async (context: CleanupContext) => {
 
     const target = deployments.find((d) => String(d.id ?? '').trim() === deploymentId);
     if (!target) {
-      return jsonResponse({ error: `Deployment ${deploymentId} não encontrado no projeto ${projectName}.`, ok: false }, 404);
+      return jsonResponse(
+        { error: `Deployment ${deploymentId} não encontrado no projeto ${projectName}.`, ok: false },
+        404,
+      );
     }
 
     if (!isInCleanupScope(target)) {

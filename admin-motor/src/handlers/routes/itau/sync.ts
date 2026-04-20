@@ -1,82 +1,82 @@
-import { finishSyncRun, logModuleOperationalEvent, startSyncRun } from '../../../../../functions/api/_lib/operational'
-import type { D1Database } from '../../../../../functions/api/_lib/operational'
+import type { D1Database } from '../../../../../functions/api/_lib/operational';
+import { finishSyncRun, logModuleOperationalEvent, startSyncRun } from '../../../../../functions/api/_lib/operational';
 
 type CalculadoraObservabilidadeSourceRow = {
-  created_at?: number
-  status?: string
-  from_cache?: number | boolean
-  force_refresh?: number | boolean
-  duration_ms?: number | null
-  moeda?: string | null
-  valor_original?: number | null
-  preview?: string | null
-  error_message?: string | null
-}
+  created_at?: number;
+  status?: string;
+  from_cache?: number | boolean;
+  force_refresh?: number | boolean;
+  duration_ms?: number | null;
+  moeda?: string | null;
+  valor_original?: number | null;
+  preview?: string | null;
+  error_message?: string | null;
+};
 
 type CalculadoraRateLimitSourceRow = {
-  route_key?: string
-  enabled?: number | boolean
-  max_requests?: number
-  window_minutes?: number
-  updated_at?: number
-  updated_by?: string | null
-}
+  route_key?: string;
+  enabled?: number | boolean;
+  max_requests?: number;
+  window_minutes?: number;
+  updated_at?: number;
+  updated_by?: string | null;
+};
 
 type Env = {
-  BIGDATA_DB?: D1Database
-}
+  BIGDATA_DB?: D1Database;
+};
 
 type Context = {
-  request: Request
-  env: Env
-}
+  request: Request;
+  env: Env;
+};
 
 type ObservabilidadeRow = {
-  createdAt: number
-  status: string
-  fromCache: number
-  forceRefresh: number
-  durationMs: number | null
-  moeda: string | null
-  valorOriginal: number | null
-  preview: string | null
-  errorMessage: string | null
-  appVersion: string
-}
+  createdAt: number;
+  status: string;
+  fromCache: number;
+  forceRefresh: number;
+  durationMs: number | null;
+  moeda: string | null;
+  valorOriginal: number | null;
+  preview: string | null;
+  errorMessage: string | null;
+  appVersion: string;
+};
 
 type RateLimitPolicyRow = {
-  routeKey: string
-  enabled: number
-  maxRequests: number
-  windowMinutes: number
-  updatedAt: number
-  updatedBy: string | null
-}
+  routeKey: string;
+  enabled: number;
+  maxRequests: number;
+  windowMinutes: number;
+  updatedAt: number;
+  updatedBy: string | null;
+};
 
 const parseLimit = (rawValue: string | null) => {
-  const parsed = Number.parseInt(rawValue ?? '300', 10)
+  const parsed = Number.parseInt(rawValue ?? '300', 10);
   if (!Number.isFinite(parsed)) {
-    return 300
+    return 300;
   }
-  return Math.min(1000, Math.max(1, parsed))
-}
+  return Math.min(1000, Math.max(1, parsed));
+};
 
 const toHeaders = () => ({
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
-})
+});
 
 const parseObservabilidadeRows = (sourceRows: CalculadoraObservabilidadeSourceRow[], limit: number): ObservabilidadeRow[] => {
-  const source = Array.isArray(sourceRows) ? sourceRows : []
+  const source = Array.isArray(sourceRows) ? sourceRows : [];
 
-  const rows: ObservabilidadeRow[] = []
+  const rows: ObservabilidadeRow[] = [];
 
   for (const item of source.slice(0, limit)) {
-    const createdAt = Number(item.created_at)
-    const status = String(item.status ?? '').trim()
+    const createdAt = Number(item.created_at);
+    const status = String(item.status ?? '').trim();
 
     if (!Number.isFinite(createdAt) || !status) {
-      continue
+      continue;
     }
 
     rows.push({
@@ -88,27 +88,30 @@ const parseObservabilidadeRows = (sourceRows: CalculadoraObservabilidadeSourceRo
       moeda: typeof item.moeda === 'string' && item.moeda.trim().length > 0 ? item.moeda.trim().toUpperCase() : null,
       valorOriginal: Number.isFinite(Number(item.valor_original)) ? Number(item.valor_original) : null,
       preview: typeof item.preview === 'string' && item.preview.trim().length > 0 ? item.preview.trim() : null,
-      errorMessage: typeof item.error_message === 'string' && item.error_message.trim().length > 0 ? item.error_message.trim() : null,
+      errorMessage:
+        typeof item.error_message === 'string' && item.error_message.trim().length > 0
+          ? item.error_message.trim()
+          : null,
       appVersion: 'legacy-sync',
-    })
+    });
   }
 
-  return rows
-}
+  return rows;
+};
 
 const parseRateLimitPolicies = (sourceRows: CalculadoraRateLimitSourceRow[]): RateLimitPolicyRow[] => {
-  const source = Array.isArray(sourceRows) ? sourceRows : []
-  const now = Date.now()
+  const source = Array.isArray(sourceRows) ? sourceRows : [];
+  const now = Date.now();
 
   return source
     .map((item) => {
-      const routeKey = String(item.route_key ?? '').trim()
-      const maxRequests = Number(item.max_requests)
-      const windowMinutes = Number(item.window_minutes)
-      const updatedAt = Number(item.updated_at)
+      const routeKey = String(item.route_key ?? '').trim();
+      const maxRequests = Number(item.max_requests);
+      const windowMinutes = Number(item.window_minutes);
+      const updatedAt = Number(item.updated_at);
 
       if (!routeKey || !Number.isFinite(maxRequests) || !Number.isFinite(windowMinutes)) {
-        return null
+        return null;
       }
 
       return {
@@ -117,14 +120,16 @@ const parseRateLimitPolicies = (sourceRows: CalculadoraRateLimitSourceRow[]): Ra
         maxRequests: Math.max(1, Math.trunc(maxRequests)),
         windowMinutes: Math.max(1, Math.trunc(windowMinutes)),
         updatedAt: Number.isFinite(updatedAt) ? Math.trunc(updatedAt) : now,
-        updatedBy: typeof item.updated_by === 'string' && item.updated_by.trim().length > 0 ? item.updated_by.trim() : null,
-      }
+        updatedBy:
+          typeof item.updated_by === 'string' && item.updated_by.trim().length > 0 ? item.updated_by.trim() : null,
+      };
     })
-    .filter((item): item is RateLimitPolicyRow => item !== null)
-}
+    .filter((item): item is RateLimitPolicyRow => item !== null);
+};
 
 const existsObservabilidade = async (db: D1Database, row: ObservabilidadeRow) => {
-  const existing = await db.prepare(`
+  const existing = await db
+    .prepare(`
     SELECT id
     FROM calc_oraculo_observabilidade
     WHERE
@@ -136,41 +141,42 @@ const existsObservabilidade = async (db: D1Database, row: ObservabilidadeRow) =>
     LIMIT 1
   `)
     .bind(row.createdAt, row.status, row.moeda, row.preview, row.errorMessage)
-    .first<{ id?: number }>()
+    .first<{ id?: number }>();
 
-  return Number.isFinite(Number(existing?.id))
-}
+  return Number.isFinite(Number(existing?.id));
+};
 
 export async function onRequestPost(context: Context) {
   const { request } = context;
   const env = context.env;
 
   if (!env.BIGDATA_DB) {
-    return new Response(JSON.stringify({
-      ok: false,
-      error: 'BIGDATA_DB não configurado no runtime.',
-    }), {
-      status: 503,
-      headers: toHeaders(),
-    })
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: 'BIGDATA_DB não configurado no runtime.',
+      }),
+      {
+        status: 503,
+        headers: toHeaders(),
+      },
+    );
   }
 
+  const url = new URL(request.url);
+  const limit = parseLimit(url.searchParams.get('limit'));
 
-
-  const url = new URL(request.url)
-  const limit = parseLimit(url.searchParams.get('limit'))
-
-  const startedAt = Date.now()
+  const startedAt = Date.now();
   const syncRunId = await startSyncRun(env.BIGDATA_DB, {
     module: 'calculadora',
     status: 'running',
     startedAt,
     metadata: { limit },
-  })
+  });
 
   try {
     const [observSource, rateLimitSource] = await Promise.all([
-      env.BIGDATA_DB!.prepare(`
+      env.BIGDATA_DB?.prepare(`
         SELECT created_at, status, from_cache, force_refresh, duration_ms, moeda, valor_original, preview, error_message
         FROM calc_oraculo_observabilidade
         ORDER BY created_at DESC
@@ -178,23 +184,22 @@ export async function onRequestPost(context: Context) {
       `)
         .bind(limit)
         .all<CalculadoraObservabilidadeSourceRow>(),
-      env.BIGDATA_DB!.prepare(`
+      env.BIGDATA_DB?.prepare(`
         SELECT route_key, enabled, max_requests, window_minutes, updated_at, updated_by
         FROM calc_rate_limit_policies
-      `)
-        .all<CalculadoraRateLimitSourceRow>(),
-    ])
+      `).all<CalculadoraRateLimitSourceRow>(),
+    ]);
 
-    const observabilidadeRows = parseObservabilidadeRows(observSource.results ?? [], limit)
-    const rateLimitRows = parseRateLimitPolicies(rateLimitSource.results ?? [])
+    const observabilidadeRows = parseObservabilidadeRows(observSource.results ?? [], limit);
+    const rateLimitRows = parseRateLimitPolicies(rateLimitSource.results ?? []);
 
-    let observabilidadeInserted = 0
-    let rateLimitUpserted = 0
+    let observabilidadeInserted = 0;
+    let rateLimitUpserted = 0;
 
     for (const row of observabilidadeRows) {
-      const alreadyExists = await existsObservabilidade(env.BIGDATA_DB, row)
+      const alreadyExists = await existsObservabilidade(env.BIGDATA_DB, row);
       if (alreadyExists) {
-        continue
+        continue;
       }
 
       await env.BIGDATA_DB.prepare(`
@@ -224,9 +229,9 @@ export async function onRequestPost(context: Context) {
           row.errorMessage,
           row.appVersion,
         )
-        .run()
+        .run();
 
-      observabilidadeInserted += 1
+      observabilidadeInserted += 1;
     }
 
     for (const row of rateLimitRows) {
@@ -247,21 +252,14 @@ export async function onRequestPost(context: Context) {
           updated_at = excluded.updated_at,
           updated_by = excluded.updated_by
       `)
-        .bind(
-          row.routeKey,
-          row.enabled,
-          row.maxRequests,
-          row.windowMinutes,
-          row.updatedAt,
-          row.updatedBy,
-        )
-        .run()
+        .bind(row.routeKey, row.enabled, row.maxRequests, row.windowMinutes, row.updatedAt, row.updatedBy)
+        .run();
 
-      rateLimitUpserted += 1
+      rateLimitUpserted += 1;
     }
 
-    const recordsRead = observabilidadeRows.length + rateLimitRows.length
-    const recordsUpserted = observabilidadeInserted + rateLimitUpserted
+    const recordsRead = observabilidadeRows.length + rateLimitRows.length;
+    const recordsUpserted = observabilidadeInserted + rateLimitUpserted;
 
     await finishSyncRun(env.BIGDATA_DB, {
       id: syncRunId,
@@ -269,7 +267,7 @@ export async function onRequestPost(context: Context) {
       finishedAt: Date.now(),
       recordsRead,
       recordsUpserted,
-    })
+    });
 
     await logModuleOperationalEvent(env.BIGDATA_DB, {
       module: 'calculadora',
@@ -284,28 +282,31 @@ export async function onRequestPost(context: Context) {
         rateLimitLidas: rateLimitRows.length,
         rateLimitUpserted: rateLimitUpserted,
       },
-    })
+    });
 
-    return new Response(JSON.stringify({
-      ok: true,
-      syncRunId,
-      recordsRead,
-      recordsUpserted,
-      observabilidade: {
-        lidas: observabilidadeRows.length,
-        inseridas: observabilidadeInserted,
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        syncRunId,
+        recordsRead,
+        recordsUpserted,
+        observabilidade: {
+          lidas: observabilidadeRows.length,
+          inseridas: observabilidadeInserted,
+        },
+        rateLimit: {
+          lidas: rateLimitRows.length,
+          upserted: rateLimitUpserted,
+        },
+        startedAt,
+        finishedAt: Date.now(),
+      }),
+      {
+        headers: toHeaders(),
       },
-      rateLimit: {
-        lidas: rateLimitRows.length,
-        upserted: rateLimitUpserted,
-      },
-      startedAt,
-      finishedAt: Date.now(),
-    }), {
-      headers: toHeaders(),
-    })
+    );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Falha inesperada no sync da Calculadora'
+    const message = error instanceof Error ? error.message : 'Falha inesperada no sync da Calculadora';
 
     await finishSyncRun(env.BIGDATA_DB, {
       id: syncRunId,
@@ -314,7 +315,7 @@ export async function onRequestPost(context: Context) {
       recordsRead: 0,
       recordsUpserted: 0,
       errorMessage: message,
-    })
+    });
 
     await logModuleOperationalEvent(env.BIGDATA_DB, {
       module: 'calculadora',
@@ -326,15 +327,18 @@ export async function onRequestPost(context: Context) {
         action: 'sync',
         limit,
       },
-    })
+    });
 
-    return new Response(JSON.stringify({
-      ok: false,
-      error: message,
-      syncRunId,
-    }), {
-      status: 500,
-      headers: toHeaders(),
-    })
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: message,
+        syncRunId,
+      }),
+      {
+        status: 500,
+        headers: toHeaders(),
+      },
+    );
   }
 }

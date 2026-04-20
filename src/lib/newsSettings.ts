@@ -14,42 +14,42 @@
 
 export interface NewsSource {
   /** Identificador único (slug). Ex.: "g1", "cnn-brasil" */
-  id: string
+  id: string;
   /** Nome de exibição. Ex.: "G1", "CNN Brasil" */
-  name: string
+  name: string;
   /** URL completa do feed RSS/Atom. Ex.: "https://g1.globo.com/rss/g1/" */
-  url: string
+  url: string;
   /** Categoria livre. Ex.: "Brasil", "Tecnologia", "Economia" */
-  category: string
+  category: string;
 }
 
 export interface NewsSettings {
-  refreshMinutes: number
-  maxItems: number
+  refreshMinutes: number;
+  maxItems: number;
   /** IDs das fontes ativas (presentes em `sources`) */
-  enabledSources: string[]
-  keywords: string
+  enabledSources: string[];
+  keywords: string;
   /** Lista completa de fontes configuradas pelo usuário */
-  sources: NewsSource[]
+  sources: NewsSource[];
 }
 
-export const NEWS_STORAGE_KEY = 'lcv-news-settings'
+export const NEWS_STORAGE_KEY = 'lcv-news-settings';
 
 /** Fontes pré-configuradas (instalação inicial) */
 export const BUILTIN_SOURCES: NewsSource[] = [
-  { id: 'g1',         name: 'G1',          url: 'https://g1.globo.com/rss/g1/',                            category: 'Brasil' },
-  { id: 'folha',      name: 'Folha',       url: 'https://feeds.folha.uol.com.br/emcimadahora/rss091.xml',  category: 'Brasil' },
-  { id: 'bbc',        name: 'BBC Brasil',  url: 'https://www.bbc.com/portuguese/index.xml',                category: 'Mundo' },
-  { id: 'techcrunch', name: 'TechCrunch',  url: 'https://techcrunch.com/feed/',                            category: 'Tecnologia' },
-]
+  { id: 'g1', name: 'G1', url: 'https://g1.globo.com/rss/g1/', category: 'Brasil' },
+  { id: 'folha', name: 'Folha', url: 'https://feeds.folha.uol.com.br/emcimadahora/rss091.xml', category: 'Brasil' },
+  { id: 'bbc', name: 'BBC Brasil', url: 'https://www.bbc.com/portuguese/index.xml', category: 'Mundo' },
+  { id: 'techcrunch', name: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'Tecnologia' },
+];
 
 export const DEFAULT_NEWS_SETTINGS: NewsSettings = {
   refreshMinutes: 5,
   maxItems: 30,
-  enabledSources: BUILTIN_SOURCES.map(s => s.id),
+  enabledSources: BUILTIN_SOURCES.map((s) => s.id),
   keywords: '',
   sources: [...BUILTIN_SOURCES],
-}
+};
 
 /**
  * Carrega settings do D1 via /api/config-store.
@@ -58,30 +58,29 @@ export const DEFAULT_NEWS_SETTINGS: NewsSettings = {
  */
 export async function loadNewsSettings(): Promise<NewsSettings> {
   try {
-    const res = await fetch(`/api/config-store?module=${encodeURIComponent(NEWS_STORAGE_KEY)}`)
-    const data = await res.json() as { ok: boolean; config?: NewsSettings | null }
+    const res = await fetch(`/api/config-store?module=${encodeURIComponent(NEWS_STORAGE_KEY)}`);
+    const data = (await res.json()) as { ok: boolean; config?: NewsSettings | null };
 
     if (data.ok && data.config) {
       // Configurações existem no D1 — usar como estão
-      const parsed = data.config
-      const sources = Array.isArray(parsed.sources) && parsed.sources.length > 0
-        ? parsed.sources
-        : [...BUILTIN_SOURCES]
-      return { ...DEFAULT_NEWS_SETTINGS, ...parsed, sources }
+      const parsed = data.config;
+      const sources =
+        Array.isArray(parsed.sources) && parsed.sources.length > 0 ? parsed.sources : [...BUILTIN_SOURCES];
+      return { ...DEFAULT_NEWS_SETTINGS, ...parsed, sources };
     }
 
     if (data.ok && !data.config) {
       // API confirmou que a chave NÃO existe no D1 — first run genuíno
-      const defaults = { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] }
-      void saveNewsSettings(defaults)
-      return defaults
+      const defaults = { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] };
+      void saveNewsSettings(defaults);
+      return defaults;
     }
 
     // !data.ok — erro do servidor: retornar defaults in-memory, NÃO gravar no D1
-    return { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] }
+    return { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] };
   } catch {
     // Rede indisponível (deploy, cold start, etc) — retornar defaults in-memory, NÃO gravar no D1
-    return { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] }
+    return { ...DEFAULT_NEWS_SETTINGS, sources: [...BUILTIN_SOURCES] };
   }
 }
 
@@ -94,14 +93,15 @@ export async function saveNewsSettings(settings: NewsSettings): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ module: NEWS_STORAGE_KEY, config: settings }),
-    })
-  } catch { /* Silencioso — não bloqueia UX */ }
+    });
+  } catch {
+    /* Silencioso — não bloqueia UX */
+  }
 }
-
 
 /** Emite evento customizado para notificar NewsPanel sobre mudanças de config */
 export function dispatchNewsSettingsChange(): void {
-  window.dispatchEvent(new CustomEvent('news-settings-changed'))
+  window.dispatchEvent(new CustomEvent('news-settings-changed'));
 }
 
 /** Gera um slug a partir do nome da fonte */
@@ -111,5 +111,5 @@ export function slugify(name: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
+    .replace(/(^-|-$)/g, '');
 }

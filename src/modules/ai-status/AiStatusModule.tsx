@@ -5,7 +5,6 @@
 // Módulo: admin-app/src/modules/ai-status/AiStatusModule.tsx
 // Descrição: Dashboard AI Status — Tier A (Catálogo + Rate Limits) + Tier B (Usage) + Tier C (GCP Monitoring)
 
-import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
@@ -36,6 +35,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 /* ────────────────────────────────────────────────────────────────
    TYPES
@@ -479,8 +479,8 @@ function ModelsTab() {
           style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.12)', fontSize: '0.88rem' }}
         >
           <option value="all">Todas as famílias</option>
-          <option value="pro">Pro ({stats.families['pro'] || 0})</option>
-          <option value="flash">Flash ({stats.families['flash'] || 0})</option>
+          <option value="pro">Pro ({stats.families.pro || 0})</option>
+          <option value="flash">Flash ({stats.families.flash || 0})</option>
           <option value="flash-lite">Flash-Lite ({stats.families['flash-lite'] || 0})</option>
         </select>
         <button
@@ -594,11 +594,20 @@ function ModelsTab() {
           const badge = tierBadge(m.tier);
           const fc = familyColor(m.family);
           return (
+            // biome-ignore lint/a11y/useSemanticElements: wrapping expanded content (with interactive children) in <button> is invalid HTML
             <div
               key={m.id}
+              role="button"
+              tabIndex={0}
               className="form-card ai-model-card"
               style={{ padding: '14px 18px', cursor: 'pointer', transition: 'all 0.15s ease' }}
               onClick={() => setExpandedModel(expanded ? null : m.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setExpandedModel(expanded ? null : m.id);
+                }
+              }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div
@@ -664,6 +673,7 @@ function ModelsTab() {
 
               {/* Expanded details */}
               {expanded && (
+                // biome-ignore lint/a11y/noStaticElementInteractions: event guard only — isolates inner interactions from parent toggle
                 <div
                   style={{
                     marginTop: 12,
@@ -672,6 +682,7 @@ function ModelsTab() {
                     animation: 'fadeSlideIn 0.2s ease',
                   }}
                   onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
                 >
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 10 }}>
                     <div>
@@ -1117,6 +1128,7 @@ function GcpTab() {
                   <div style={{ marginTop: 16, animation: 'fadeSlideIn 0.2s ease' }}>
                     <ol style={{ paddingLeft: 20, margin: 0, lineHeight: 1.9, fontSize: '0.88rem', color: '#334155' }}>
                       {guide.steps.map((step, i) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: steps array is static guide content
                         <li key={i} style={{ marginBottom: 6 }}>
                           {step.replace(/^\d+\.\s*/, '')}
                         </li>
@@ -1867,7 +1879,7 @@ function statusCodeStyle(code?: number): { bg: string; color: string } {
 /* ── Helper: Mask sensitive strings (partial reveal) ── */
 function maskSensitive(val: string, showChars = 12): string {
   if (val.length <= showChars + 4) return val;
-  return val.slice(0, showChars) + '•••' + val.slice(-4);
+  return `${val.slice(0, showChars)}•••${val.slice(-4)}`;
 }
 
 /* ── Helper: user-agent → clean name ── */
@@ -1878,7 +1890,7 @@ function cleanUserAgent(ua?: string): string {
   if (ua.includes('google-api-nodejs')) return 'Node.js SDK';
   if (ua.includes('google-api-python')) return 'Python SDK';
   if (ua.includes('gax')) return 'Google API Extension';
-  if (ua.length > 50) return ua.slice(0, 47) + '…';
+  if (ua.length > 50) return `${ua.slice(0, 47)}…`;
   return ua;
 }
 
@@ -1948,7 +1960,7 @@ function exportLogsCSV(logs: GcpLogEntry[]) {
       finish,
     ].join(',');
   });
-  const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([`${header}\n${rows.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -2598,7 +2610,7 @@ function GcpLogsTab() {
                           icon="📂"
                           label="Recurso"
                           value={
-                            proto.resourceName.length > 60 ? '…' + proto.resourceName.slice(-55) : proto.resourceName
+                            proto.resourceName.length > 60 ? `…${proto.resourceName.slice(-55)}` : proto.resourceName
                           }
                           mono
                         />
@@ -2701,9 +2713,9 @@ function GcpLogsTab() {
                               ?.map((p) => p.text)
                               .filter(Boolean)
                               .join('\n') || '',
-                          functionCalls: c.parts?.filter((p) => p.functionCall).map((p) => p.functionCall!) || [],
+                          functionCalls: c.parts?.flatMap((p) => (p.functionCall ? [p.functionCall] : [])) || [],
                           functionResponses:
-                            c.parts?.filter((p) => p.functionResponse).map((p) => p.functionResponse!) || [],
+                            c.parts?.flatMap((p) => (p.functionResponse ? [p.functionResponse] : [])) || [],
                         })) || [];
                       const candidate = res.candidates?.[0];
                       const responseText =
@@ -2712,7 +2724,7 @@ function GcpLogsTab() {
                           .filter(Boolean)
                           .join('\n') || '';
                       const responseFunctionCalls =
-                        candidate?.content?.parts?.filter((p) => p.functionCall).map((p) => p.functionCall!) || [];
+                        candidate?.content?.parts?.flatMap((p) => (p.functionCall ? [p.functionCall] : [])) || [];
                       const finishReason = candidate?.finishReason || '';
                       const tokens = res.usageMetadata || {};
                       const genConfig = req.generationConfig;
@@ -2870,6 +2882,7 @@ function GcpLogsTab() {
                               )}
 
                               {userContents.map((c, i) => (
+                                // biome-ignore lint/suspicious/noArrayIndexKey: ordered turn log, stable per-render
                                 <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                   <div
                                     style={{
@@ -2916,6 +2929,7 @@ function GcpLogsTab() {
                                   {/* Function calls within this turn */}
                                   {c.functionCalls.map((fc, fi) => (
                                     <div
+                                      // biome-ignore lint/suspicious/noArrayIndexKey: ordered function call log within a turn
                                       key={`fc-${fi}`}
                                       style={{
                                         padding: 12,
@@ -2966,6 +2980,7 @@ function GcpLogsTab() {
                                   {/* Function responses within this turn */}
                                   {c.functionResponses.map((fr, fri) => (
                                     <div
+                                      // biome-ignore lint/suspicious/noArrayIndexKey: ordered function response log within a turn
                                       key={`fr-${fri}`}
                                       style={{
                                         padding: 12,
@@ -3059,9 +3074,9 @@ function GcpLogsTab() {
                                   <div
                                     style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}
                                   >
-                                    {toolDeclarations.map((td, tdi) => (
+                                    {toolDeclarations.map((td) => (
                                       <div
-                                        key={tdi}
+                                        key={`td-${td.name}`}
                                         style={{
                                           padding: 10,
                                           borderRadius: 8,
@@ -3164,6 +3179,7 @@ function GcpLogsTab() {
                                   </span>
                                   {responseFunctionCalls.map((fc, fi) => (
                                     <div
+                                      // biome-ignore lint/suspicious/noArrayIndexKey: ordered response function call log
                                       key={fi}
                                       style={{
                                         padding: 12,
@@ -3247,7 +3263,7 @@ function GcpLogsTab() {
                               </span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                              {Object.entries(req!)
+                              {Object.entries(req ?? {})
                                 .filter(([k]) => k !== '@type')
                                 .map(([key, val]) => (
                                   <PropRow
@@ -3286,7 +3302,7 @@ function GcpLogsTab() {
                               </span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                              {Object.entries(res!)
+                              {Object.entries(res ?? {})
                                 .filter(([k]) => k !== '@type')
                                 .map(([key, val]) => {
                                   // Render nested objects as collapsible JSON

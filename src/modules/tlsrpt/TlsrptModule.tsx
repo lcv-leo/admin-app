@@ -2,10 +2,10 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { useState, useEffect } from 'react'
-import type { ChangeEvent } from 'react'
+
 import {
   AlertTriangle,
+  ChevronRight,
   Database,
   FileJson,
   RefreshCw,
@@ -14,132 +14,135 @@ import {
   ShieldAlert,
   ShieldCheck,
   Upload,
-  ChevronRight,
-} from 'lucide-react'
-import './TlsrptModule.css'
-import { useNotification } from '../../components/Notification'
+} from 'lucide-react';
+import type { ChangeEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import './TlsrptModule.css';
+import { useNotification } from '../../components/Notification';
 
-const API_WORKER_URL = '/api/tlsrpt'
+const API_WORKER_URL = '/api/tlsrpt';
 
 type TlsrptReportMeta = {
-  id: string
-  report_id: string
-  org_name: string
-  start_date: string
-  end_date: string
-  created_at: string
-}
+  id: string;
+  report_id: string;
+  org_name: string;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+};
 
 type PolicySummary = {
-  'total-successful-session-count': number
-  'total-failure-session-count': number
-}
+  'total-successful-session-count': number;
+  'total-failure-session-count': number;
+};
 
 type PolicyItem = {
   policy: {
-    'policy-type': string
-    'policy-string': string
-    'policy-domain': string
-  }
-  summary: PolicySummary
-}
+    'policy-type': string;
+    'policy-string': string;
+    'policy-domain': string;
+  };
+  summary: PolicySummary;
+};
 
 type TlsrptData = {
-  'organization-name': string
-  'report-id': string
+  'organization-name': string;
+  'report-id': string;
   'date-range': {
-    'start-datetime': string
-    'end-datetime': string
-  }
-  policies: PolicyItem[]
-}
+    'start-datetime': string;
+    'end-datetime': string;
+  };
+  policies: PolicyItem[];
+};
 
-const formatDate = (date: string) => new Date(date).toLocaleString('pt-BR', { timeZone: 'UTC' })
+const formatDate = (date: string) => new Date(date).toLocaleString('pt-BR', { timeZone: 'UTC' });
 
 export function TlsrptModule() {
-  const { showNotification } = useNotification()
-  const [reportData, setReportData] = useState<TlsrptData | null>(null)
-  const [error, setError] = useState('')
-  const [cloudReports, setCloudReports] = useState<TlsrptReportMeta[]>([])
-  const [isLoadingCloud, setIsLoadingCloud] = useState(false)
-  const [isLoadingReport, setIsLoadingReport] = useState(false)
-  const [cloudError, setCloudError] = useState('')
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
+  const { showNotification } = useNotification();
+  const [reportData, setReportData] = useState<TlsrptData | null>(null);
+  const [error, setError] = useState('');
+  const [cloudReports, setCloudReports] = useState<TlsrptReportMeta[]>([]);
+  const [isLoadingCloud, setIsLoadingCloud] = useState(false);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [cloudError, setCloudError] = useState('');
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+
+  const fetchCloudReports = useCallback(
+    async (isManualRefresh = false) => {
+      setIsLoadingCloud(true);
+      setCloudError('');
+      try {
+        const response = await fetch(API_WORKER_URL);
+        if (!response.ok) throw new Error(`HTTP ${response.status} na consulta ao motor.`);
+        const data = (await response.json()) as TlsrptReportMeta[];
+        setCloudReports(data);
+        if (isManualRefresh) {
+          showNotification('Lista de relatórios Cloudflare atualizada com sucesso', 'success');
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Erro genérico';
+        setCloudError(`Erro na sincronização de dados: ${msg}`);
+        showNotification('Falha ao sincronizar últimos relatórios do D1', 'error');
+      } finally {
+        setIsLoadingCloud(false);
+      }
+    },
+    [showNotification],
+  );
 
   useEffect(() => {
-    void fetchCloudReports(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const fetchCloudReports = async (isManualRefresh = false) => {
-    setIsLoadingCloud(true)
-    setCloudError('')
-    try {
-      const response = await fetch(API_WORKER_URL)
-      if (!response.ok) throw new Error(`HTTP ${response.status} na consulta ao motor.`)
-      const data = await response.json() as TlsrptReportMeta[]
-      setCloudReports(data)
-      if (isManualRefresh) {
-        showNotification('Lista de relatórios Cloudflare atualizada com sucesso', 'success')
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro genérico'
-      setCloudError(`Erro na sincronização de dados: ${msg}`)
-      showNotification('Falha ao sincronizar últimos relatórios do D1', 'error')
-    } finally {
-      setIsLoadingCloud(false)
-    }
-  }
+    void fetchCloudReports(false);
+  }, [fetchCloudReports]);
 
   const fetchReport = async (reportId: string) => {
-    setIsLoadingReport(true)
-    setError('')
+    setIsLoadingReport(true);
+    setError('');
     try {
-      const response = await fetch(`${API_WORKER_URL}/report/${encodeURIComponent(reportId)}`)
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const data = await response.json() as { raw_json: string }
-      handleParseJSON(data.raw_json)
-      showNotification('Relatório TLS-RPT carregado com integridade', 'success')
+      const response = await fetch(`${API_WORKER_URL}/report/${encodeURIComponent(reportId)}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = (await response.json()) as { raw_json: string };
+      handleParseJSON(data.raw_json);
+      showNotification('Relatório TLS-RPT carregado com integridade', 'success');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro na obtenção do item.'
-      setError(`Erro ao carregar relatório: ${msg}`)
-      setReportData(null)
-      showNotification('Erro interno do motor D1', 'error')
+      const msg = err instanceof Error ? err.message : 'Erro na obtenção do item.';
+      setError(`Erro ao carregar relatório: ${msg}`);
+      setReportData(null);
+      showNotification('Erro interno do motor D1', 'error');
     } finally {
-      setIsLoadingReport(false)
+      setIsLoadingReport(false);
     }
-  }
+  };
 
   const handleParseJSON = (jsonString: string) => {
     try {
-      const parsed = JSON.parse(jsonString) as Partial<TlsrptData>
+      const parsed = JSON.parse(jsonString) as Partial<TlsrptData>;
       if (!parsed['organization-name'] || !parsed.policies) {
-        throw new Error('Esquema JSON não obedece à RFC 8460 ou está incompleto.')
+        throw new Error('Esquema JSON não obedece à RFC 8460 ou está incompleto.');
       }
-      setReportData(parsed as TlsrptData)
-      setError('')
+      setReportData(parsed as TlsrptData);
+      setError('');
     } catch (err) {
-      setReportData(null)
-      const msg = err instanceof Error ? err.message : 'Dados corrompidos'
-      setError(`Falha no processamento: ${msg}`)
-      showNotification('O payload processado não apresenta chaves válidas', 'error')
+      setReportData(null);
+      const msg = err instanceof Error ? err.message : 'Dados corrompidos';
+      setError(`Falha no processamento: ${msg}`);
+      showNotification('O payload processado não apresenta chaves válidas', 'error');
     }
-  }
+  };
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
     reader.onload = (ev) => {
-      const result = ev.target?.result
+      const result = ev.target?.result;
       if (typeof result === 'string') {
-        handleParseJSON(result)
-        setSelectedReportId(null)
-        showNotification('Arquivo manual lido pelo parser', 'info')
+        handleParseJSON(result);
+        setSelectedReportId(null);
+        showNotification('Arquivo manual lido pelo parser', 'info');
       }
-    }
-    reader.readAsText(file)
-  }
+    };
+    reader.readAsText(file);
+  };
 
   return (
     <section className="detail-panel module-shell-tlsrpt">
@@ -168,6 +171,7 @@ export function TlsrptModule() {
               <Server size={16} /> Sincronização D1
             </h2>
             <button
+              type="button"
               onClick={() => void fetchCloudReports(true)}
               disabled={isLoadingCloud}
               className="tlsrpt-btn-sync"
@@ -186,14 +190,14 @@ export function TlsrptModule() {
             {cloudReports.length > 0 && (
               <div className="tlsrpt-report-list">
                 {cloudReports.map((report) => {
-                  const isSelected = selectedReportId === report.report_id
+                  const isSelected = selectedReportId === report.report_id;
                   return (
                     <button
                       key={report.id}
                       type="button"
                       onClick={() => {
-                        setSelectedReportId(report.report_id)
-                        void fetchReport(report.report_id)
+                        setSelectedReportId(report.report_id);
+                        void fetchReport(report.report_id);
                       }}
                       className={`tlsrpt-report-item ${isSelected ? 'is-selected' : ''}`}
                     >
@@ -201,11 +205,9 @@ export function TlsrptModule() {
                         <span className="tlsrpt-report-item-title">{report.org_name}</span>
                         <ChevronRight size={16} className="tlsrpt-chevron" />
                       </div>
-                      <span className="tlsrpt-report-item-date">
-                        {formatDate(report.start_date).split(',')[0]}
-                      </span>
+                      <span className="tlsrpt-report-item-date">{formatDate(report.start_date).split(',')[0]}</span>
                     </button>
-                  )
+                  );
                 })}
               </div>
             )}
@@ -273,12 +275,13 @@ export function TlsrptModule() {
               </div>
 
               {/* Políticas — cards sólidos brancos */}
-              {reportData.policies.map((p, i) => {
-                const total = p.summary['total-successful-session-count'] + p.summary['total-failure-session-count']
-                const rate = total > 0 ? ((p.summary['total-successful-session-count'] / total) * 100).toFixed(2) : "0.00"
-                
+              {reportData.policies.map((p) => {
+                const total = p.summary['total-successful-session-count'] + p.summary['total-failure-session-count'];
+                const rate =
+                  total > 0 ? ((p.summary['total-successful-session-count'] / total) * 100).toFixed(2) : '0.00';
+
                 return (
-                  <div key={i} className="tlsrpt-policy-card">
+                  <div key={p.policy['policy-domain']} className="tlsrpt-policy-card">
                     {/* Header da política */}
                     <div className="tlsrpt-policy-header">
                       <div>
@@ -299,10 +302,7 @@ export function TlsrptModule() {
 
                       {/* Barra de progresso */}
                       <div className="tlsrpt-progress-bg">
-                        <div
-                          className="tlsrpt-progress-fill"
-                          style={{ width: `${rate}%` }}
-                        />
+                        <div className="tlsrpt-progress-fill" style={{ width: `${rate}%` }} />
                       </div>
 
                       {/* Contadores */}
@@ -324,12 +324,12 @@ export function TlsrptModule() {
                       </div>
                     </div>
                   </div>
-                )
+                );
               })}
             </div>
           )}
         </section>
       </main>
     </section>
-  )
+  );
 }

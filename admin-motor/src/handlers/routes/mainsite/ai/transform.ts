@@ -5,15 +5,18 @@
  * Migrado de REST fetch direto para @google/genai SDK oficial.
  */
 
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai'
+import { GoogleGenAI, HarmBlockThreshold, HarmCategory } from '@google/genai';
 
 export interface Env {
-  GEMINI_API_KEY: string
-  BIGDATA_DB?: D1Database
+  GEMINI_API_KEY: string;
+  BIGDATA_DB?: D1Database;
 }
 
 interface D1Database {
-  prepare(query: string): { bind(...values: unknown[]): { run(): Promise<unknown>; first<T>(): Promise<T|null> }; run(): Promise<unknown> }
+  prepare(query: string): {
+    bind(...values: unknown[]): { run(): Promise<unknown>; first<T>(): Promise<T | null> };
+    run(): Promise<unknown>;
+  };
 }
 
 /** Fallback usado quando BIGDATA_DB não retorna modelo configurado para 'chat'. */
@@ -27,9 +30,9 @@ const GEMINI_CONFIG = {
     transform: {
       temperature: 0.3,
       topP: 0.8,
-      maxOutputTokens: 8192
-    }
-  }
+      maxOutputTokens: 8192,
+    },
+  },
 };
 
 /**
@@ -40,7 +43,7 @@ function structuredLog(level: 'info' | 'warn' | 'error', message: string, contex
     timestamp: new Date().toISOString(),
     level: level.toUpperCase(),
     message,
-    ...context
+    ...context,
   });
   if (level === 'error') console.error(logStr);
   else if (level === 'warn') console.warn(logStr);
@@ -53,7 +56,10 @@ async function resolveModel(db: D1Database | undefined): Promise<string> {
     return FALLBACK_MODEL;
   }
   try {
-    const row = await db.prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1').bind('mainsite/ai_models').first<{ payload?: string }>();
+    const row = await db
+      .prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1')
+      .bind('mainsite/ai_models')
+      .first<{ payload?: string }>();
     if (row?.payload) {
       const parsed = JSON.parse(row.payload) as Record<string, unknown>;
       if (typeof parsed.editor === 'string' && parsed.editor) {
@@ -62,7 +68,10 @@ async function resolveModel(db: D1Database | undefined): Promise<string> {
       }
     }
   } catch (err) {
-    structuredLog('warn', 'resolveModel: DB lookup failed, using fallback', { error: (err as Error).message, fallback: FALLBACK_MODEL });
+    structuredLog('warn', 'resolveModel: DB lookup failed, using fallback', {
+      error: (err as Error).message,
+      fallback: FALLBACK_MODEL,
+    });
   }
   structuredLog('info', 'resolveModel: no model in DB, using fallback', { fallback: FALLBACK_MODEL });
   return FALLBACK_MODEL;
@@ -75,7 +84,7 @@ async function estimateTokenCount(ai: GoogleGenAI, text: string, model: string):
   try {
     const resp = await ai.models.countTokens({
       model,
-      contents: text
+      contents: text,
     });
     return resp.totalTokens ?? 0;
   } catch (error) {
@@ -92,7 +101,7 @@ function validateInputTokens(tokenCount: number) {
     return {
       shouldReject: true,
       status: 413,
-      error: `Texto enviado é muito extenso (${tokenCount} tokens > limite de ${GEMINI_CONFIG.maxTokensInput}).`
+      error: `Texto enviado é muito extenso (${tokenCount} tokens > limite de ${GEMINI_CONFIG.maxTokensInput}).`,
     };
   }
   return { shouldReject: false };
@@ -111,7 +120,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   if (!resolvedEnv.GEMINI_API_KEY) {
     structuredLog('error', 'GEMINI_API_KEY missing');
-    return new Response(JSON.stringify({ error: "GEMINI_API_KEY não configurada." }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'GEMINI_API_KEY não configurada.' }), { status: 500 });
   }
 
   const _telemetryStart = Date.now();
@@ -119,30 +128,47 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const activeModel = await resolveModel(resolvedEnv.BIGDATA_DB);
   if (!activeModel) {
     structuredLog('error', 'transform: no model resolved');
-    return new Response(JSON.stringify({ error: 'Modelo de IA não configurado. Configure em Configurações > Modelos de IA.' }), { status: 500 });
+    return new Response(
+      JSON.stringify({ error: 'Modelo de IA não configurado. Configure em Configurações > Modelos de IA.' }),
+      { status: 500 },
+    );
   }
 
   const ai = new GoogleGenAI({ apiKey: resolvedEnv.GEMINI_API_KEY });
 
   try {
-    const body = await context.request.json() as { action: string, text: string, instruction?: string };
+    const body = (await context.request.json()) as { action: string; text: string; instruction?: string };
     const { action, text, instruction } = body;
-    
+
     if (!text || !action) {
-      return new Response(JSON.stringify({ error: "Ação ou texto não fornecido." }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'Ação ou texto não fornecido.' }), { status: 400 });
     }
 
-    let promptInfo = "";
+    let promptInfo = '';
     switch (action) {
-      case "grammar": promptInfo = "Corrija a gramática e a ortografia do texto a seguir. Retorne APENAS o texto corrigido."; break;
-      case "summarize": promptInfo = "Resuma o texto a seguir de forma clara e concisa. Retorne APENAS o resumo direto."; break;
-      case "expand": promptInfo = "Expanda o texto a seguir adicionando detalhes e contexto, mantendo o tom original. Retorne APENAS o texto expandido."; break;
-      case "formal": promptInfo = "Reescreva o texto a seguir adotando um tom formal e profissional. Retorne APENAS o texto reescrito."; break;
-      case "freeform": 
-        if (!instruction) return new Response(JSON.stringify({ error: "Instrução não fornecida para formatação livre." }), { status: 400 });
-        promptInfo = `Aja como um assistente de edição de texto para publicação. Aplique estritamente a seguinte instrução do usuário no texto abaixo: "${instruction}". Retorne APENAS o resultado final editado, sem introduções ou comentários adicionais.`; 
+      case 'grammar':
+        promptInfo = 'Corrija a gramática e a ortografia do texto a seguir. Retorne APENAS o texto corrigido.';
         break;
-      default: return new Response(JSON.stringify({ error: "Ação de IA desconhecida." }), { status: 400 });
+      case 'summarize':
+        promptInfo = 'Resuma o texto a seguir de forma clara e concisa. Retorne APENAS o resumo direto.';
+        break;
+      case 'expand':
+        promptInfo =
+          'Expanda o texto a seguir adicionando detalhes e contexto, mantendo o tom original. Retorne APENAS o texto expandido.';
+        break;
+      case 'formal':
+        promptInfo =
+          'Reescreva o texto a seguir adotando um tom formal e profissional. Retorne APENAS o texto reescrito.';
+        break;
+      case 'freeform':
+        if (!instruction)
+          return new Response(JSON.stringify({ error: 'Instrução não fornecida para formatação livre.' }), {
+            status: 400,
+          });
+        promptInfo = `Aja como um assistente de edição de texto para publicação. Aplique estritamente a seguinte instrução do usuário no texto abaixo: "${instruction}". Retorne APENAS o resultado final editado, sem introduções ou comentários adicionais.`;
+        break;
+      default:
+        return new Response(JSON.stringify({ error: 'Ação de IA desconhecida.' }), { status: 400 });
     }
 
     const fullPrompt = `${promptInfo}\n\nTexto:\n${text}`;
@@ -157,14 +183,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     let finalResponseText = '';
     let usageMetadata = { promptTokens: 0, outputTokens: 0 };
-    
+
     // Retry loop
     for (let tentativa = 0; tentativa < GEMINI_CONFIG.maxRetries; tentativa++) {
       try {
         structuredLog('info', `Gemini request attempt ${tentativa + 1}`, {
-          endpoint: 'transform', attempt: tentativa + 1, model: activeModel
+          endpoint: 'transform',
+          attempt: tentativa + 1,
+          model: activeModel,
         });
-        
+
         const response = await ai.models.generateContent({
           model: activeModel,
           contents: fullPrompt,
@@ -173,20 +201,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             temperature: GEMINI_CONFIG.endpoints.transform.temperature,
             topP: GEMINI_CONFIG.endpoints.transform.topP,
             maxOutputTokens: GEMINI_CONFIG.endpoints.transform.maxOutputTokens,
-          }
+          },
         });
 
         const responseText = response.text;
-        
+
         if (responseText) {
           // Usage Metadata Tracking
           usageMetadata = {
             promptTokens: response.usageMetadata?.promptTokenCount || 0,
             outputTokens: response.usageMetadata?.candidatesTokenCount || 0,
           };
-          
+
           structuredLog('info', 'Gemini request succeeded', {
-            endpoint: 'transform', attempt: tentativa + 1, status: 200, usageMetadata
+            endpoint: 'transform',
+            attempt: tentativa + 1,
+            status: 200,
+            usageMetadata,
           });
 
           // Telemetria → ai_usage_logs (fire-and-forget)
@@ -198,7 +229,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             latency_ms: Date.now() - _telemetryStart,
             status: 'ok',
           });
-          
+
           finalResponseText = responseText;
           break;
         } else {
@@ -208,18 +239,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const errorMsg = err instanceof Error ? err.message : String(err);
         const status = (err as { status?: number }).status || 500;
         structuredLog('warn', `Gemini request failed, will retry`, {
-          endpoint: 'transform', attempt: tentativa + 1, status, error: errorMsg
+          endpoint: 'transform',
+          attempt: tentativa + 1,
+          status,
+          error: errorMsg,
         });
-        
+
         if (tentativa === GEMINI_CONFIG.maxRetries - 1) {
-           structuredLog('error', 'Gemini request error (final attempt)', {
-             endpoint: 'transform', attempt: tentativa + 1, error: errorMsg
-           });
-           throw err;
+          structuredLog('error', 'Gemini request error (final attempt)', {
+            endpoint: 'transform',
+            attempt: tentativa + 1,
+            error: errorMsg,
+          });
+          throw err;
         }
-        
+
         if (tentativa === 0) {
-          await new Promise(r => setTimeout(r, GEMINI_CONFIG.retryDelayMs));
+          await new Promise((r) => setTimeout(r, GEMINI_CONFIG.retryDelayMs));
         }
       }
     }
@@ -229,9 +265,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     return new Response(JSON.stringify({ text: finalResponseText.trim() }), {
-      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });
-
   } catch (error) {
     // Telemetria de erro
     logAiUsage(resolvedEnv.BIGDATA_DB as D1Database | undefined, {
@@ -243,23 +278,33 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       status: 'error',
       error_detail: error instanceof Error ? error.message : 'unknown',
     });
-    structuredLog('error', 'transform fatal error', { model: activeModel, error: error instanceof Error ? error.message : 'Erro desconhecido' });
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido na geração por IA." }), { status: 500 });
+    structuredLog('error', 'transform fatal error', {
+      model: activeModel,
+      error: error instanceof Error ? error.message : 'Erro desconhecido',
+    });
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido na geração por IA.' }),
+      { status: 500 },
+    );
   }
 };
 
 /* ── Helper de telemetria (fire-and-forget, nunca bloqueia o fluxo) ── */
 interface TelemetryPayload {
-  module: string; model: string;
-  input_tokens: number; output_tokens: number;
-  latency_ms: number; status: string;
+  module: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+  status: string;
   error_detail?: string;
 }
 function logAiUsage(db: D1Database | undefined, payload: TelemetryPayload) {
   if (!db) return;
   (async () => {
     try {
-      await db.prepare(`
+      await db
+        .prepare(`
         CREATE TABLE IF NOT EXISTS ai_usage_logs (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           timestamp TEXT NOT NULL DEFAULT (datetime('now')),
@@ -271,16 +316,23 @@ function logAiUsage(db: D1Database | undefined, payload: TelemetryPayload) {
           status TEXT DEFAULT 'ok',
           error_detail TEXT
         )
-      `).run();
-      await db.prepare(`
+      `)
+        .run();
+      await db
+        .prepare(`
         INSERT INTO ai_usage_logs (module, model, input_tokens, output_tokens, latency_ms, status, error_detail)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).bind(
-        payload.module, payload.model,
-        payload.input_tokens, payload.output_tokens,
-        payload.latency_ms, payload.status,
-        payload.error_detail || null,
-      ).run();
+      `)
+        .bind(
+          payload.module,
+          payload.model,
+          payload.input_tokens,
+          payload.output_tokens,
+          payload.latency_ms,
+          payload.status,
+          payload.error_detail || null,
+        )
+        .run();
     } catch (err) {
       console.warn('[telemetry] ai_usage_logs INSERT failed:', err instanceof Error ? err.message : err);
     }

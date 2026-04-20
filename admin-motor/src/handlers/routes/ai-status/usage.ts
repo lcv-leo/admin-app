@@ -2,21 +2,21 @@
 // Descrição: Lê logs de uso de AI do BIGDATA_DB para dashboard self-managed.
 // Também cria a tabela se não existir (auto-migration).
 
-import type { D1Database } from '../../../../../functions/api/_lib/operational'
+import type { D1Database } from '../../../../../functions/api/_lib/operational';
 
 // Env: { BIGDATA_DB: D1Database } — via context.data?.env || context.env
-
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
-  })
+  });
 }
 
 // Auto-create da tabela de usage logs
 async function ensureTable(db: D1Database) {
-  await db.prepare(`
+  await db
+    .prepare(`
     CREATE TABLE IF NOT EXISTS ai_usage_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       timestamp TEXT NOT NULL DEFAULT (datetime('now')),
@@ -28,54 +28,56 @@ async function ensureTable(db: D1Database) {
       status TEXT DEFAULT 'ok',
       error_detail TEXT
     )
-  `).run()
+  `)
+    .run();
 }
 
 interface UsageRow {
-  total_requests: number
-  total_input_tokens: number
-  total_output_tokens: number
-  total_errors: number
-  avg_latency_ms: number
+  total_requests: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_errors: number;
+  avg_latency_ms: number;
 }
 
 interface DailyRow {
-  day: string
-  requests: number
-  input_tokens: number
-  output_tokens: number
-  errors: number
+  day: string;
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  errors: number;
 }
 
 interface ModuleRow {
-  module: string
-  requests: number
-  input_tokens: number
-  output_tokens: number
+  module: string;
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
 }
 
 interface ModelRow {
-  model: string
-  requests: number
-  input_tokens: number
-  output_tokens: number
+  model: string;
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
 }
 
 export const onRequestGet = async (context: any) => {
   const env = context.data?.env || context.env;
-  const db = env?.BIGDATA_DB
-  if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.' }, 503)
+  const db = env?.BIGDATA_DB;
+  if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.' }, 503);
 
   try {
-    await ensureTable(db)
+    await ensureTable(db);
 
     // Período: últimos 30 dias
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
     // Query paralela para performance
     const [summaryRes, dailyRes, byModuleRes, byModelRes] = await Promise.all([
       // Resumo total
-      db.prepare(`
+      db
+        .prepare(`
         SELECT 
           COUNT(*) as total_requests,
           COALESCE(SUM(input_tokens), 0) as total_input_tokens,
@@ -83,10 +85,13 @@ export const onRequestGet = async (context: any) => {
           COALESCE(SUM(CASE WHEN status != 'ok' THEN 1 ELSE 0 END), 0) as total_errors,
           COALESCE(AVG(latency_ms), 0) as avg_latency_ms
         FROM ai_usage_logs WHERE timestamp >= ?
-      `).bind(since).first<UsageRow>(),
+      `)
+        .bind(since)
+        .first<UsageRow>(),
 
       // Uso diário
-      db.prepare(`
+      db
+        .prepare(`
         SELECT 
           DATE(timestamp) as day,
           COUNT(*) as requests,
@@ -95,10 +100,13 @@ export const onRequestGet = async (context: any) => {
           COALESCE(SUM(CASE WHEN status != 'ok' THEN 1 ELSE 0 END), 0) as errors
         FROM ai_usage_logs WHERE timestamp >= ?
         GROUP BY DATE(timestamp) ORDER BY day ASC
-      `).bind(since).all<DailyRow>(),
+      `)
+        .bind(since)
+        .all<DailyRow>(),
 
       // Breakdown por módulo
-      db.prepare(`
+      db
+        .prepare(`
         SELECT 
           module,
           COUNT(*) as requests,
@@ -106,10 +114,13 @@ export const onRequestGet = async (context: any) => {
           COALESCE(SUM(output_tokens), 0) as output_tokens
         FROM ai_usage_logs WHERE timestamp >= ?
         GROUP BY module ORDER BY requests DESC
-      `).bind(since).all<ModuleRow>(),
+      `)
+        .bind(since)
+        .all<ModuleRow>(),
 
       // Breakdown por modelo
-      db.prepare(`
+      db
+        .prepare(`
         SELECT 
           model,
           COUNT(*) as requests,
@@ -117,8 +128,10 @@ export const onRequestGet = async (context: any) => {
           COALESCE(SUM(output_tokens), 0) as output_tokens
         FROM ai_usage_logs WHERE timestamp >= ?
         GROUP BY model ORDER BY requests DESC
-      `).bind(since).all<ModelRow>(),
-    ])
+      `)
+        .bind(since)
+        .all<ModelRow>(),
+    ]);
 
     return json({
       ok: true,
@@ -133,51 +146,54 @@ export const onRequestGet = async (context: any) => {
       daily: dailyRes?.results || [],
       byModule: byModuleRes?.results || [],
       byModel: byModelRes?.results || [],
-    })
+    });
   } catch (err) {
-    return json({ ok: false, error: err instanceof Error ? err.message : 'Erro ao ler usage logs.' }, 500)
+    return json({ ok: false, error: err instanceof Error ? err.message : 'Erro ao ler usage logs.' }, 500);
   }
-}
+};
 
 // POST: Registrar um novo log de uso (chamado internamente pelos endpoints de AI)
 export const onRequestPost = async (context: any) => {
   const { request } = context;
   const env = context.data?.env || context.env;
-  const db = env?.BIGDATA_DB
-  if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.' }, 503)
+  const db = env?.BIGDATA_DB;
+  if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.' }, 503);
 
   try {
-    await ensureTable(db)
+    await ensureTable(db);
 
-    const body = await request.json() as {
-      module: string
-      model: string
-      input_tokens?: number
-      output_tokens?: number
-      latency_ms?: number
-      status?: string
-      error_detail?: string
-    }
+    const body = (await request.json()) as {
+      module: string;
+      model: string;
+      input_tokens?: number;
+      output_tokens?: number;
+      latency_ms?: number;
+      status?: string;
+      error_detail?: string;
+    };
 
     if (!body.module || !body.model) {
-      return json({ ok: false, error: 'module e model são obrigatórios.' }, 400)
+      return json({ ok: false, error: 'module e model são obrigatórios.' }, 400);
     }
 
-    await db.prepare(`
+    await db
+      .prepare(`
       INSERT INTO ai_usage_logs (module, model, input_tokens, output_tokens, latency_ms, status, error_detail)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      body.module,
-      body.model,
-      body.input_tokens || 0,
-      body.output_tokens || 0,
-      body.latency_ms || 0,
-      body.status || 'ok',
-      body.error_detail || null,
-    ).run()
+    `)
+      .bind(
+        body.module,
+        body.model,
+        body.input_tokens || 0,
+        body.output_tokens || 0,
+        body.latency_ms || 0,
+        body.status || 'ok',
+        body.error_detail || null,
+      )
+      .run();
 
-    return json({ ok: true })
+    return json({ ok: true });
   } catch (err) {
-    return json({ ok: false, error: err instanceof Error ? err.message : 'Erro ao registrar log.' }, 500)
+    return json({ ok: false, error: err instanceof Error ? err.message : 'Erro ao registrar log.' }, 500);
   }
-}
+};

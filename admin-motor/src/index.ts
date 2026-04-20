@@ -1,108 +1,130 @@
-import {
-  handleCleanupDeploymentsGet,
-  handleCleanupDeploymentsPost,
-} from './handlers/cfpwCleanup';
-import { handleFinanceiroInsightsGet } from './handlers/financeiroInsights';
+import { GoogleGenAI } from '@google/genai';
+import type { Context } from 'hono';
+import { Hono } from 'hono';
+import { toHeaders } from '../../functions/api/_lib/mainsite-admin';
 import { handleAiStatusModelsGet } from './handlers/aiStatusModels';
-import { handleOraculoModelosGet } from './handlers/oraculoModelos';
-import { handleOraculoCronGet, handleOraculoCronPut } from './handlers/oraculoCron';
 import { handleAstrologoEnviarEmailPost } from './handlers/astrologoEmail';
 import { handleCfdnsZonesGet } from './handlers/cfdnsZones';
+import { handleCleanupDeploymentsGet, handleCleanupDeploymentsPost } from './handlers/cfpwCleanup';
+import { handleSumupCancelPost, handleSumupRefundPost } from './handlers/financeiroActions';
+import { handleFinanceiroInsightsGet } from './handlers/financeiroInsights';
+import { handleOraculoCronGet, handleOraculoCronPut } from './handlers/oraculoCron';
+import { handleOraculoModelosGet } from './handlers/oraculoModelos';
+import { validatePutAuth } from './handlers/routes/_lib/auth';
 import {
-  handleSumupRefundPost,
-  handleSumupCancelPost,
-} from './handlers/financeiroActions';
-import { onRequestGet as handleAiStatusGcpMonitoringGet } from './handlers/routes/ai-status/gcp-monitoring';
+  onRequestGet as handleAdminhubConfigGet,
+  onRequestPut as handleAdminhubConfigPut,
+} from './handlers/routes/adminhub/config';
 import { onRequestGet as handleAiStatusGcpLogsGet } from './handlers/routes/ai-status/gcp-logs';
+import { onRequestGet as handleAiStatusGcpMonitoringGet } from './handlers/routes/ai-status/gcp-monitoring';
+// ── Novos handlers migrados de Pages Functions ──
+import {
+  onRequestGet as handleAiStatusUsageGet,
+  onRequestPost as handleAiStatusUsagePost,
+} from './handlers/routes/ai-status/usage';
+import {
+  onRequestGet as handleApphubConfigGet,
+  onRequestPut as handleApphubConfigPut,
+} from './handlers/routes/apphub/config';
+import { onRequestPost as handleAstrologoExcluirPost } from './handlers/routes/astrologo/excluir';
+import { onRequestPost as handleAstrologoLerPost } from './handlers/routes/astrologo/ler';
+import { onRequestGet as handleAstrologoListarGet } from './handlers/routes/astrologo/listar';
+import { onRequestPost as handleAstrologoSyncPost } from './handlers/routes/astrologo/sync';
+import {
+  onRequestDelete as handleAstrologoUserdataDelete,
+  onRequestGet as handleAstrologoUserdataGet,
+} from './handlers/routes/astrologo/userdata';
+import { onRequestDelete as handleCfdnsDeleteDelete } from './handlers/routes/cfdns/delete';
 import { onRequestGet as handleCfdnsRecordsGet } from './handlers/routes/cfdns/records';
-import { onRequestGet as handleCfpwOverviewGet } from './handlers/routes/cfpw/overview';
-import { onRequestPost as handleCfpwOpsPost } from './handlers/routes/cfpw/ops';
-import { onRequestGet as handleCfpwPageDetailsGet } from './handlers/routes/cfpw/page-details';
-import { onRequestGet as handleCfpwWorkerDetailsGet } from './handlers/routes/cfpw/worker-details';
+import { onRequestPost as handleCfdnsUpsertPost } from './handlers/routes/cfdns/upsert';
+import { onRequestPost as handleCfpwCleanupCacheProjectPost } from './handlers/routes/cfpw/cleanup-cache-project';
 import { onRequestPost as handleCfpwDeletePagePost } from './handlers/routes/cfpw/delete-page';
 import { onRequestPost as handleCfpwDeleteWorkerPost } from './handlers/routes/cfpw/delete-worker';
-import { onRequestPost as handleCfpwCleanupCacheProjectPost } from './handlers/routes/cfpw/cleanup-cache-project';
-import { onRequestGet as handleCfpwObservabilityGet, onRequestPost as handleCfpwObservabilityPost } from './handlers/routes/cfpw/observability';
+import {
+  onRequestGet as handleCfpwObservabilityGet,
+  onRequestPost as handleCfpwObservabilityPost,
+} from './handlers/routes/cfpw/observability';
+import { onRequestPost as handleCfpwOpsPost } from './handlers/routes/cfpw/ops';
+import { onRequestGet as handleCfpwOverviewGet } from './handlers/routes/cfpw/overview';
+import { onRequestGet as handleCfpwPageDetailsGet } from './handlers/routes/cfpw/page-details';
+import { onRequestGet as handleCfpwWorkerDetailsGet } from './handlers/routes/cfpw/worker-details';
+import {
+  onRequestGet as handleConfigStoreGet,
+  onRequestPost as handleConfigStorePost,
+} from './handlers/routes/config/config-store';
 import { onRequestGet as handleSumupBalanceGet } from './handlers/routes/financeiro/sumup-balance';
+import { onRequestGet as handleCalculadoraOverviewGet } from './handlers/routes/calculadora/overview';
+import {
+  onRequestGet as handleCalculadoraParametrosGet,
+  onRequestPost as handleCalculadoraParametrosPost,
+} from './handlers/routes/calculadora/parametros';
+import { onRequestPost as handleCalculadoraSyncPost } from './handlers/routes/calculadora/sync';
+import { onRequestPost as handleMainsiteAiTransformPost } from './handlers/routes/mainsite/ai/transform';
+import {
+  handleCommentsAdminAll,
+  handleCommentsAdminBulk,
+  handleCommentsAdminDelete,
+  handleCommentsAdminGetSettings,
+  handleCommentsAdminModerate,
+  handleCommentsAdminPutSettings,
+  handleCommentsAdminReply,
+} from './handlers/routes/mainsite/comments-admin';
+import {
+  onRequestGet as handleMainsiteFeesGet,
+  onRequestPost as handleMainsiteFeesPost,
+} from './handlers/routes/mainsite/fees';
+import {
+  onRequestOptions as handleGeminiImportOptions,
+  onRequestPost as handleGeminiImportPost,
+} from './handlers/routes/mainsite/gemini-import';
+import { onRequestGet as handleMainsiteMediaGet } from './handlers/routes/mainsite/media/[filename]';
+import { onRequestPost as handleMainsiteMigrateMediaPost } from './handlers/routes/mainsite/migrate-media-urls';
+import { onRequestGet as handleMainsiteOverviewGet } from './handlers/routes/mainsite/overview';
 import {
   onRequestGet as handlePostSummariesGet,
   onRequestPost as handlePostSummariesPost,
 } from './handlers/routes/mainsite/post-summaries';
 import {
-  onRequestPost as handleGeminiImportPost,
-  onRequestOptions as handleGeminiImportOptions,
-} from './handlers/routes/mainsite/gemini-import';
-import { onRequestPost as handleMainsiteAiTransformPost } from './handlers/routes/mainsite/ai/transform';
-import { onRequestGet as handleMtastsZonesGet } from './handlers/routes/mtasts/zones';
-import { onRequestGet as handleMtastsPolicyGet } from './handlers/routes/mtasts/policy';
-import { onRequestPost as handleMtastsOrchestratePost } from './handlers/routes/mtasts/orchestrate';
-import { onRequestGet as handleNewsDiscoverGet } from './handlers/routes/news/discover';
-import {
-  onRequestGet as handleAdminhubConfigGet,
-  onRequestPut as handleAdminhubConfigPut,
-} from './handlers/routes/adminhub/config';
-import {
-  onRequestGet as handleApphubConfigGet,
-  onRequestPut as handleApphubConfigPut,
-} from './handlers/routes/apphub/config';
-import { toHeaders } from '../../functions/api/_lib/mainsite-admin';
-import { GoogleGenAI } from '@google/genai';
-import { validatePutAuth } from './handlers/routes/_lib/auth';
-import { Hono } from 'hono';
-import type { Context } from 'hono';
-// ── Novos handlers migrados de Pages Functions ──
-import { onRequestGet as handleAiStatusUsageGet, onRequestPost as handleAiStatusUsagePost } from './handlers/routes/ai-status/usage';
-import { onRequestPost as handleAstrologoExcluirPost } from './handlers/routes/astrologo/excluir';
-import { onRequestPost as handleAstrologoLerPost } from './handlers/routes/astrologo/ler';
-import { onRequestGet as handleAstrologoListarGet } from './handlers/routes/astrologo/listar';
-import { onRequestPost as handleAstrologoSyncPost } from './handlers/routes/astrologo/sync';
-import { onRequestGet as handleAstrologoUserdataGet, onRequestDelete as handleAstrologoUserdataDelete } from './handlers/routes/astrologo/userdata';
-import { onRequestDelete as handleCfdnsDeleteDelete } from './handlers/routes/cfdns/delete';
-import { onRequestPost as handleCfdnsUpsertPost } from './handlers/routes/cfdns/upsert';
-import { onRequestGet as handleConfigStoreGet, onRequestPost as handleConfigStorePost } from './handlers/routes/config/config-store';
-import { onRequestGet as handleCalculadoraOverviewGet } from './handlers/routes/calculadora/overview';
-import { onRequestGet as handleCalculadoraParametrosGet, onRequestPost as handleCalculadoraParametrosPost } from './handlers/routes/calculadora/parametros';
-import { onRequestPost as handleCalculadoraSyncPost } from './handlers/routes/calculadora/sync';
-import { onRequestGet as handleMainsiteFeesGet, onRequestPost as handleMainsiteFeesPost } from './handlers/routes/mainsite/fees';
-import { onRequestGet as handleMainsiteOverviewGet } from './handlers/routes/mainsite/overview';
-import { onRequestGet as handleMainsitePostsGet, onRequestPost as handleMainsitePostsPost, onRequestPut as handleMainsitePostsPut, onRequestDelete as handleMainsitePostsDelete } from './handlers/routes/mainsite/posts';
+  onRequestDelete as handleMainsitePostsDelete,
+  onRequestGet as handleMainsitePostsGet,
+  onRequestPost as handleMainsitePostsPost,
+  onRequestPut as handleMainsitePostsPut,
+} from './handlers/routes/mainsite/posts';
 import { onRequestPost as handleMainsitePostsPinPost } from './handlers/routes/mainsite/posts-pin';
 import { onRequestPost as handleMainsitePostsReorderPost } from './handlers/routes/mainsite/posts-reorder';
-import { onRequestGet as handleMainsiteSettingsGet, onRequestPut as handleMainsiteSettingsPut } from './handlers/routes/mainsite/settings';
+import {
+  handleRatingsAdminAll,
+  handleRatingsAdminBulk,
+  handleRatingsAdminDelete,
+  handleRatingsAdminStats,
+  handleRatingsAdminUpdate,
+} from './handlers/routes/mainsite/ratings-admin';
+import {
+  onRequestGet as handleMainsiteSettingsGet,
+  onRequestPut as handleMainsiteSettingsPut,
+} from './handlers/routes/mainsite/settings';
 import { onRequestPost as handleMainsiteSyncPost } from './handlers/routes/mainsite/sync';
-import { onRequestPost as handleMainsiteMigrateMediaPost } from './handlers/routes/mainsite/migrate-media-urls';
 import { onRequestPost as handleMainsiteUploadPost } from './handlers/routes/mainsite/upload';
-import { onRequestGet as handleMainsiteMediaGet } from './handlers/routes/mainsite/media/[filename]';
 import { onRequestPost as handleWorkersAiSentimentPost } from './handlers/routes/mainsite/workers-ai/sentiment';
 import { onRequestPost as handleWorkersAiTagsPost } from './handlers/routes/mainsite/workers-ai/tags';
 import { onRequestPost as handleWorkersAiTranslatePost } from './handlers/routes/mainsite/workers-ai/translate';
-import {
-  handleCommentsAdminAll,
-  handleCommentsAdminModerate,
-  handleCommentsAdminDelete,
-  handleCommentsAdminReply,
-  handleCommentsAdminBulk,
-  handleCommentsAdminGetSettings,
-  handleCommentsAdminPutSettings,
-} from './handlers/routes/mainsite/comments-admin';
-import {
-  handleRatingsAdminAll,
-  handleRatingsAdminStats,
-  handleRatingsAdminUpdate,
-  handleRatingsAdminDelete,
-  handleRatingsAdminBulk,
-} from './handlers/routes/mainsite/ratings-admin';
+import { onRequestPost as handleMtastsOrchestratePost } from './handlers/routes/mtasts/orchestrate';
 import { onRequestGet as handleMtastsOverviewGet } from './handlers/routes/mtasts/overview';
+import { onRequestGet as handleMtastsPolicyGet } from './handlers/routes/mtasts/policy';
 import { onRequestPost as handleMtastsSyncPost } from './handlers/routes/mtasts/sync';
+import { onRequestGet as handleMtastsZonesGet } from './handlers/routes/mtasts/zones';
+import { onRequestGet as handleNewsDiscoverGet } from './handlers/routes/news/discover';
 import { onRequestGet as handleNewsFeedGet } from './handlers/routes/news/feed';
 import { onRequestPost as handleOraculoExcluirPost } from './handlers/routes/oraculo/excluir';
 import { onRequestGet as handleOraculoListarGet } from './handlers/routes/oraculo/listar';
 import { onRequestGet as handleOraculoTaxacacheGet } from './handlers/routes/oraculo/taxacache';
-import { onRequestGet as handleOraculoUserdataGet, onRequestDelete as handleOraculoUserdataDelete } from './handlers/routes/oraculo/userdata';
+import {
+  onRequestDelete as handleOraculoUserdataDelete,
+  onRequestGet as handleOraculoUserdataGet,
+} from './handlers/routes/oraculo/userdata';
 import { onRequestGet as handleOverviewOperationalGet } from './handlers/routes/overview/operational';
 import { onRequestDelete as handleTelemetryDeleteDelete } from './handlers/routes/telemetry/delete';
 import { onRequestGet as handleTelemetryGet } from './handlers/routes/telemetry/telemetry';
-
 
 type AdminMotorEnv = {
   BIGDATA_DB?: D1Like;
@@ -160,7 +182,6 @@ type ModelOption = {
   api: string;
   vision: boolean;
 };
-
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -233,14 +254,21 @@ const resolveRuntimeEnv = async (env: AdminMotorEnv): Promise<ResolvedAdminMotor
   ENFORCE_JWT_VALIDATION: await readSecretString(env.ENFORCE_JWT_VALIDATION),
 });
 
-const handleAiStatusHealth = async (request: Request, env: ResolvedAdminMotorEnv, _unparsedEnv: AdminMotorEnv): Promise<Response> => {
+const handleAiStatusHealth = async (
+  _request: Request,
+  env: ResolvedAdminMotorEnv,
+  _unparsedEnv: AdminMotorEnv,
+): Promise<Response> => {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) {
-    return json({
-      ok: false,
-      error: 'AI service not configured.',
-      keyConfigured: false,
-    }, 503);
+    return json(
+      {
+        ok: false,
+        error: 'AI service not configured.',
+        keyConfigured: false,
+      },
+      503,
+    );
   }
   const ai = new GoogleGenAI({ apiKey });
 
@@ -291,10 +319,7 @@ const handleAiStatusHealth = async (request: Request, env: ResolvedAdminMotorEnv
   }
 };
 
-const fetchMainsiteGeminiModels = async (
-  request: Request,
-  env: ResolvedAdminMotorEnv,
-): Promise<ModelOption[]> => {
+const fetchMainsiteGeminiModels = async (_request: Request, env: ResolvedAdminMotorEnv): Promise<ModelOption[]> => {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY não configurada.');
@@ -418,7 +443,11 @@ app.use('*', async (c, next) => {
 // ── Route context helper ──
 // Casts the Hono context into the shape expected by all handler functions.
 const rc = <T>(c: Context<HonoEnv>) =>
-  ({ request: c.req.raw, env: c.get('runtimeEnv'), waitUntil: (p: Promise<unknown>) => c.executionCtx.waitUntil(p) } as unknown as T);
+  ({
+    request: c.req.raw,
+    env: c.get('runtimeEnv'),
+    waitUntil: (p: Promise<unknown>) => c.executionCtx.waitUntil(p),
+  }) as unknown as T;
 const re = (c: Context<HonoEnv>) => ({ request: c.req.raw, env: c.get('runtimeEnv') });
 
 // ── ai-status ──
@@ -511,7 +540,13 @@ app.post('/api/mainsite/migrate-media-urls', (c) => handleMainsiteMigrateMediaPo
 app.post('/api/mainsite/upload', (c) => handleMainsiteUploadPost(rc(c)));
 app.get('/api/mainsite/media/:filename', (c) => {
   const filename = decodeURIComponent(c.req.param('filename'));
-  if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\') || filename.includes('\0')) {
+  if (
+    !filename ||
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\') ||
+    filename.includes('\0')
+  ) {
     return new Response('Invalid filename.', { status: 400 });
   }
   return handleMainsiteMediaGet({ ...re(c), params: { filename } } as Parameters<typeof handleMainsiteMediaGet>[0]);
@@ -534,17 +569,17 @@ app.get('/api/mainsite/comments/admin/settings', (c) => handleCommentsAdminGetSe
 app.put('/api/mainsite/comments/admin/settings', (c) => handleCommentsAdminPutSettings(re(c)));
 app.patch('/api/mainsite/comments/admin/:id', (c) => {
   const id = parseInt(c.req.param('id'), 10);
-  if (isNaN(id)) return c.json({ ok: false, error: 'Invalid comment ID.' }, 400);
+  if (Number.isNaN(id)) return c.json({ ok: false, error: 'Invalid comment ID.' }, 400);
   return handleCommentsAdminModerate(re(c), id);
 });
 app.delete('/api/mainsite/comments/admin/:id', (c) => {
   const id = parseInt(c.req.param('id'), 10);
-  if (isNaN(id)) return c.json({ ok: false, error: 'Invalid comment ID.' }, 400);
+  if (Number.isNaN(id)) return c.json({ ok: false, error: 'Invalid comment ID.' }, 400);
   return handleCommentsAdminDelete(re(c), id);
 });
 app.post('/api/mainsite/comments/admin/:id/reply', (c) => {
   const id = parseInt(c.req.param('id'), 10);
-  if (isNaN(id)) return c.json({ ok: false, error: 'Invalid comment ID.' }, 400);
+  if (Number.isNaN(id)) return c.json({ ok: false, error: 'Invalid comment ID.' }, 400);
   return handleCommentsAdminReply(re(c), id);
 });
 
@@ -554,12 +589,12 @@ app.get('/api/mainsite/ratings/admin/stats', (c) => handleRatingsAdminStats(re(c
 app.post('/api/mainsite/ratings/admin/bulk', (c) => handleRatingsAdminBulk(re(c)));
 app.patch('/api/mainsite/ratings/admin/:id', (c) => {
   const id = parseInt(c.req.param('id'), 10);
-  if (isNaN(id)) return c.json({ ok: false, error: 'Invalid rating ID.' }, 400);
+  if (Number.isNaN(id)) return c.json({ ok: false, error: 'Invalid rating ID.' }, 400);
   return handleRatingsAdminUpdate(re(c), id);
 });
 app.delete('/api/mainsite/ratings/admin/:id', (c) => {
   const id = parseInt(c.req.param('id'), 10);
-  if (isNaN(id)) return c.json({ ok: false, error: 'Invalid rating ID.' }, 400);
+  if (Number.isNaN(id)) return c.json({ ok: false, error: 'Invalid rating ID.' }, 400);
   return handleRatingsAdminDelete(re(c), id);
 });
 

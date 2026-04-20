@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { useCallback, useEffect, useState } from 'react';
+
 import { Outlet, useNavigate, useParams } from '@tanstack/react-router';
 import {
   BarChart3,
@@ -22,10 +22,11 @@ import {
   Workflow,
   Wrench,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import './styles/variables.css';
 import './App.css';
-import { FloatingScrollButtons } from './components/FloatingScrollButtons';
 import { ComplianceBanner } from './components/ComplianceBanner';
+import { FloatingScrollButtons } from './components/FloatingScrollButtons';
 
 const APP_VERSION = 'APP v01.90.02';
 
@@ -210,7 +211,7 @@ function App() {
         </nav>
       </aside>
 
-      <main id="main-content" className="content" role="main" aria-label="Conteúdo do módulo ativo">
+      <main id="main-content" className="content" aria-label="Conteúdo do módulo ativo">
         <header className="topbar">
           <div>
             <p className="eyebrow">Painel administrativo unificado</p>

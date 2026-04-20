@@ -2,13 +2,14 @@
  * Copyright (C) 2026 Leonardo Cardozo Vargas
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import { SyncStatusCard } from './SyncStatusCard';
-import { NotificationProvider } from './Notification';
 import type { ReactNode } from 'react';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import { NotificationProvider } from './Notification';
+import { SyncStatusCard } from './SyncStatusCard';
 
 const mockFetch = vi.fn() as Mock;
 vi.stubGlobal('fetch', mockFetch);
@@ -61,6 +62,7 @@ describe('SyncStatusCard', () => {
   it('disables sync button while loading', () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
     render(<SyncStatusCard {...defaultProps} />, { wrapper: makeWrapper() });
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — list always has elements in this render path
     const button = screen.getAllByTestId('sync-trigger-mainsite').at(-1)!;
     expect(button).toBeDisabled();
   });
@@ -68,6 +70,7 @@ describe('SyncStatusCard', () => {
   it('renders title and description', () => {
     mockFetch.mockImplementation(() => new Promise(() => {}));
     render(<SyncStatusCard {...defaultProps} />, { wrapper: makeWrapper() });
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — list always has elements in this render path
     const card = screen.getAllByTestId('sync-card-mainsite').at(-1)!;
     expect(within(card).getByText('MainSite Sync')).toBeInTheDocument();
     expect(within(card).getByText('Sincroniza dados do MainSite')).toBeInTheDocument();
@@ -91,7 +94,10 @@ describe('SyncStatusCard', () => {
       json: async () => mockOverviewResponse,
     });
     render(<SyncStatusCard {...defaultProps} />, { wrapper: makeWrapper() });
-    await waitFor(() => expect(screen.getAllByTestId('sync-trigger-mainsite').at(-1)!).toBeEnabled());
+    await waitFor(() =>
+      // biome-ignore lint/style/noNonNullAssertion: test assertion — list always has elements in this render path
+      expect(screen.getAllByTestId('sync-trigger-mainsite').at(-1)!).toBeEnabled(),
+    );
   });
 
   it('calls the sync endpoint when button is clicked', async () => {
@@ -105,8 +111,12 @@ describe('SyncStatusCard', () => {
 
     const user = userEvent.setup();
     render(<SyncStatusCard {...defaultProps} />, { wrapper: makeWrapper() });
-    await waitFor(() => expect(screen.getAllByTestId('sync-trigger-mainsite').at(-1)!).toBeEnabled());
+    await waitFor(() =>
+      // biome-ignore lint/style/noNonNullAssertion: test assertion — list always has elements in this render path
+      expect(screen.getAllByTestId('sync-trigger-mainsite').at(-1)!).toBeEnabled(),
+    );
 
+    // biome-ignore lint/style/noNonNullAssertion: test assertion — list always has elements in this render path
     await user.click(screen.getAllByTestId('sync-trigger-mainsite').at(-1)!);
 
     await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/mainsite/sync', { method: 'POST' }));
