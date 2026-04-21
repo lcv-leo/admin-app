@@ -83,9 +83,10 @@ export type PostEditorProps = {
   initialTitle: string;
   initialAuthor: string;
   initialContent: string;
+  initialIsPublished?: boolean;
   savingPost: boolean;
   showNotification: (msg: string, type: 'info' | 'success' | 'error') => void;
-  onSave: (title: string, author: string, htmlContent: string) => Promise<boolean>;
+  onSave: (title: string, author: string, htmlContent: string, isPublished: boolean) => Promise<boolean>;
   onClose: () => void;
 };
 
@@ -94,6 +95,7 @@ export default function PostEditor({
   initialTitle,
   initialAuthor,
   initialContent,
+  initialIsPublished = true,
   savingPost,
   showNotification,
   onSave,
@@ -101,6 +103,7 @@ export default function PostEditor({
 }: PostEditorProps) {
   const [postTitle, setPostTitle] = useState(initialTitle);
   const [postAuthor, setPostAuthor] = useState(initialAuthor);
+  const [postIsPublished, setPostIsPublished] = useState(initialIsPublished);
   const [promptModal, setPromptModal] = useState<PromptModalState>(PROMPT_MODAL_INITIAL);
   const [isUploading, setIsUploading] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -166,6 +169,10 @@ export default function PostEditor({
   useEffect(() => {
     setPostAuthor(initialAuthor);
   }, [initialAuthor]);
+
+  useEffect(() => {
+    setPostIsPublished(initialIsPublished);
+  }, [initialIsPublished]);
 
   const handleAIFreeform = async () => {
     if (!editor) return;
@@ -673,7 +680,7 @@ export default function PostEditor({
     }
     // Enforce target="_blank" on all non-YouTube links before persisting
     const content = sanitizeLinksTargetBlank(rawContent);
-    const success = await onSave(title, author, content);
+    const success = await onSave(title, author, content, postIsPublished);
     if (success) {
       flashFeedback(editingPostId ? 'Post atualizado com sucesso ✓' : 'Post criado com sucesso ✓', 'success');
     } else {
@@ -845,6 +852,18 @@ export default function PostEditor({
           placeholder="Leonardo Cardozo Vargas"
           disabled={savingPost}
         />
+      </div>
+
+      <div className="field-group">
+        <label style={{ display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={postIsPublished}
+            onChange={(event) => setPostIsPublished(event.target.checked)}
+            disabled={savingPost}
+          />
+          <span>Visível no site (quando desmarcado, o post fica oculto para visitantes)</span>
+        </label>
       </div>
 
       {/* ── TipTap Editor ────────────────────────────────────────────── */}

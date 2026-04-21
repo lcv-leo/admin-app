@@ -9,6 +9,9 @@
 ## 🧠 MEMÓRIA DE CONTEXTO ISOLADO (ADMIN-APP)
 # AI Memory Log — Admin-App
 
+## 2026-04-21 — Admin-App v01.92.00 (Mecanismo de Publicação do MainSite)
+Kill switch global (chave `mainsite/publishing` em `mainsite_settings`, modes `normal|hidden`, `notice_title`+`notice_message` em texto plano sanitizado server-side) + visibilidade individual (coluna `mainsite_posts.is_published INTEGER DEFAULT 1`). Regra: texto público ⇔ `mode='normal'` AND `is_published=1`. Novo endpoint `POST /api/mainsite/posts-visibility`. Novo card "Publicação do Site" em `MainsiteModule` entre Arquivo e Moderação. Toggle olho (EyeOff/Eye) na lista. Checkbox "Visível no site" no `PostEditor`. `sanitizePublishingPayload` em `mainsite-admin.ts` remove HTML antes de persistir. `bumpContentVersion` dispara propagação imediata ao frontend via polling de fingerprint. Migration 012 aplicada via Cloudflare D1 API (31 posts existentes ficam todos visíveis). APP v01.91.01 → v01.92.00.
+
 ## 2026-04-17 — Admin-App v01.90.02 (Pages observability rollback after GHA failure)
 ### Escopo
 Hotfix de deploy no `admin-app` após o GitHub Actions confirmar que `observability` não é suportado em config de Cloudflare Pages.

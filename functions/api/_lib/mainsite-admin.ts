@@ -25,6 +25,82 @@ export type MainsitePublicSettings = {
   rotation: Record<string, unknown>
   disclaimers: Record<string, unknown>
   aiModels: Record<string, unknown>
+  publishing: MainsitePublishingSettings
+}
+
+export type MainsitePublishingMode = 'normal' | 'hidden'
+
+export type MainsitePublishingSettings = {
+  mode: MainsitePublishingMode
+  notice_title: string
+  notice_message: string
+}
+
+// notice_title / notice_message são texto plano por design: removem
+// qualquer HTML antes de persistir para eliminar XSS armazenado.
+const stripAllHtml = (raw: string): string => {
+  let previous: string
+  let current = raw
+  do {
+    previous = current
+    current = current.replace(/<[^>]*>/g, '')
+  } while (current !== previous)
+  return current.replace(/[<>]/g, '')
+}
+
+const NOTICE_TITLE_MAX = 200
+const NOTICE_MESSAGE_MAX = 4000
+
+export const sanitizePublishingPayload = (raw: unknown): MainsitePublishingSettings => {
+  const input = (raw ?? {}) as Partial<Record<keyof MainsitePublishingSettings, unknown>>
+  const mode: MainsitePublishingMode = input.mode === 'hidden' ? 'hidden' : 'normal'
+  const title = stripAllHtml(String(input.notice_title ?? '')).trim().slice(0, NOTICE_TITLE_MAX)
+  const message = stripAllHtml(String(input.notice_message ?? '')).slice(0, NOTICE_MESSAGE_MAX)
+  return { mode, notice_title: title, notice_message: message }
+}
+
+export const DEFAULT_PUBLISHING: MainsitePublishingSettings = {
+  mode: 'normal',
+  notice_title: '',
+  notice_message: '',
+}
+
+/**
+ * Incrementa `mainsite/content-version` para sinalizar ao frontend (via polling de
+ * /api/content-fingerprint) que houve mudança de conteúdo ou visibilidade. Usado por
+ * handlers que alteram publishing, is_published, pin, reorder, create, update e delete
+ * de posts — garante que o kill switch e toggles individuais propaguem imediatamente
+ * sem esperar o próximo page load.
+ */
+export const bumpMainsiteContentVersion = async (db: D1Database): Promise<void> => {
+  const record = await db
+    .prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1')
+    .bind('mainsite/content-version')
+    .first<{ payload?: string }>()
+
+  let version = 0
+  if (record?.payload) {
+    try {
+      const parsed = JSON.parse(record.payload) as { version?: number }
+      if (typeof parsed.version === 'number' && Number.isFinite(parsed.version)) {
+        version = parsed.version
+      }
+    } catch {
+      // payload corrupto — reinicia do zero
+    }
+  }
+
+  const next = JSON.stringify({ version: version + 1, updated_at: new Date().toISOString() })
+  await db
+    .prepare(
+      `INSERT INTO mainsite_settings (id, payload, updated_at)
+       VALUES (?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(id) DO UPDATE SET
+         payload = excluded.payload,
+         updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind('mainsite/content-version', next)
+    .run()
 }
 
 // ATENÇÃO: código legado sem chamadores ativos. Se reativado, configurar MAINSITE_WORKER_API_BASE_URL via env.
@@ -182,6 +258,7 @@ export const readLegacyPublicSettings = async (env: Env): Promise<MainsitePublic
     rotation,
     disclaimers,
     aiModels,
+    publishing: DEFAULT_PUBLISHING,
   }
 }
 
@@ -191,6 +268,7 @@ export const upsertPublicSettingsIntoBigdata = async (db: D1Database, settings: 
     ['mainsite/rotation', JSON.stringify(settings.rotation)],
     ['mainsite/disclaimers', JSON.stringify(settings.disclaimers)],
     ['mainsite/ai_models', JSON.stringify(settings.aiModels)],
+    ['mainsite/publishing', JSON.stringify(sanitizePublishingPayload(settings.publishing))],
   ] as const
 
   for (const [id, payload] of rows) {

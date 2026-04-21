@@ -8,12 +8,15 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
+  Eye,
+  EyeOff,
   FilePlus2,
   Globe,
   GripVertical,
   Loader2,
   Pencil,
   Pin,
+  PowerOff,
   RefreshCw,
   RotateCw,
   Save,
@@ -41,8 +44,26 @@ type ManagedPost = {
   created_at: string;
   updated_at?: string;
   is_pinned: number | boolean;
+  is_published?: number | boolean;
   display_order?: number;
 };
+
+type PublishingMode = 'normal' | 'hidden';
+
+type PublishingSettings = {
+  mode: PublishingMode;
+  notice_title: string;
+  notice_message: string;
+};
+
+const DEFAULT_PUBLISHING: PublishingSettings = {
+  mode: 'normal',
+  notice_title: '',
+  notice_message: '',
+};
+
+const NOTICE_TITLE_MAX = 200;
+const NOTICE_MESSAGE_MAX = 4000;
 
 type ConfirmDeleteState = {
   show: boolean;
@@ -163,6 +184,8 @@ export function MainsiteModule() {
   const [editingPostContent, setEditingPostContent] = useState('');
   // Structured settings state — only disclaimers (appearance+rotation moved to ConfigModule)
   const [disclaimers, setDisclaimers] = useState<DisclaimersSettings>(DEFAULT_DISCLAIMERS);
+  const [publishing, setPublishing] = useState<PublishingSettings>(DEFAULT_PUBLISHING);
+  const [savingPublishing, setSavingPublishing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<ConfirmDeleteState>({ show: false, id: null, title: '' });
   const [draggedPostIndex, setDraggedPostIndex] = useState<number | null>(null);
 
@@ -244,6 +267,13 @@ export function MainsiteModule() {
         }
 
         setDisclaimers((nextPayload.settings.disclaimers as DisclaimersSettings) ?? DEFAULT_DISCLAIMERS);
+
+        const pub = nextPayload.settings.publishing as Partial<PublishingSettings> | undefined;
+        setPublishing({
+          mode: pub?.mode === 'hidden' ? 'hidden' : 'normal',
+          notice_title: String(pub?.notice_title ?? ''),
+          notice_message: String(pub?.notice_message ?? ''),
+        });
 
         // Captura dados de rotação para a faixa de status
         const rot = nextPayload.settings.rotation as
@@ -500,7 +530,12 @@ export function MainsiteModule() {
   };
 
   /** Called by PostEditor when user submits */
-  const handleSavePost = async (title: string, author: string, htmlContent: string): Promise<boolean> => {
+  const handleSavePost = async (
+    title: string,
+    author: string,
+    htmlContent: string,
+    isPublished: boolean,
+  ): Promise<boolean> => {
     setSavingPost(true);
     try {
       const isEditing = editingPostId !== null;
@@ -515,6 +550,7 @@ export function MainsiteModule() {
           title,
           author,
           content: htmlContent,
+          is_published: isPublished ? 1 : 0,
           adminActor,
         }),
       });
@@ -663,6 +699,115 @@ export function MainsiteModule() {
     }
   };
 
+  const handleToggleVisibility = async (id: number) => {
+    setActionPostId(id);
+    try {
+      const response = await fetch('/api/mainsite/posts-visibility', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Actor': adminActor,
+        },
+        body: JSON.stringify({ id, adminActor }),
+      });
+
+      const nextPayload = (await response.json()) as {
+        ok: boolean;
+        error?: string;
+        isPublished?: boolean;
+        request_id?: string;
+      };
+      if (!response.ok || !nextPayload.ok) {
+        throw new Error(nextPayload.error ?? 'Falha ao alternar visibilidade do post.');
+      }
+
+      await loadManagedPosts();
+      showNotification(
+        withTrace(nextPayload.isPublished ? 'Post agora está visível no site.' : 'Post ocultado do site.', nextPayload),
+        'success',
+      );
+    } catch {
+      showNotification('Não foi possível alternar a visibilidade do post.', 'error');
+    } finally {
+      setActionPostId(null);
+    }
+  };
+
+  // Publicação geral: persiste mainsite/publishing preservando appearance+rotation+disclaimers+aiModels.
+  // Quando mode muda, o admin-motor invalida o content-fingerprint para que o frontend pegue imediatamente.
+  const handleSavePublishing = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSavingPublishing(true);
+    try {
+      const currentRes = await fetch('/api/mainsite/settings', {
+        headers: { 'X-Admin-Actor': adminActor },
+      });
+      const currentPayload = (await currentRes.json()) as {
+        ok?: boolean;
+        error?: string;
+        settings?: {
+          appearance?: unknown;
+          rotation?: unknown;
+          disclaimers?: unknown;
+          aiModels?: unknown;
+        };
+      };
+
+      // Aborta se QUALQUER campo preservado não vier íntegro — sem fallback silencioso.
+      // O admin-motor sempre retorna os 4 blocos como objetos (defaults hard-coded em
+      // settings.ts readPublicSettings), então ausência ou tipo errado em qualquer um
+      // deles sinaliza backend degradado, não estado legítimo — PUTar com fallback
+      // gravaria configuração parcial sobre a real (risco especialmente crítico em
+      // aiModels/disclaimers, que não são editáveis nesta UI).
+      const isRecord = (value: unknown): value is Record<string, unknown> =>
+        typeof value === 'object' && value !== null && !Array.isArray(value);
+
+      if (
+        !currentRes.ok ||
+        !currentPayload.ok ||
+        !isRecord(currentPayload.settings?.appearance) ||
+        !isRecord(currentPayload.settings?.rotation) ||
+        !isRecord(currentPayload.settings?.disclaimers) ||
+        !isRecord(currentPayload.settings?.aiModels)
+      ) {
+        throw new Error(currentPayload.error ?? 'Configurações atuais inválidas — publicação não salva.');
+      }
+
+      const response = await fetch('/api/mainsite/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Actor': adminActor },
+        body: JSON.stringify({
+          appearance: currentPayload.settings.appearance,
+          rotation: currentPayload.settings.rotation,
+          disclaimers: currentPayload.settings.disclaimers,
+          aiModels: currentPayload.settings.aiModels,
+          publishing,
+          adminActor,
+        }),
+      });
+
+      const nextPayload = (await response.json()) as { ok: boolean; error?: string; request_id?: string };
+      if (!response.ok || !nextPayload.ok) {
+        throw new Error(nextPayload.error ?? 'Falha ao salvar publicação do site.');
+      }
+
+      await loadPublicSettings();
+      showNotification(
+        withTrace(
+          publishing.mode === 'hidden'
+            ? 'Publicação geral OCULTADA. Os textos não aparecerão no site.'
+            : 'Publicação geral em modo normal. Textos visíveis conforme visibilidade individual.',
+          nextPayload,
+        ),
+        'success',
+      );
+    } catch {
+      showNotification('Não foi possível salvar a publicação do site.', 'error');
+    } finally {
+      setSavingPublishing(false);
+    }
+  };
+
   // Merge-save: fetch current settings to preserve appearance+rotation (managed by ConfigModule)
   const handleSaveSettings = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -672,20 +817,42 @@ export function MainsiteModule() {
       const currentRes = await fetch('/api/mainsite/settings', {
         headers: { 'X-Admin-Actor': adminActor },
       });
-      const currentPayload = (await currentRes.json()) as { ok: boolean; settings?: Record<string, unknown> };
-      const currentAppearance = currentPayload.settings?.appearance ?? {};
-      const currentRotation = currentPayload.settings?.rotation ?? {};
-      const currentAiModels = currentPayload.settings?.aiModels ?? {};
+      const currentPayload = (await currentRes.json()) as {
+        ok?: boolean;
+        error?: string;
+        settings?: {
+          appearance?: unknown;
+          rotation?: unknown;
+          aiModels?: unknown;
+        };
+      };
+
+      // Aborta se QUALQUER campo preservado não vier íntegro — sem fallback silencioso.
+      // Disclaimers é o que este handler edita (usa o estado local); appearance, rotation
+      // e aiModels TODOS precisam vir do backend íntegros, senão PUTar com fallback
+      // gravaria configuração parcial sobre a real.
+      const isRecord = (value: unknown): value is Record<string, unknown> =>
+        typeof value === 'object' && value !== null && !Array.isArray(value);
+
+      if (
+        !currentRes.ok ||
+        !currentPayload.ok ||
+        !isRecord(currentPayload.settings?.appearance) ||
+        !isRecord(currentPayload.settings?.rotation) ||
+        !isRecord(currentPayload.settings?.aiModels)
+      ) {
+        throw new Error(currentPayload.error ?? 'Configurações atuais inválidas — disclaimers não salvos.');
+      }
 
       // 2. Merge: preserve appearance + rotation + aiModels, update disclaimers
       const response = await fetch('/api/mainsite/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Actor': adminActor },
         body: JSON.stringify({
-          appearance: currentAppearance,
-          rotation: currentRotation,
+          appearance: currentPayload.settings.appearance,
+          rotation: currentPayload.settings.rotation,
           disclaimers,
-          aiModels: currentAiModels,
+          aiModels: currentPayload.settings.aiModels,
           adminActor,
         }),
       });
@@ -779,9 +946,18 @@ export function MainsiteModule() {
                 initialTitle={editingPostId ? (managedPosts.find((p) => p.id === editingPostId)?.title ?? '') : ''}
                 initialAuthor={editingPostId ? (managedPosts.find((p) => p.id === editingPostId)?.author ?? '') : ''}
                 initialContent={editingPostContent}
+                initialIsPublished={
+                  editingPostId
+                    ? (() => {
+                        const target = managedPosts.find((p) => p.id === editingPostId);
+                        if (target?.is_published === undefined) return true;
+                        return Number(target.is_published) === 1 || target.is_published === true;
+                      })()
+                    : true
+                }
                 savingPost={savingPost}
                 showNotification={popupNotify}
-                onSave={(title, author, html) => handleSavePost(title, author, html)}
+                onSave={(title, author, html, isPublished) => handleSavePost(title, author, html, isPublished)}
                 onClose={resetPostEditor}
               />
             </Suspense>
@@ -894,6 +1070,8 @@ export function MainsiteModule() {
           <ul className="result-list astro-akashico-scroll">
             {managedPosts.map((post, index) => {
               const isPinned = Number(post.is_pinned) === 1 || post.is_pinned === true;
+              const isPublished =
+                post.is_published === undefined ? true : Number(post.is_published) === 1 || post.is_published === true;
               const isBusy = actionPostId === post.id;
               const isSelected = selectedPostId === post.id;
               return (
@@ -946,6 +1124,7 @@ export function MainsiteModule() {
                       <span className={`badge ${isPinned ? 'badge-em-implantacao' : 'badge-planejado'}`}>
                         {isPinned ? 'fixado' : 'normal'}
                       </span>
+                      {!isPublished && <span className="badge badge-cancelado">oculto</span>}
                     </div>
                   </div>
 
@@ -974,6 +1153,22 @@ export function MainsiteModule() {
                     <button
                       type="button"
                       className="ghost-button"
+                      onClick={() => void handleToggleVisibility(post.id)}
+                      disabled={isBusy}
+                      title={isPublished ? 'Ocultar do site' : 'Exibir no site'}
+                    >
+                      {isBusy ? (
+                        <Loader2 size={16} className="spin" />
+                      ) : isPublished ? (
+                        <EyeOff size={16} />
+                      ) : (
+                        <Eye size={16} />
+                      )}
+                      {isPublished ? 'Ocultar' : 'Exibir'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
                       onClick={() => requestDeletePost(post.id, post.title)}
                       disabled={isBusy}
                     >
@@ -986,6 +1181,83 @@ export function MainsiteModule() {
             })}
           </ul>
         )}
+      </article>
+
+      {/* ── Publicação do Site ── */}
+      <article className="result-card" style={{ marginTop: '24px' }}>
+        <div className="result-toolbar">
+          <div>
+            <h4>
+              <PowerOff size={16} /> Publicação do Site
+            </h4>
+            <p className="field-hint">
+              Controle geral de exibição dos textos no mainsite. Quando em <strong>Oculto</strong>, nenhum texto é
+              servido pela API pública — inclusive via link direto — e o PostReader exibe apenas a mensagem abaixo (se
+              preenchida). Visibilidade individual de cada post é mantida em "Arquivo de Posts".
+            </p>
+          </div>
+        </div>
+        <form onSubmit={handleSavePublishing} style={{ display: 'grid', gap: '16px', padding: '0 4px' }}>
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="publishing-mode"
+                checked={publishing.mode === 'normal'}
+                onChange={() => setPublishing({ ...publishing, mode: 'normal' })}
+              />
+              <Eye size={14} /> Normal (textos visíveis conforme visibilidade individual)
+            </label>
+            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="publishing-mode"
+                checked={publishing.mode === 'hidden'}
+                onChange={() => setPublishing({ ...publishing, mode: 'hidden' })}
+              />
+              <EyeOff size={14} /> Oculto (nenhum texto é servido; exibe apenas a mensagem abaixo)
+            </label>
+          </div>
+
+          <fieldset style={{ border: '1px solid var(--line, #2a2a2a)', borderRadius: '8px', padding: '12px' }}>
+            <legend style={{ padding: '0 8px', fontSize: '0.9em' }}>
+              Mensagem exibida quando o modo é <strong>Oculto</strong> (opcional — em branco deixa a folha vazia)
+            </legend>
+            <div style={{ display: 'grid', gap: '12px' }}>
+              <label style={{ display: 'grid', gap: '4px' }}>
+                <span>Título do aviso (texto plano, máx. {NOTICE_TITLE_MAX})</span>
+                <input
+                  type="text"
+                  value={publishing.notice_title}
+                  maxLength={NOTICE_TITLE_MAX}
+                  onChange={(e) => setPublishing({ ...publishing, notice_title: e.target.value })}
+                  placeholder="Ex.: Em manutenção"
+                />
+              </label>
+              <label style={{ display: 'grid', gap: '4px' }}>
+                <span>Mensagem (texto plano, máx. {NOTICE_MESSAGE_MAX})</span>
+                <textarea
+                  value={publishing.notice_message}
+                  maxLength={NOTICE_MESSAGE_MAX}
+                  rows={5}
+                  onChange={(e) => setPublishing({ ...publishing, notice_message: e.target.value })}
+                  placeholder="Texto livre explicando o motivo. Deixe em branco para folha totalmente vazia."
+                />
+              </label>
+              <p className="field-hint">
+                HTML é removido automaticamente ao salvar — apenas texto plano é persistido. Quebras de linha são
+                preservadas.
+              </p>
+            </div>
+          </fieldset>
+
+          <div>
+            <button type="submit" className="primary-button" disabled={savingPublishing}>
+              {savingPublishing ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+              Salvar publicação
+            </button>
+          </div>
+        </form>
       </article>
 
       {/* ── Moderação de Comentários ── */}

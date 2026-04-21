@@ -1,5 +1,13 @@
 import { resolveAdminActorFromRequest } from '../../../../../functions/api/_lib/admin-actor';
-import { type Context, type MainsitePublicSettings, toHeaders } from '../../../../../functions/api/_lib/mainsite-admin';
+import {
+  bumpMainsiteContentVersion,
+  type Context,
+  DEFAULT_PUBLISHING,
+  type MainsitePublicSettings,
+  type MainsitePublishingSettings,
+  sanitizePublishingPayload,
+  toHeaders,
+} from '../../../../../functions/api/_lib/mainsite-admin';
 import { logModuleOperationalEvent } from '../../../../../functions/api/_lib/operational';
 import { createResponseTrace, type ResponseTrace } from '../../../../../functions/api/_lib/request-trace';
 
@@ -66,8 +74,20 @@ const safeParseObject = (rawPayload: string | undefined, fallback: Record<string
   }
 };
 
+const readPublishing = (rawPayload: string | undefined): MainsitePublishingSettings => {
+  if (!rawPayload?.trim()) {
+    return DEFAULT_PUBLISHING;
+  }
+  try {
+    const parsed = JSON.parse(rawPayload) as unknown;
+    return sanitizePublishingPayload(parsed);
+  } catch {
+    return DEFAULT_PUBLISHING;
+  }
+};
+
 const readPublicSettings = async (db: D1Database): Promise<MainsitePublicSettings> => {
-  const [appearanceRow, rotationRow, disclaimersRow, aiModelsRow] = await Promise.all([
+  const [appearanceRow, rotationRow, disclaimersRow, aiModelsRow, publishingRow] = await Promise.all([
     db
       .prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1')
       .bind('mainsite/appearance')
@@ -84,6 +104,10 @@ const readPublicSettings = async (db: D1Database): Promise<MainsitePublicSetting
       .prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1')
       .bind('mainsite/ai_models')
       .first<SettingRow>(),
+    db
+      .prepare('SELECT payload FROM mainsite_settings WHERE id = ? LIMIT 1')
+      .bind('mainsite/publishing')
+      .first<SettingRow>(),
   ]);
 
   return {
@@ -94,6 +118,7 @@ const readPublicSettings = async (db: D1Database): Promise<MainsitePublicSetting
       chat: '',
       summary: '',
     }),
+    publishing: readPublishing(publishingRow?.payload),
   };
 };
 
@@ -163,10 +188,11 @@ export async function onRequestPut(context: MainsiteContext) {
       !isRecord(body.appearance) ||
       !isRecord(body.rotation) ||
       !isRecord(body.disclaimers) ||
-      (body.aiModels && !isRecord(body.aiModels))
+      (body.aiModels && !isRecord(body.aiModels)) ||
+      (body.publishing !== undefined && !isRecord(body.publishing))
     ) {
       return buildErrorResponse(
-        'Appearance, rotation, disclaimers e aiModels precisam ser objetos JSON válidos.',
+        'Appearance, rotation, disclaimers, aiModels e publishing precisam ser objetos JSON válidos.',
         trace,
         400,
       );
@@ -179,7 +205,13 @@ export async function onRequestPut(context: MainsiteContext) {
     let settingsUpserted = 3;
     if (body.aiModels !== undefined) {
       await upsertSetting(db, 'mainsite/ai_models', body.aiModels as Record<string, unknown>);
-      settingsUpserted = 4;
+      settingsUpserted += 1;
+    }
+    if (body.publishing !== undefined) {
+      const sanitized = sanitizePublishingPayload(body.publishing);
+      await upsertSetting(db, 'mainsite/publishing', sanitized as unknown as Record<string, unknown>);
+      await bumpMainsiteContentVersion(db as unknown as D1Database);
+      settingsUpserted += 1;
     }
 
     try {
@@ -201,7 +233,7 @@ export async function onRequestPut(context: MainsiteContext) {
     return new Response(
       JSON.stringify({
         ok: true,
-        settingsUpserted: 4,
+        settingsUpserted,
         admin_actor: adminActor,
         ...trace,
       }),

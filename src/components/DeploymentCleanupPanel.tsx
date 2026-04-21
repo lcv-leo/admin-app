@@ -81,6 +81,7 @@ export function DeploymentCleanupPanel() {
   }, []);
 
   /** Auto-scroll do terminal a cada nova linha de log */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `logs` é trigger-only — o efeito não lê o array, apenas responde à sua mudança para rolar o terminal.
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;

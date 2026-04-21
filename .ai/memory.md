@@ -1,3 +1,46 @@
+## 2026-04-21 — Admin-App v01.92.02 (hotfix2: guard uniforme em todos os campos preservados)
+### Escopo
+Segundo parecer externo sobre v01.92.01 apontou que o endurecimento ficou incompleto: `aiModels` continuou com fallback `?? {}` e `disclaimers` continuou caindo para estado local em `handleSavePublishing`. Risco de sobrescrita foi mitigado, não eliminado.
+### Corrigido
+- `handleSavePublishing` agora aborta se qualquer de `appearance`, `rotation`, `disclaimers`, `aiModels` não for record válido no GET.
+- `handleSaveSettings` (disclaimers) agora aborta se qualquer de `appearance`, `rotation`, `aiModels` não for record válido (disclaimers é o campo sendo editado, usa estado local normalmente).
+- Todos os fallbacks silenciosos (`?? {}`, `isRecord(...) ? ... : {}`, `?? disclaimers`) removidos do body do PUT — valores vêm diretamente do `currentPayload.settings.*` já validado.
+### Lição
+- "Merge-save" (GET para preservar + PUT total) exige validação estrita de TODOS os campos preservados. Fallback para `{}` é destrutivo porque o PUT completo sobrescreve tudo — o `admin-motor` `readPublicSettings` garante defaults hard-coded, logo ausência de campo no GET sinaliza backend degradado, não estado legítimo.
+### Versão
+- APP v01.92.01 → APP v01.92.02
+
+## 2026-04-21 — Admin-App v01.92.01 (hotfix: sobrescrita de settings no merge-save)
+### Escopo
+Parecer técnico externo sobre v01.92.00 apontou risco de sobrescrita silenciosa do `mainsite_settings` nos handlers `handleSavePublishing` (novo em v01.92.00) e `handleSaveSettings` (pré-existente) de `MainsiteModule.tsx`.
+### Corrigido
+- Ambos os handlers passam a validar `currentRes.ok`, `currentPayload.ok` e shape (`isRecord`) de `appearance` e `rotation` do GET intermediário antes de executar o PUT completo. Sem esse guard, um `{}` de fallback em `currentPayload.settings?.appearance ?? {}` seria persistido sobre a configuração real quando o GET degradasse (HTTP error / `ok:false` / JSON parcial).
+### Lição
+- O padrão "merge-save" (GET para preservar, PUT completo para sobrescrever) exige validação estrita do payload intermediário — fallback para objeto vazio em saves totais é destrutivo em cenários degradados. Alinhado com `feedback_fix_preexisting_errors`.
+### Versão
+- APP v01.92.00 → APP v01.92.01
+
+## 2026-04-21 — Admin-App v01.92.00 (mecanismo de Publicação do MainSite — kill switch + visibilidade individual)
+### Escopo
+Novo sistema de controle editorial de exibição dos textos do mainsite com duas camadas independentes (kill switch global via chave `mainsite/publishing`, visibilidade individual via coluna `mainsite_posts.is_published`). Regra combinada: texto público ⇔ `mode='normal'` AND `is_published=1`. Implementado simultaneamente em admin-app (v01.92.00), mainsite-worker (v02.13.00) e mainsite-frontend (v03.18.00).
+### Banco de dados
+- Migration 012 ([`db/migrations/012_bigdata_mainsite_publishing.sql`](../db/migrations/012_bigdata_mainsite_publishing.sql)) aplicada direto via Cloudflare D1 API na `bigdata_db` (00000000-0000-0000-0000-000000000000): `ALTER TABLE mainsite_posts ADD COLUMN is_published INTEGER NOT NULL DEFAULT 1` + seed `INSERT OR IGNORE mainsite_settings('mainsite/publishing','{"mode":"normal","notice_title":"","notice_message":""}')`. 31 posts existentes ficam todos visíveis por default.
+### Adicionado
+- **Endpoint `POST /api/mainsite/posts-visibility`** ([`admin-motor/src/handlers/routes/mainsite/posts-visibility.ts`](../admin-motor/src/handlers/routes/mainsite/posts-visibility.ts)): toggle ou set explícito de `is_published` (body `{ id, is_published?: boolean|0|1 }`). Padrão idêntico ao `posts-pin` existente. Chama `bumpContentVersion` para propagação imediata ao frontend.
+- **Card "Publicação do Site" em `MainsiteModule`** entre Arquivo de Posts e Moderação de Comentários: radio `Normal`/`Oculto`, campos livres `notice_title` (máx 200) e `notice_message` (máx 4000, texto plano), botão Salvar. Handler `handleSavePublishing` preserva appearance/rotation/disclaimers/aiModels ao upsertar apenas `publishing`.
+- **Botão de toggle de visibilidade na lista de posts** (ícone `EyeOff`/`Eye`) ao lado de Fixar/Excluir; badge "oculto" ao lado de "fixado/normal".
+- **Checkbox "Visível no site" no `PostEditor`**: novo state `postIsPublished` + prop `initialIsPublished`; `onSave` assinatura estendida para `(title, author, html, isPublished)`.
+- **`sanitizePublishingPayload`** ([`functions/api/_lib/mainsite-admin.ts`](../functions/api/_lib/mainsite-admin.ts)): strip iterativo de HTML em notice_title/notice_message antes de persistir (política de texto plano, elimina XSS armazenado). Tipos novos `MainsitePublishingMode`, `MainsitePublishingSettings`, constante `DEFAULT_PUBLISHING`.
+### Alterado
+- **`posts.ts`** ([admin-motor handler](../admin-motor/src/handlers/routes/mainsite/posts.ts)): `ensureAuthorColumn` renomeada para `ensurePostColumns`, garante também `is_published`. SELECTs retornam `is_published`. POST aceita o campo (default 1); PUT aceita opcional (só atualiza se vier no body, preserva retrocompat).
+- **`settings.ts`** ([admin-motor handler](../admin-motor/src/handlers/routes/mainsite/settings.ts)): lê `mainsite/publishing` via helper `readPublishing`; PUT aceita bloco `publishing` opcional com validação + sanitização + bump de `mainsite/content-version` para kill switch efetivo sem esperar próximo page load.
+- **`MainsitePublicSettings`**: tipo ganhou campo `publishing`. `upsertPublicSettingsIntoBigdata` e `readLegacyPublicSettings` atualizados.
+### Motivação
+- **Exigência do proprietário em 2026-04-21**: mecanismo local de "tirar tudo do ar" preservando identidade visual do site (logo/tema/contato/doação/rodapé), em contraste com a manutenção no edge da Cloudflare (que usa mensagens padronizadas e quebra branding). Texto da mensagem 100% sob controle editorial — se em branco, folha fica vazia, nenhum texto hardcoded. Visibilidade individual permite retirar um texto específico sem excluir.
+- **Metáfora "folha em branco"**: PostReader = folha; com texto, folha escrita; sem texto, folha em branco. Estrutura visual do componente nunca muda — só o conteúdo.
+### Versão
+- APP v01.91.01 → APP v01.92.00
+
 ## 2026-04-20 — Admin-App v01.91.01 (hotfix: regressão crítica em PopupPortal pós-auditoria)
 ### Escopo
 Fix emergencial após v01.91.00. Auto-fix `--unsafe` do Biome substituiu `}, [isOpen, title])` + `// eslint-disable-next-line react-hooks/exhaustive-deps` por `}, [isOpen, title, onClose, containerEl])` no `useEffect` do `PopupPortal`. Resultado operacional: clicar em "Novo Post" ou "Editar Post" no `MainsiteModule` spawnava milhares de `window.open()` até travar o navegador, porque (a) `onClose=resetPostEditor` é recriado a cada render do parent e (b) `containerEl` é setado PELO próprio efeito (`setContainerEl(div)` via `queueMicrotask`), criando ciclo cleanup → reabrir.

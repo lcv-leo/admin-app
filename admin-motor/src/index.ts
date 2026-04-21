@@ -92,6 +92,7 @@ import {
 } from './handlers/routes/mainsite/posts';
 import { onRequestPost as handleMainsitePostsPinPost } from './handlers/routes/mainsite/posts-pin';
 import { onRequestPost as handleMainsitePostsReorderPost } from './handlers/routes/mainsite/posts-reorder';
+import { onRequestPost as handleMainsitePostsVisibilityPost } from './handlers/routes/mainsite/posts-visibility';
 import {
   handleRatingsAdminAll,
   handleRatingsAdminBulk,
@@ -533,6 +534,7 @@ app.put('/api/mainsite/posts', (c) => handleMainsitePostsPut(rc(c)));
 app.delete('/api/mainsite/posts', (c) => handleMainsitePostsDelete(rc(c)));
 app.post('/api/mainsite/posts-pin', (c) => handleMainsitePostsPinPost(rc(c)));
 app.post('/api/mainsite/posts-reorder', (c) => handleMainsitePostsReorderPost(rc(c)));
+app.post('/api/mainsite/posts-visibility', (c) => handleMainsitePostsVisibilityPost(rc(c)));
 app.get('/api/mainsite/settings', (c) => handleMainsiteSettingsGet(rc(c)));
 app.put('/api/mainsite/settings', (c) => handleMainsiteSettingsPut(rc(c)));
 app.post('/api/mainsite/sync', (c) => handleMainsiteSyncPost(rc(c)));
