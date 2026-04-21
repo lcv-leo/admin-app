@@ -80,12 +80,12 @@ export function DeploymentCleanupPanel() {
     setLogs((prev) => [...prev, { id: ++logIdCounter, text, tone }]);
   }, []);
 
-  /** Auto-scroll do terminal */
+  /** Auto-scroll do terminal a cada nova linha de log */
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
-  }, []);
+  }, [logs]);
 
   /* ── SCAN ── */
   const handleScan = useCallback(async () => {
