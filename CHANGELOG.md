@@ -1,5 +1,11 @@
 # Changelog — Admin App
 
+## [Workflow Hygiene] - 2026-04-23
+### Alterado
+- Removido o job `ts7-compat` de `.github/workflows/deploy.yml`, mantendo apenas o job principal `deploy` no workflow `Deploy`.
+### Motivação
+- Eliminar o job auxiliar não desejado do GitHub Actions e deixar o pipeline publicado com uma única trilha oficial de deploy.
+
 ## [Security Publication Hardening] - 2026-04-23
 ### Segurança
 - Memórias e contexto de agentes passaram a ser locais apenas: `.ai/`, `.aiexclude`, `.copilotignore` e `.github/copilot-instructions.md` foram adicionados ao ignore e removidos do índice Git com `git rm --cached`, preservando os arquivos no disco local.
