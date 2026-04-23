@@ -1,3 +1,24 @@
+## 2026-04-23 — Admin-App v01.93.01 (security hotfix: override @xmldom/xmldom para 0.9.10)
+### Escopo
+Deploy do v01.93.00 em 2026-04-23 falhou no step `Security Audit — Admin App` do workflow `Deploy`. Causa: 4 advisories high-severity em `@xmldom/xmldom <=0.8.12` (transitive via `mammoth@1.12.0`) publicadas/atualizadas entre 2026-04-21 e 2026-04-23 — `npm audit --audit-level=high` passou a retornar exit 1 onde antes passava.
+
+### Corrigido
+- Adicionado `"@xmldom/xmldom": "^0.9.10"` ao bloco `overrides` existente em [`package.json`](../admin-app/package.json). Mecanismo npm (≥8.3) para forçar versão de dep transitiva declarativamente. `mammoth@1.12.0` (latest) pinou `^0.8.6`, então `npm audit fix` sem `--force` não resolveria.
+- `npm install` regenerou o lockfile. `npm ls @xmldom/xmldom` agora mostra `0.9.10`.
+- Gates locais verdes: `npm run build`, `npm run lint`, `npm test 26/26`, `npm audit --audit-level=high` = `found 0 vulnerabilities`.
+
+### Advisories cobertas
+- GHSA-2v35-w6hq-6mfw — DoS via uncontrolled recursion
+- GHSA-f6ww-3ggp-fr8h — XML injection via DocumentType
+- GHSA-x6wf-f3px-wcqx — XML injection via processing instruction
+- GHSA-j759-j44w-7fr8 — XML injection via comment
+
+### Uso real do mammoth
+- [`src/modules/mainsite/PostEditor.tsx:327`](../admin-app/src/modules/mainsite/PostEditor.tsx): import dinâmico de `mammoth` para converter .docx em HTML no editor do admin. xmldom 0.9.x mantém API backward-compatible para esse caso de uso.
+
+### Versão
+- APP v01.93.00 → APP v01.93.01 (patch: security)
+
 ## 2026-04-22 — Admin-App v01.93.00 (disclaimers — ativação individual soft-disable)
 ### Escopo
 Nova camada de controle editorial para "Janelas de Aviso (Disclaimers)" no `MainsiteModule.tsx`. Fechou a lacuna entre os dois extremos pré-existentes: toggle global "Exibir Janelas de Aviso" (afeta todos) e botão "Remover" individual (destrutivo). Agora cada disclaimer aceita flag `enabled?: boolean` que permite ocultá-lo no público sem excluí-lo do D1.
