@@ -1,3 +1,17 @@
+## 2026-04-22 — Admin-App v01.93.00 (disclaimers — ativação individual soft-disable)
+### Escopo
+Nova camada de controle editorial para "Janelas de Aviso (Disclaimers)" no `MainsiteModule.tsx`. Fechou a lacuna entre os dois extremos pré-existentes: toggle global "Exibir Janelas de Aviso" (afeta todos) e botão "Remover" individual (destrutivo). Agora cada disclaimer aceita flag `enabled?: boolean` que permite ocultá-lo no público sem excluí-lo do D1.
+### Adicionado
+- **UI de ativação individual** no card de cada disclaimer: novo botão `Ativo`/`Inativo` (ícones `Eye`/`EyeOff` do lucide-react) ao lado do botão "Remover". Tooltip (`title`) explícito em cada estado; `aria-pressed` reflete o estado. Quando desativado: card ganha classe `disclaimer-card--disabled` (opacity 0.55 + background esmaecido) e o rótulo "AVISO N" ganha badge "INATIVO" em amarelo/âmbar. Clicar em "Remover" permanece irreversível — o novo toggle é explicitamente apresentado como alternativa reversível.
+- **Estilos CSS** em `App.css`: `.disclaimer-card--disabled`, `.disclaimer-card__badge`, `.disclaimer-card__actions` (wrapper flex para agrupar Toggle + Remover), `.disclaimer-card__toggle--off`.
+- **Tipo `DisclaimerItem` local** estendido com `enabled?: boolean` (opcional, ausência = ativo).
+- **Nova disclaimer via "Adicionar Novo Aviso"** inicializa `enabled: true` explicitamente.
+### Não alterado (retrocompat)
+- Schema do D1 permanece idêntico (JSON opaco em `mainsite_settings.payload`). Handler `PUT /api/mainsite/settings` no `admin-motor` já faz `JSON.stringify` pass-through — flag atravessa transparentemente.
+- Handler `GET /api/mainsite/settings` do admin-motor usa `safeParseObject` que preserva payload bruto — admin continua vendo todos os itens (ativos e inativos) para edição.
+### Versão
+- APP v01.92.02 → APP v01.93.00 (minor: nova funcionalidade)
+
 ## 2026-04-21 — Admin-App v01.92.02 (hotfix2: guard uniforme em todos os campos preservados)
 ### Escopo
 Segundo parecer externo sobre v01.92.01 apontou que o endurecimento ficou incompleto: `aiModels` continuou com fallback `?? {}` e `disclaimers` continuou caindo para estado local em `handleSavePublishing`. Risco de sobrescrita foi mitigado, não eliminado.

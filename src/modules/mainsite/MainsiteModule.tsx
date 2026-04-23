@@ -77,6 +77,11 @@ type DisclaimerItem = {
   text: string;
   buttonText: string;
   isDonationTrigger: boolean;
+  /**
+   * Flag de ativação individual (soft-disable). `false` oculta o item no site
+   * público sem excluí-lo do D1. Opcional: ausência / `undefined` = `true`.
+   */
+  enabled?: boolean;
 };
 
 type DisclaimersSettings = {
@@ -1629,82 +1634,104 @@ export function MainsiteModule() {
 
           {disclaimers.enabled && (
             <div className="disclaimers-list astro-akashico-scroll">
-              {disclaimers.items.map((item, idx) => (
-                <div key={item.id} className="disclaimer-card">
-                  <div className="disclaimer-card__header">
-                    <span className="disclaimer-card__index">AVISO {idx + 1}</span>
-                    <button
-                      type="button"
-                      className="ghost-button danger"
-                      onClick={() => {
-                        const next = [...disclaimers.items];
-                        next.splice(idx, 1);
-                        setDisclaimers({ ...disclaimers, items: next });
-                      }}
-                    >
-                      <Trash2 size={14} /> Remover
-                    </button>
-                  </div>
-                  <div className="form-grid">
+              {disclaimers.items.map((item, idx) => {
+                const isActive = item.enabled !== false;
+                return (
+                  <div key={item.id} className={`disclaimer-card${isActive ? '' : ' disclaimer-card--disabled'}`}>
+                    <div className="disclaimer-card__header">
+                      <span className="disclaimer-card__index">
+                        AVISO {idx + 1}
+                        {!isActive && <span className="disclaimer-card__badge"> INATIVO</span>}
+                      </span>
+                      <div className="disclaimer-card__actions">
+                        <button
+                          type="button"
+                          className={`ghost-button${isActive ? '' : ' disclaimer-card__toggle--off'}`}
+                          title={isActive ? 'Ocultar este aviso no site (sem excluir)' : 'Reexibir este aviso no site'}
+                          aria-pressed={isActive}
+                          onClick={() => {
+                            const next = [...disclaimers.items];
+                            next[idx] = { ...next[idx], enabled: !isActive };
+                            setDisclaimers({ ...disclaimers, items: next });
+                          }}
+                        >
+                          {isActive ? <Eye size={14} /> : <EyeOff size={14} />}
+                          {isActive ? 'Ativo' : 'Inativo'}
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button danger"
+                          onClick={() => {
+                            const next = [...disclaimers.items];
+                            next.splice(idx, 1);
+                            setDisclaimers({ ...disclaimers, items: next });
+                          }}
+                        >
+                          <Trash2 size={14} /> Remover
+                        </button>
+                      </div>
+                    </div>
+                    <div className="form-grid">
+                      <div className="field-group">
+                        <label htmlFor={`disc-title-${idx}`}>Título</label>
+                        <input
+                          id={`disc-title-${idx}`}
+                          name={`discTitle_${idx}`}
+                          placeholder="Ex: Termos de Leitura"
+                          value={item.title}
+                          onChange={(e) => {
+                            const next = [...disclaimers.items];
+                            next[idx] = { ...next[idx], title: e.target.value };
+                            setDisclaimers({ ...disclaimers, items: next });
+                          }}
+                        />
+                      </div>
+                      <div className="field-group">
+                        <label htmlFor={`disc-btn-${idx}`}>Texto do Botão</label>
+                        <input
+                          id={`disc-btn-${idx}`}
+                          name={`discBtn_${idx}`}
+                          placeholder="Concordo"
+                          value={item.buttonText}
+                          onChange={(e) => {
+                            const next = [...disclaimers.items];
+                            next[idx] = { ...next[idx], buttonText: e.target.value };
+                            setDisclaimers({ ...disclaimers, items: next });
+                          }}
+                        />
+                      </div>
+                    </div>
                     <div className="field-group">
-                      <label htmlFor={`disc-title-${idx}`}>Título</label>
-                      <input
-                        id={`disc-title-${idx}`}
-                        name={`discTitle_${idx}`}
-                        placeholder="Ex: Termos de Leitura"
-                        value={item.title}
+                      <label htmlFor={`disc-text-${idx}`}>Texto do aviso</label>
+                      <textarea
+                        id={`disc-text-${idx}`}
+                        name={`discText_${idx}`}
+                        rows={3}
+                        value={item.text}
                         onChange={(e) => {
                           const next = [...disclaimers.items];
-                          next[idx] = { ...next[idx], title: e.target.value };
+                          next[idx] = { ...next[idx], text: e.target.value };
                           setDisclaimers({ ...disclaimers, items: next });
                         }}
                       />
                     </div>
-                    <div className="field-group">
-                      <label htmlFor={`disc-btn-${idx}`}>Texto do Botão</label>
+                    <label className="toggle-row donation-trigger">
                       <input
-                        id={`disc-btn-${idx}`}
-                        name={`discBtn_${idx}`}
-                        placeholder="Concordo"
-                        value={item.buttonText}
+                        id={`disc-trigger-${idx}`}
+                        name={`discTrigger_${idx}`}
+                        type="checkbox"
+                        checked={item.isDonationTrigger}
                         onChange={(e) => {
                           const next = [...disclaimers.items];
-                          next[idx] = { ...next[idx], buttonText: e.target.value };
+                          next[idx] = { ...next[idx], isDonationTrigger: e.target.checked };
                           setDisclaimers({ ...disclaimers, items: next });
                         }}
                       />
-                    </div>
+                      Gatilho de Doação
+                    </label>
                   </div>
-                  <div className="field-group">
-                    <label htmlFor={`disc-text-${idx}`}>Texto do aviso</label>
-                    <textarea
-                      id={`disc-text-${idx}`}
-                      name={`discText_${idx}`}
-                      rows={3}
-                      value={item.text}
-                      onChange={(e) => {
-                        const next = [...disclaimers.items];
-                        next[idx] = { ...next[idx], text: e.target.value };
-                        setDisclaimers({ ...disclaimers, items: next });
-                      }}
-                    />
-                  </div>
-                  <label className="toggle-row donation-trigger">
-                    <input
-                      id={`disc-trigger-${idx}`}
-                      name={`discTrigger_${idx}`}
-                      type="checkbox"
-                      checked={item.isDonationTrigger}
-                      onChange={(e) => {
-                        const next = [...disclaimers.items];
-                        next[idx] = { ...next[idx], isDonationTrigger: e.target.checked };
-                        setDisclaimers({ ...disclaimers, items: next });
-                      }}
-                    />
-                    Gatilho de Doação
-                  </label>
-                </div>
-              ))}
+                );
+              })}
               <button
                 type="button"
                 className="ghost-button"
@@ -1719,6 +1746,7 @@ export function MainsiteModule() {
                         text: '',
                         buttonText: 'Concordo',
                         isDonationTrigger: false,
+                        enabled: true,
                       },
                     ],
                   })

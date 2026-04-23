@@ -3547,6 +3547,41 @@ input[type="color"]:focus-visible {
   color: #9aa0a6;
 }
 
+.disclaimer-card__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.disclaimer-card__badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #b45309;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.disclaimer-card--disabled {
+  opacity: 0.55;
+  background: rgba(154, 160, 166, 0.08);
+  border-color: rgba(154, 160, 166, 0.4);
+}
+
+.disclaimer-card--disabled .disclaimer-card__index {
+  color: #b45309;
+}
+
+.disclaimer-card__toggle--off {
+  color: #b45309;
+  border-color: rgba(234, 179, 8, 0.35);
+}
+
 .donation-trigger {
   margin-top: 8px;
   font-size: 0.8rem;
