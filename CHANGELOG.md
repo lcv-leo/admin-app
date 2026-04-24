@@ -1,5 +1,13 @@
 # Changelog — Admin App
 
+## [v01.95.01] - 2026-04-24
+### Segurança
+- **Dependabot alert #25 resolvido no `tlsrpt-motor`**: `postcss < 8.5.10` (`GHSA-qx2v-qp2m-jg93` / `CVE-2026-41305`) vinha transitivamente por `vitest` → `vite`. O `tlsrpt-motor/package.json` ganhou override explícito `postcss: 8.5.10`, mantendo o `vite` pinado em `8.0.7` e regenerando `tlsrpt-motor/package-lock.json`.
+### Validação
+- `npm audit --audit-level=moderate` em `tlsrpt-motor` — `found 0 vulnerabilities`.
+- `npm ls postcss --all` em `tlsrpt-motor` — `postcss@8.5.10 overridden`.
+- `npm test -- --run` em `tlsrpt-motor` — 1 arquivo / 5 testes passando.
+
 ## [v01.95.00] - 2026-04-24
 ### Adicionado
 - **MainSite/PostEditor — botão "Editar ID"**: o editor de posts ganhou um botão ao lado de "Criar/Salvar Post" para habilitar edição explícita do ID. Quando o campo fica vazio ou fechado, novos posts seguem com `AUTOINCREMENT` e posts existentes mantêm o ID atual.
