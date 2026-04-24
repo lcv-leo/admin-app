@@ -129,6 +129,32 @@ const deleteDerivedSummary = async (db: D1Database, postId: number) => {
   }
 };
 
+const restoreAboutAsPost = async (
+  db: D1Database,
+  input: { title: string; content: string; author: string; isPublished: number },
+) => {
+  await db
+    .prepare(`
+      INSERT INTO mainsite_posts (title, content, author, is_pinned, display_order, is_published, created_at, updated_at)
+      VALUES (?, ?, ?, 0, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `)
+    .bind(input.title, input.content, input.author, input.isPublished)
+    .run();
+
+  const restored = await db
+    .prepare(`
+      SELECT id
+      FROM mainsite_posts
+      ORDER BY id DESC
+      LIMIT 1
+    `)
+    .first<{ id?: number }>();
+
+  await db.prepare('DELETE FROM mainsite_about WHERE id = 1').run();
+
+  return Number(restored?.id ?? 0) || null;
+};
+
 const readAbout = async (db: D1Database) =>
   mapAboutRow(
     await db
@@ -186,6 +212,8 @@ export async function onRequestPut(context: MainsiteContext) {
       author?: unknown;
       source_post_id?: unknown;
       convert_source_post?: unknown;
+      restore_as_post?: unknown;
+      is_published?: unknown;
     };
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>);
     const title = sanitizePlainText(body.title, 300);
@@ -193,9 +221,15 @@ export async function onRequestPut(context: MainsiteContext) {
     const author = sanitizePlainText(body.author, 200) || DEFAULT_AUTHOR;
     const sourcePostId = parseId(body.source_post_id);
     const shouldConvertSource = body.convert_source_post === true || body.convert_source_post === 1 || body.convert_source_post === '1';
+    const shouldRestoreAsPost = body.restore_as_post === true || body.restore_as_post === 1 || body.restore_as_post === '1';
+    const isPublished = body.is_published === false || body.is_published === 0 || body.is_published === '0' ? 0 : 1;
 
     if (!title || !content) {
       return buildErrorResponse('Título e conteúdo são obrigatórios para salvar Sobre Este Site.', trace, 400);
+    }
+
+    if (shouldConvertSource && shouldRestoreAsPost) {
+      return buildErrorResponse('A operação não pode converter e restaurar o conteúdo ao mesmo tempo.', trace, 400);
     }
 
     if (shouldConvertSource) {
@@ -224,6 +258,42 @@ export async function onRequestPut(context: MainsiteContext) {
     }
 
     const existing = await readAbout(db);
+
+    if (shouldRestoreAsPost) {
+      const restoredPostId = await restoreAboutAsPost(db, { title, content, author, isPublished });
+      await bumpMainsiteContentVersion(db as unknown as D1Database);
+
+      try {
+        await logModuleOperationalEvent(db, {
+          module: 'mainsite',
+          source: 'bigdata_db',
+          fallbackUsed: false,
+          ok: true,
+          metadata: {
+            action: 'restore-about-to-post',
+            adminActor,
+            restoredPostId,
+            sourcePostId: existing?.source_post_id ?? null,
+          },
+        });
+      } catch {
+        // Telemetria não deve bloquear a resposta.
+      }
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          about: null,
+          restoredPostId,
+          admin_actor: adminActor,
+          ...trace,
+        }),
+        {
+          headers: toHeaders(),
+        },
+      );
+    }
+
     await upsertAbout(db, {
       title,
       content,

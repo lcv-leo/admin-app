@@ -1,5 +1,17 @@
 # Changelog — Admin App
 
+## [v01.94.01] - 2026-04-24
+### Alterado
+- **Conversão "Sobre Este Site" agora é reversível pela própria flag**: ao editar o conteúdo institucional, desmarcar "Sobre Este Site" exibe confirmação e restaura automaticamente o conteúdo como um novo registro em `mainsite_posts`, preservando o HTML atual do editor.
+- Após a restauração, `mainsite_about` é limpo; o link público passa a abrir a tela vazia até que um novo "Sobre Este Site" seja salvo.
+### Adicionado
+- `PUT /api/mainsite/about` aceita `restore_as_post`, recria o post com `title`, `author`, `content` e `is_published`, registra auditoria operacional e faz bump de `mainsite/content-version`.
+- Teste admin-motor cobre a restauração e valida que o HTML formatado é preservado.
+### Validação
+- `npm run test:admin-motor -- about.test.ts` — 1 arquivo / 5 testes passando.
+- `npm run lint` — sem problemas.
+- `npm run build` — build Vite/TypeScript concluído.
+
 ## [v01.94.00] - 2026-04-24
 ### Adicionado
 - **"Sobre Este Site" no fluxo editorial do MainSite**: o [`PostEditor`](src/modules/mainsite/PostEditor.tsx) ganhou a flag "Sobre Este Site" ao lado de "Visível no site". A mesma superfície de criação/edição de posts agora pode salvar o conteúdo institucional do site, preservando a experiência autoral existente do editor TipTap.
@@ -2095,4 +2107,3 @@
 
 ### Adicionado
 - `AGENTS.md` na raiz do workspace com política obrigatória de integração interna Cloudflare e defesa em profundidade (Access + CSP).
-

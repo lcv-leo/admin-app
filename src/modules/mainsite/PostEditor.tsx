@@ -87,6 +87,7 @@ export type PostEditorProps = {
   initialIsAboutSite?: boolean;
   aboutMode?: boolean;
   requiresAboutConversionConfirmation?: boolean;
+  requiresAboutRestoreConfirmation?: boolean;
   savingPost: boolean;
   showNotification: (msg: string, type: 'info' | 'success' | 'error') => void;
   onSave: (
@@ -95,7 +96,7 @@ export type PostEditorProps = {
     htmlContent: string,
     isPublished: boolean,
     isAboutSite: boolean,
-    confirmedAboutConversion?: boolean,
+    confirmedAboutAction?: boolean,
   ) => Promise<boolean>;
   onClose: () => void;
 };
@@ -109,6 +110,7 @@ export default function PostEditor({
   initialIsAboutSite = false,
   aboutMode = false,
   requiresAboutConversionConfirmation = false,
+  requiresAboutRestoreConfirmation = false,
   savingPost,
   showNotification,
   onSave,
@@ -119,6 +121,7 @@ export default function PostEditor({
   const [postIsPublished, setPostIsPublished] = useState(initialIsPublished);
   const [postIsAboutSite, setPostIsAboutSite] = useState(aboutMode || initialIsAboutSite);
   const [showAboutConversionConfirm, setShowAboutConversionConfirm] = useState(false);
+  const [showAboutRestoreConfirm, setShowAboutRestoreConfirm] = useState(false);
   const [promptModal, setPromptModal] = useState<PromptModalState>(PROMPT_MODAL_INITIAL);
   const [isUploading, setIsUploading] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -683,7 +686,7 @@ export default function PostEditor({
   };
 
   // ── Form submission ─────────────────────────────────────────
-  const submitPost = async (confirmedAboutConversion = false) => {
+  const submitPost = async (confirmedAboutAction = false) => {
     const title = postTitle.trim();
     const author = postAuthor.trim();
     const rawContent = editor?.getHTML()?.trim() ?? '';
@@ -696,24 +699,29 @@ export default function PostEditor({
     // Enforce target="_blank" on all non-YouTube links before persisting
     const content = sanitizeLinksTargetBlank(rawContent);
 
-    if (requiresAboutConversionConfirmation && postIsAboutSite && !confirmedAboutConversion) {
+    if (requiresAboutConversionConfirmation && postIsAboutSite && !confirmedAboutAction) {
       setShowAboutConversionConfirm(true);
+      setShowAboutRestoreConfirm(false);
       flashFeedback('Confirme a conversão deste post em Sobre Este Site.', 'info');
       showNotification('Confirme a conversão deste post em Sobre Este Site.', 'info');
       return;
     }
 
-    const success = await onSave(
-      title,
-      author,
-      content,
-      postIsPublished,
-      aboutMode || postIsAboutSite,
-      confirmedAboutConversion,
-    );
+    if (requiresAboutRestoreConfirmation && !postIsAboutSite && !confirmedAboutAction) {
+      setShowAboutRestoreConfirm(true);
+      setShowAboutConversionConfirm(false);
+      flashFeedback('Confirme a restauração deste conteúdo como post.', 'info');
+      showNotification('Confirme a restauração deste conteúdo como post.', 'info');
+      return;
+    }
+
+    const success = await onSave(title, author, content, postIsPublished, postIsAboutSite, confirmedAboutAction);
     if (success) {
       setShowAboutConversionConfirm(false);
-      if (aboutMode || postIsAboutSite) {
+      setShowAboutRestoreConfirm(false);
+      if (aboutMode && !postIsAboutSite) {
+        flashFeedback('Post restaurado na lista com sucesso ✓', 'success');
+      } else if (aboutMode || postIsAboutSite) {
         flashFeedback('Sobre Este Site salvo com sucesso ✓', 'success');
       } else {
         flashFeedback(editingPostId ? 'Post atualizado com sucesso ✓' : 'Post criado com sucesso ✓', 'success');
@@ -734,6 +742,7 @@ export default function PostEditor({
     setPostAuthor('');
     editor?.commands.clearContent();
     setShowAboutConversionConfirm(false);
+    setShowAboutRestoreConfirm(false);
   };
 
   const handleGeminiImport = useCallback(
@@ -850,7 +859,13 @@ export default function PostEditor({
             ) : (
               <FilePlus2 size={16} />
             )}
-            {aboutMode || postIsAboutSite ? 'Salvar Sobre' : editingPostId ? 'Salvar alterações' : 'Criar post'}
+            {aboutMode && !postIsAboutSite
+              ? 'Restaurar como post'
+              : aboutMode || postIsAboutSite
+                ? 'Salvar Sobre'
+                : editingPostId
+                  ? 'Salvar alterações'
+                  : 'Criar post'}
           </button>
           <button type="button" className="ghost-button" onClick={handleClear} disabled={savingPost}>
             <X size={16} />
@@ -919,21 +934,20 @@ export default function PostEditor({
               type="checkbox"
               checked={postIsPublished}
               onChange={(event) => setPostIsPublished(event.target.checked)}
-              disabled={savingPost || aboutMode}
+              disabled={savingPost || (aboutMode && postIsAboutSite)}
             />
             <span>Visível no site (quando desmarcado, o post fica oculto para visitantes)</span>
           </label>
-          <label
-            style={{ display: 'flex', gap: '8px', alignItems: 'center', cursor: aboutMode ? 'default' : 'pointer' }}
-          >
+          <label style={{ display: 'flex', gap: '8px', alignItems: 'center', cursor: 'pointer' }}>
             <input
               type="checkbox"
-              checked={aboutMode || postIsAboutSite}
+              checked={postIsAboutSite}
               onChange={(event) => {
                 setPostIsAboutSite(event.target.checked);
-                if (!event.target.checked) setShowAboutConversionConfirm(false);
+                setShowAboutConversionConfirm(false);
+                setShowAboutRestoreConfirm(false);
               }}
-              disabled={savingPost || aboutMode}
+              disabled={savingPost}
             />
             <span>Sobre Este Site</span>
           </label>
@@ -965,6 +979,39 @@ export default function PostEditor({
               disabled={savingPost}
             >
               Confirmar conversão
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showAboutRestoreConfirm && (
+        <div className="post-editor-about-confirm" role="alert">
+          <div>
+            <strong>Restaurar este conteúdo como post?</strong>
+            <p>
+              O conteúdo será recriado na lista de posts com a formatação atual e a página Sobre Este Site ficará vazia
+              até ser preenchida novamente.
+            </p>
+          </div>
+          <div className="inline-actions">
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                setPostIsAboutSite(true);
+                setShowAboutRestoreConfirm(false);
+              }}
+              disabled={savingPost}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => void submitPost(true)}
+              disabled={savingPost}
+            >
+              Confirmar restauração
             </button>
           </div>
         </div>

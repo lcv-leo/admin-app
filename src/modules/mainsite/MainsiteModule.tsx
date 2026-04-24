@@ -664,16 +664,22 @@ export function MainsiteModule() {
     htmlContent: string,
     isPublished: boolean,
     isAboutSite: boolean,
-    confirmedAboutConversion = false,
+    confirmedAboutAction = false,
   ): Promise<boolean> => {
     setSavingPost(true);
     try {
+      const isAboutRestore = postEditorMode === 'about' && !isAboutSite;
       const isAboutSave = postEditorMode === 'about' || isAboutSite;
       const isPostToAboutConversion = postEditorMode === 'post' && editingPostId !== null && isAboutSite;
 
       if (isAboutSave) {
-        if (isPostToAboutConversion && !confirmedAboutConversion) {
+        if (isPostToAboutConversion && !confirmedAboutAction) {
           showNotification('Confirme a conversão antes de salvar Sobre Este Site.', 'info');
+          return false;
+        }
+
+        if (isAboutRestore && !confirmedAboutAction) {
+          showNotification('Confirme a restauração antes de recriar o post.', 'info');
           return false;
         }
 
@@ -689,6 +695,8 @@ export function MainsiteModule() {
             content: htmlContent,
             source_post_id: isPostToAboutConversion ? editingPostId : null,
             convert_source_post: isPostToAboutConversion,
+            restore_as_post: isAboutRestore,
+            is_published: isPublished ? 1 : 0,
             adminActor,
           }),
         });
@@ -698,6 +706,7 @@ export function MainsiteModule() {
           error?: string;
           request_id?: string;
           engagement?: { comments?: number; ratings?: number };
+          restoredPostId?: number;
         };
 
         if (!response.ok || !nextPayload.ok) {
@@ -714,12 +723,15 @@ export function MainsiteModule() {
           await loadSummaries();
           resetPostEditor();
         }
+        if (isAboutRestore) resetPostEditor();
 
         showNotification(
           withTrace(
-            isPostToAboutConversion
-              ? 'Post convertido em Sobre Este Site com sucesso.'
-              : 'Sobre Este Site salvo com sucesso.',
+            isAboutRestore
+              ? `Sobre Este Site restaurado como post${nextPayload.restoredPostId ? ` #${nextPayload.restoredPostId}` : ''}.`
+              : isPostToAboutConversion
+                ? 'Post convertido em Sobre Este Site com sucesso.'
+                : 'Sobre Este Site salvo com sucesso.',
             nextPayload,
           ),
           'success',
@@ -1155,10 +1167,11 @@ export function MainsiteModule() {
                 initialIsAboutSite={postEditorMode === 'about'}
                 aboutMode={postEditorMode === 'about'}
                 requiresAboutConversionConfirmation={postEditorMode === 'post' && editingPostId !== null}
+                requiresAboutRestoreConfirmation={postEditorMode === 'about'}
                 savingPost={savingPost}
                 showNotification={popupNotify}
-                onSave={(title, author, html, isPublished, isAboutSite, confirmedAboutConversion) =>
-                  handleSavePost(title, author, html, isPublished, isAboutSite, confirmedAboutConversion)
+                onSave={(title, author, html, isPublished, isAboutSite, confirmedAboutAction) =>
+                  handleSavePost(title, author, html, isPublished, isAboutSite, confirmedAboutAction)
                 }
                 onClose={resetPostEditor}
               />

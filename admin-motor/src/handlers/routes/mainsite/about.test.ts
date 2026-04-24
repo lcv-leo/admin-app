@@ -17,6 +17,8 @@ type AboutState = {
   ratings: Record<number, number>;
   summariesDeleted: number[];
   postsDeleted: number[];
+  restoredPosts: Array<{ id: number; title: string; content: string; author: string; is_published: number }>;
+  nextPostId: number;
 };
 
 function createDb(seed?: Partial<AboutState>) {
@@ -27,6 +29,8 @@ function createDb(seed?: Partial<AboutState>) {
     ratings: seed?.ratings ?? {},
     summariesDeleted: [],
     postsDeleted: [],
+    restoredPosts: [],
+    nextPostId: 100,
   };
 
   return {
@@ -53,9 +57,14 @@ function createDb(seed?: Partial<AboutState>) {
             return { total: state.ratings[postId] ?? 0 } as T;
           }
 
-          if (query.includes('SELECT id FROM mainsite_posts')) {
+          if (query.includes('SELECT id FROM mainsite_posts WHERE id = ?')) {
             const postId = Number(this.values[0]);
             return (state.posts.has(postId) ? { id: postId } : null) as T | null;
+          }
+
+          if (query.includes('FROM mainsite_posts') && query.includes('ORDER BY id DESC')) {
+            const restored = state.restoredPosts.at(-1);
+            return (restored ? { id: restored.id } : null) as T | null;
           }
 
           if (query.includes('FROM mainsite_settings')) {
@@ -80,6 +89,19 @@ function createDb(seed?: Partial<AboutState>) {
             };
           }
 
+          if (query.includes('INSERT INTO mainsite_posts')) {
+            const id = state.nextPostId;
+            state.nextPostId += 1;
+            state.posts.add(id);
+            state.restoredPosts.push({
+              id,
+              title: String(this.values[0]),
+              content: String(this.values[1]),
+              author: String(this.values[2]),
+              is_published: Number(this.values[3] ?? 1),
+            });
+          }
+
           if (query.includes('DELETE FROM mainsite_post_ai_summaries')) {
             state.summariesDeleted.push(Number(this.values[0]));
           }
@@ -88,6 +110,10 @@ function createDb(seed?: Partial<AboutState>) {
             const postId = Number(this.values[0]);
             state.posts.delete(postId);
             state.postsDeleted.push(postId);
+          }
+
+          if (query.includes('DELETE FROM mainsite_about')) {
+            state.about = null;
           }
 
           return { meta: { changes: 1 } };
@@ -197,5 +223,51 @@ describe('mainsite about admin route', () => {
     expect(db.state.posts.has(7)).toBe(false);
     expect(db.state.summariesDeleted).toEqual([7]);
     expect(db.state.postsDeleted).toEqual([7]);
+  });
+
+  it('restores about content as a regular post and clears the about row', async () => {
+    const db = createDb({
+      about: {
+        id: 1,
+        title: 'Sobre',
+        content: '<p><strong>Texto original</strong></p>',
+        author: 'Leonardo',
+        source_post_id: 7,
+        created_at: '2026-04-24 12:00:00',
+        updated_at: '2026-04-24 12:00:00',
+      },
+    });
+
+    const response = await onRequestPut({
+      request: new Request('https://admin.lcv.app.br/api/mainsite/about', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Sobre',
+          author: 'Leonardo',
+          content: '<p><strong>Texto original</strong></p>',
+          restore_as_post: true,
+          is_published: 1,
+        }),
+      }),
+      env: { BIGDATA_DB: db },
+    });
+
+    const payload = (await response.json()) as { ok: boolean; about: null; restoredPostId: number };
+
+    expect(response.status).toBe(200);
+    expect(payload.ok).toBe(true);
+    expect(payload.about).toBeNull();
+    expect(payload.restoredPostId).toBe(100);
+    expect(db.state.about).toBeNull();
+    expect(db.state.restoredPosts).toEqual([
+      {
+        id: 100,
+        title: 'Sobre',
+        content: '<p><strong>Texto original</strong></p>',
+        author: 'Leonardo',
+        is_published: 1,
+      },
+    ]);
   });
 });
