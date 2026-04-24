@@ -1,5 +1,14 @@
 # Changelog — Admin App
 
+## [v01.95.00] - 2026-04-24
+### Adicionado
+- **MainSite/PostEditor — botão "Editar ID"**: o editor de posts ganhou um botão ao lado de "Criar/Salvar Post" para habilitar edição explícita do ID. Quando o campo fica vazio ou fechado, novos posts seguem com `AUTOINCREMENT` e posts existentes mantêm o ID atual.
+- `POST/PUT /api/mainsite/posts` aceitam `requested_id` opcional. O backend valida inteiro positivo, bloqueia conflitos com `409` e, em renumeração de post existente, atualiza as referências conhecidas em comentários, avaliações, resumos IA, compartilhamentos e `mainsite_about.source_post_id`.
+### Alterado
+- Ao renumerar um post existente, o editor mantém a sessão no novo ID e o disparo de resumo IA passa a usar o ID retornado pelo backend.
+### Validação
+- `npm run test:admin-motor -- posts.test.ts` — 1 arquivo / 7 testes passando.
+
 ## [v01.94.01] - 2026-04-24
 ### Alterado
 - **Conversão "Sobre Este Site" agora é reversível pela própria flag**: ao editar o conteúdo institucional, desmarcar "Sobre Este Site" exibe confirmação e restaura automaticamente o conteúdo como um novo registro em `mainsite_posts`, preservando o HTML atual do editor.

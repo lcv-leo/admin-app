@@ -665,6 +665,7 @@ export function MainsiteModule() {
     isPublished: boolean,
     isAboutSite: boolean,
     confirmedAboutAction = false,
+    requestedPostId?: number,
   ): Promise<boolean> => {
     setSavingPost(true);
     try {
@@ -749,6 +750,7 @@ export function MainsiteModule() {
         },
         body: JSON.stringify({
           id: editingPostId,
+          requested_id: requestedPostId,
           title,
           author,
           content: htmlContent,
@@ -769,16 +771,29 @@ export function MainsiteModule() {
       }
 
       await loadManagedPosts();
+      if (nextPayload.post?.id && isEditing && nextPayload.post.id !== editingPostId) {
+        setEditingPostId(nextPayload.post.id);
+        setEditingPostTitle(title);
+        setEditingPostAuthor(author);
+        setEditingPostContent(htmlContent);
+        if (selectedPostId === editingPostId) {
+          setSelectedPostId(nextPayload.post.id);
+        }
+      }
       showNotification(
         withTrace(
-          isEditing ? 'Post do MainSite atualizado com sucesso.' : 'Post do MainSite criado com sucesso.',
+          isEditing && nextPayload.post?.id && nextPayload.post.id !== editingPostId
+            ? `Post do MainSite renumerado para #${nextPayload.post.id} e atualizado com sucesso.`
+            : isEditing
+              ? 'Post do MainSite atualizado com sucesso.'
+              : 'Post do MainSite criado com sucesso.',
           nextPayload,
         ),
         'success',
       );
 
       // Auto-trigger SEO summary generation using Fire and Forget
-      const targetPostId = isEditing ? editingPostId : nextPayload.post?.id;
+      const targetPostId = nextPayload.post?.id ?? (isEditing ? editingPostId : undefined);
       if (targetPostId) {
         fetch('/api/mainsite/post-summaries', {
           method: 'POST',
@@ -1170,8 +1185,8 @@ export function MainsiteModule() {
                 requiresAboutRestoreConfirmation={postEditorMode === 'about'}
                 savingPost={savingPost}
                 showNotification={popupNotify}
-                onSave={(title, author, html, isPublished, isAboutSite, confirmedAboutAction) =>
-                  handleSavePost(title, author, html, isPublished, isAboutSite, confirmedAboutAction)
+                onSave={(title, author, html, isPublished, isAboutSite, confirmedAboutAction, requestedPostId) =>
+                  handleSavePost(title, author, html, isPublished, isAboutSite, confirmedAboutAction, requestedPostId)
                 }
                 onClose={resetPostEditor}
               />

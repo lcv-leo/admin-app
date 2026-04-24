@@ -12,6 +12,7 @@ type D1PreparedStatement = {
 
 type D1Database = {
   prepare: (query: string) => D1PreparedStatement;
+  batch?: (statements: D1PreparedStatement[]) => Promise<unknown[]>;
 };
 
 type MainsiteEnv = Context['env'] & {
@@ -34,6 +35,11 @@ type PostRow = {
   is_published?: number;
 };
 
+type OptionalId = {
+  provided: boolean;
+  value: number | null;
+};
+
 const parseFlag = (rawValue: unknown, fallback: 0 | 1): 0 | 1 => {
   if (rawValue === undefined || rawValue === null) return fallback;
   if (rawValue === true || rawValue === 1 || rawValue === '1') return 1;
@@ -47,6 +53,14 @@ const parseId = (rawValue: unknown) => {
     return null;
   }
   return parsed;
+};
+
+const parseOptionalId = (rawValue: unknown): OptionalId => {
+  if (rawValue === undefined || rawValue === null || rawValue === '') {
+    return { provided: false, value: null };
+  }
+
+  return { provided: true, value: parseId(rawValue) };
 };
 
 const parseText = (rawValue: unknown) => String(rawValue ?? '').trim();
@@ -95,6 +109,70 @@ const requireDb = (env: MainsiteEnv) => {
     throw new Error('BIGDATA_DB não configurado no runtime do admin-app.');
   }
   return env.BIGDATA_DB;
+};
+
+const idExists = async (db: D1Database, id: number) => {
+  const row = await db.prepare('SELECT id FROM mainsite_posts WHERE id = ? LIMIT 1').bind(id).first<{ id?: number }>();
+  return Boolean(row?.id);
+};
+
+const postReferenceTargets = [
+  { table: 'mainsite_comments', column: 'post_id' },
+  { table: 'mainsite_ratings', column: 'post_id' },
+  { table: 'mainsite_post_ai_summaries', column: 'post_id' },
+  { table: 'mainsite_shares', column: 'post_id' },
+  { table: 'mainsite_about', column: 'source_post_id' },
+] as const;
+
+const tableHasColumn = async (db: D1Database, table: (typeof postReferenceTargets)[number]['table'], column: string) => {
+  try {
+    const info = await db.prepare(`PRAGMA table_info(${table})`).all<{ name: string }>();
+    return (info.results ?? []).some((row) => row.name === column);
+  } catch {
+    return false;
+  }
+};
+
+const updatePostIdAndReferences = async (
+  db: D1Database,
+  currentId: number,
+  nextId: number,
+  fields: { title: string; content: string; author: string; isPublished?: 0 | 1; hasVisibilityFlag: boolean },
+) => {
+  const statements: D1PreparedStatement[] = [];
+
+  for (const target of postReferenceTargets) {
+    if (await tableHasColumn(db, target.table, target.column)) {
+      statements.push(db.prepare(`UPDATE ${target.table} SET ${target.column} = ? WHERE ${target.column} = ?`).bind(nextId, currentId));
+    }
+  }
+
+  if (fields.hasVisibilityFlag) {
+    statements.push(
+      db
+        .prepare(
+          'UPDATE mainsite_posts SET id = ?, title = ?, content = ?, author = ?, is_published = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        )
+        .bind(nextId, fields.title, fields.content, fields.author, fields.isPublished ?? 1, currentId),
+    );
+  } else {
+    statements.push(
+      db
+        .prepare(
+          'UPDATE mainsite_posts SET id = ?, title = ?, content = ?, author = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        )
+        .bind(nextId, fields.title, fields.content, fields.author, currentId),
+    );
+  }
+
+  if (typeof db.batch === 'function') {
+    await db.batch(statements);
+    return;
+  }
+
+  for (const statement of statements) {
+    await statement.run();
+  }
 };
 
 /** Auto-migração idempotente: garante colunas `author` e `is_published` em mainsite_posts */
@@ -195,33 +273,63 @@ export async function onRequestPost(context: MainsiteContext) {
       content?: unknown;
       author?: unknown;
       is_published?: unknown;
+      requested_id?: unknown;
     };
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>);
     const title = parseText(body.title);
     const content = parseText(body.content);
     const author = parseText(body.author) || DEFAULT_AUTHOR;
     const isPublished = parseFlag(body.is_published, 1);
+    const requestedId = parseOptionalId(body.requested_id);
 
     if (!title || !content) {
       return buildErrorResponse('Título e conteúdo são obrigatórios para criar um post.', trace, 400);
     }
 
-    await db
-      .prepare(`
-      INSERT INTO mainsite_posts (title, content, author, is_pinned, display_order, is_published, created_at, updated_at)
-      VALUES (?, ?, ?, 0, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `)
-      .bind(title, content, author, isPublished)
-      .run();
+    if (requestedId.provided && !requestedId.value) {
+      return buildErrorResponse('ID informado deve ser um número inteiro positivo.', trace, 400);
+    }
 
-    const created = await db
-      .prepare(`
-      SELECT id, title, content, author, created_at, is_pinned, is_published
-      FROM mainsite_posts
-      ORDER BY id DESC
-      LIMIT 1
-    `)
-      .first<PostRow>();
+    if (requestedId.value && (await idExists(db, requestedId.value))) {
+      return buildErrorResponse(`Já existe um post com o ID #${requestedId.value}.`, trace, 409);
+    }
+
+    if (requestedId.value) {
+      await db
+        .prepare(`
+        INSERT INTO mainsite_posts (id, title, content, author, is_pinned, display_order, is_published, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 0, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `)
+        .bind(requestedId.value, title, content, author, isPublished)
+        .run();
+    } else {
+      await db
+        .prepare(`
+        INSERT INTO mainsite_posts (title, content, author, is_pinned, display_order, is_published, created_at, updated_at)
+        VALUES (?, ?, ?, 0, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `)
+        .bind(title, content, author, isPublished)
+        .run();
+    }
+
+    const created = requestedId.value
+      ? await db
+          .prepare(`
+          SELECT id, title, content, author, created_at, is_pinned, is_published
+          FROM mainsite_posts
+          WHERE id = ?
+          LIMIT 1
+        `)
+          .bind(requestedId.value)
+          .first<PostRow>()
+      : await db
+          .prepare(`
+          SELECT id, title, content, author, created_at, is_pinned, is_published
+          FROM mainsite_posts
+          ORDER BY id DESC
+          LIMIT 1
+        `)
+          .first<PostRow>();
 
     const createdPost = created ? mapPostRow(created) : null;
 
@@ -235,6 +343,7 @@ export async function onRequestPost(context: MainsiteContext) {
           action: 'create-post',
           adminActor,
           createdId: createdPost?.id ?? null,
+          requestedId: requestedId.value ?? null,
           titleLength: title.length,
         },
       });
@@ -290,6 +399,7 @@ export async function onRequestPut(context: MainsiteContext) {
       content?: unknown;
       author?: unknown;
       is_published?: unknown;
+      requested_id?: unknown;
     };
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>);
     const id = parseId(body.id);
@@ -298,12 +408,38 @@ export async function onRequestPut(context: MainsiteContext) {
     const author = parseText(body.author) || DEFAULT_AUTHOR;
     const hasVisibilityFlag = body.is_published !== undefined;
     const isPublished = parseFlag(body.is_published, 1);
+    const requestedId = parseOptionalId(body.requested_id);
 
     if (!id || !title || !content) {
       return buildErrorResponse('ID, título e conteúdo são obrigatórios para atualizar um post.', trace, 400);
     }
 
-    if (hasVisibilityFlag) {
+    if (requestedId.provided && !requestedId.value) {
+      return buildErrorResponse('ID informado deve ser um número inteiro positivo.', trace, 400);
+    }
+
+    const existingPost = await db.prepare('SELECT id FROM mainsite_posts WHERE id = ? LIMIT 1').bind(id).first<{ id?: number }>();
+    if (!existingPost) {
+      return buildErrorResponse('Post não encontrado para atualização.', trace, 404);
+    }
+
+    const resolvedId = requestedId.value && requestedId.value !== id ? requestedId.value : id;
+    const idChanged = resolvedId !== id;
+
+    if (idChanged && (await idExists(db, resolvedId))) {
+      return buildErrorResponse(`Já existe um post com o ID #${resolvedId}.`, trace, 409);
+    }
+
+    if (idChanged) {
+      await updatePostIdAndReferences(db, id, resolvedId, {
+        title,
+        content,
+        author,
+        hasVisibilityFlag,
+        isPublished,
+      });
+      await bumpMainsiteContentVersion(db as unknown as D1Database);
+    } else if (hasVisibilityFlag) {
       await db
         .prepare(
           'UPDATE mainsite_posts SET title = ?, content = ?, author = ?, is_published = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -328,7 +464,7 @@ export async function onRequestPut(context: MainsiteContext) {
       WHERE id = ?
       LIMIT 1
     `)
-      .bind(id)
+      .bind(resolvedId)
       .first<PostRow>();
 
     const updatedPost = row ? mapPostRow(row) : null;
@@ -345,7 +481,8 @@ export async function onRequestPut(context: MainsiteContext) {
         metadata: {
           action: 'update-post',
           adminActor,
-          id,
+          id: resolvedId,
+          previousId: idChanged ? id : null,
         },
       });
     } catch {

@@ -14,6 +14,7 @@ import {
   FileText,
   FileUp,
   GripVertical,
+  Hash,
   Heading1,
   Heading2,
   Heading3,
@@ -97,6 +98,7 @@ export type PostEditorProps = {
     isPublished: boolean,
     isAboutSite: boolean,
     confirmedAboutAction?: boolean,
+    requestedPostId?: number,
   ) => Promise<boolean>;
   onClose: () => void;
 };
@@ -120,6 +122,8 @@ export default function PostEditor({
   const [postAuthor, setPostAuthor] = useState(initialAuthor);
   const [postIsPublished, setPostIsPublished] = useState(initialIsPublished);
   const [postIsAboutSite, setPostIsAboutSite] = useState(aboutMode || initialIsAboutSite);
+  const [postIdEditorOpen, setPostIdEditorOpen] = useState(false);
+  const [postIdDraft, setPostIdDraft] = useState(editingPostId ? String(editingPostId) : '');
   const [showAboutConversionConfirm, setShowAboutConversionConfirm] = useState(false);
   const [showAboutRestoreConfirm, setShowAboutRestoreConfirm] = useState(false);
   const [promptModal, setPromptModal] = useState<PromptModalState>(PROMPT_MODAL_INITIAL);
@@ -187,6 +191,11 @@ export default function PostEditor({
   useEffect(() => {
     setPostAuthor(initialAuthor);
   }, [initialAuthor]);
+
+  useEffect(() => {
+    setPostIdEditorOpen(false);
+    setPostIdDraft(editingPostId ? String(editingPostId) : '');
+  }, [editingPostId, aboutMode]);
 
   useEffect(() => {
     setPostIsPublished(initialIsPublished);
@@ -686,6 +695,23 @@ export default function PostEditor({
   };
 
   // ── Form submission ─────────────────────────────────────────
+  const resolveRequestedPostId = (): number | undefined | null => {
+    if (!postIdEditorOpen || aboutMode || postIsAboutSite) return undefined;
+
+    const trimmed = postIdDraft.trim();
+    if (!trimmed) return undefined;
+
+    const parsed = Number(trimmed);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      flashFeedback('Informe um ID inteiro positivo para o post.', 'error');
+      showNotification('Informe um ID inteiro positivo para o post.', 'error');
+      return null;
+    }
+
+    if (editingPostId && parsed === editingPostId) return undefined;
+    return parsed;
+  };
+
   const submitPost = async (confirmedAboutAction = false) => {
     const title = postTitle.trim();
     const author = postAuthor.trim();
@@ -698,6 +724,8 @@ export default function PostEditor({
     }
     // Enforce target="_blank" on all non-YouTube links before persisting
     const content = sanitizeLinksTargetBlank(rawContent);
+    const requestedPostId = resolveRequestedPostId();
+    if (requestedPostId === null) return;
 
     if (requiresAboutConversionConfirmation && postIsAboutSite && !confirmedAboutAction) {
       setShowAboutConversionConfirm(true);
@@ -715,7 +743,15 @@ export default function PostEditor({
       return;
     }
 
-    const success = await onSave(title, author, content, postIsPublished, postIsAboutSite, confirmedAboutAction);
+    const success = await onSave(
+      title,
+      author,
+      content,
+      postIsPublished,
+      postIsAboutSite,
+      confirmedAboutAction,
+      requestedPostId,
+    );
     if (success) {
       setShowAboutConversionConfirm(false);
       setShowAboutRestoreConfirm(false);
@@ -743,6 +779,8 @@ export default function PostEditor({
     editor?.commands.clearContent();
     setShowAboutConversionConfirm(false);
     setShowAboutRestoreConfirm(false);
+    setPostIdEditorOpen(false);
+    setPostIdDraft(editingPostId ? String(editingPostId) : '');
   };
 
   const handleGeminiImport = useCallback(
@@ -851,6 +889,22 @@ export default function PostEditor({
           </p>
         </div>
         <div className="inline-actions">
+          {!aboutMode && !postIsAboutSite && (
+            <button
+              type="button"
+              className={`ghost-button post-id-edit-button${postIdEditorOpen ? ' post-id-edit-button--active' : ''}`}
+              onClick={() => {
+                if (!postIdEditorOpen && !postIdDraft && editingPostId) {
+                  setPostIdDraft(String(editingPostId));
+                }
+                setPostIdEditorOpen((open) => !open);
+              }}
+              disabled={savingPost}
+            >
+              <Hash size={16} />
+              Editar ID
+            </button>
+          )}
           <button type="submit" className="primary-button" disabled={savingPost}>
             {savingPost ? (
               <Loader2 size={16} className="spin" />
@@ -901,6 +955,33 @@ export default function PostEditor({
           >
             ×
           </button>
+        </div>
+      )}
+
+      {postIdEditorOpen && !aboutMode && !postIsAboutSite && (
+        <div className="post-id-editor-panel">
+          <div className="field-group post-id-editor-field">
+            <label htmlFor="mainsite-post-id">
+              ID do post
+              {editingPostId ? ` atual: #${editingPostId}` : ' novo'}
+            </label>
+            <input
+              id="mainsite-post-id"
+              name="mainsitePostId"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              value={postIdDraft}
+              onChange={(event) => setPostIdDraft(event.target.value)}
+              placeholder={editingPostId ? String(editingPostId) : 'Automático'}
+              disabled={savingPost}
+            />
+          </div>
+          <p>
+            Deixe vazio para manter o comportamento atual: numeração automática em novos posts e ID inalterado ao
+            editar.
+          </p>
         </div>
       )}
 

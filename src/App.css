@@ -2618,6 +2618,36 @@ input[type="color"]:focus-visible {
   color: #1a73e8;
 }
 
+.post-id-edit-button--active {
+  border-color: rgba(26, 115, 232, 0.48);
+  color: #1a73e8;
+  background: rgba(26, 115, 232, 0.1);
+}
+
+.post-id-editor-panel {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(26, 115, 232, 0.2);
+  border-radius: 10px;
+  background: rgba(26, 115, 232, 0.06);
+}
+
+.post-id-editor-field {
+  flex: 0 0 180px;
+  margin: 0;
+}
+
+.post-id-editor-panel p {
+  margin: 0;
+  color: var(--color-text-secondary, #5f6368);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .post-editor-about-confirm {
   display: flex;
   align-items: center;
