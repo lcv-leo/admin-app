@@ -141,29 +141,37 @@ const updatePostIdAndReferences = async (
 ) => {
   const statements: D1PreparedStatement[] = [];
 
+  if (fields.hasVisibilityFlag) {
+    statements.push(
+      db
+        .prepare(`
+          INSERT INTO mainsite_posts (id, title, content, author, is_pinned, display_order, is_published, created_at, updated_at)
+          SELECT ?, ?, ?, ?, is_pinned, display_order, ?, created_at, CURRENT_TIMESTAMP
+          FROM mainsite_posts
+          WHERE id = ?
+        `)
+        .bind(nextId, fields.title, fields.content, fields.author, fields.isPublished ?? 1, currentId),
+    );
+  } else {
+    statements.push(
+      db
+        .prepare(`
+          INSERT INTO mainsite_posts (id, title, content, author, is_pinned, display_order, is_published, created_at, updated_at)
+          SELECT ?, ?, ?, ?, is_pinned, display_order, is_published, created_at, CURRENT_TIMESTAMP
+          FROM mainsite_posts
+          WHERE id = ?
+        `)
+        .bind(nextId, fields.title, fields.content, fields.author, currentId),
+    );
+  }
+
   for (const target of postReferenceTargets) {
     if (await tableHasColumn(db, target.table, target.column)) {
       statements.push(db.prepare(`UPDATE ${target.table} SET ${target.column} = ? WHERE ${target.column} = ?`).bind(nextId, currentId));
     }
   }
 
-  if (fields.hasVisibilityFlag) {
-    statements.push(
-      db
-        .prepare(
-          'UPDATE mainsite_posts SET id = ?, title = ?, content = ?, author = ?, is_published = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        )
-        .bind(nextId, fields.title, fields.content, fields.author, fields.isPublished ?? 1, currentId),
-    );
-  } else {
-    statements.push(
-      db
-        .prepare(
-          'UPDATE mainsite_posts SET id = ?, title = ?, content = ?, author = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        )
-        .bind(nextId, fields.title, fields.content, fields.author, currentId),
-    );
-  }
+  statements.push(db.prepare('DELETE FROM mainsite_posts WHERE id = ?').bind(currentId));
 
   if (typeof db.batch === 'function') {
     await db.batch(statements);

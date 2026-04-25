@@ -1,5 +1,17 @@
 # Changelog — Admin App
 
+## [v01.96.01] - 2026-04-25
+### Corrigido
+- **MainSite/PostEditor — Editar ID com resumos IA**: a renumeração de posts deixou de usar `UPDATE mainsite_posts SET id = ?`, que falhava no D1 quando `mainsite_post_ai_summaries.post_id` referenciava o post com FK `ON UPDATE NO ACTION`.
+- O backend agora cria primeiro a nova linha em `mainsite_posts` preservando `is_pinned`, `display_order`, `created_at` e visibilidade existente quando a flag não é enviada; depois move referências conhecidas (`comments`, `ratings`, `post_ai_summaries`, `shares`, `mainsite_about`) e só então remove o ID antigo.
+- O teste de posts agora simula execução sequencial do `batch` e falha com FK quando `mainsite_post_ai_summaries` aponta para um post inexistente, cobrindo a regressão de produção.
+### Validação
+- D1 remoto: `sqlite_master` confirmou que a única FK para `mainsite_posts` é `mainsite_post_ai_summaries(post_id) REFERENCES mainsite_posts(id) ON DELETE CASCADE`.
+- `npm run test:admin-motor -- posts.test.ts` — 1 arquivo / 7 testes.
+- `npm run test:admin-motor` — 8 arquivos / 23 testes.
+- `npm run lint`.
+- `npm run build`.
+
 ## [v01.96.00] - 2026-04-25
 ### Segurança
 - Auditoria rigorosa de segurança em conjunto com `mainsite-app`: endurecido o `admin-motor` para rejeitar requisições browser-like com `Authorization: Bearer` sem identidade Cloudflare Access, fechando o bypass operacional de Access por token em contexto de navegador.

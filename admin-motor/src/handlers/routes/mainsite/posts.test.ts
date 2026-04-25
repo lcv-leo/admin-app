@@ -50,8 +50,12 @@ function createDb(seed?: Partial<TestState>) {
 
   return {
     state,
-    batch(statements: Array<{ run: () => Promise<unknown> }>) {
-      return Promise.all(statements.map((statement) => statement.run()));
+    async batch(statements: Array<{ run: () => Promise<unknown> }>) {
+      const results: unknown[] = [];
+      for (const statement of statements) {
+        results.push(await statement.run());
+      }
+      return results;
     },
     prepare(query: string) {
       const statement = {
@@ -103,7 +107,21 @@ function createDb(seed?: Partial<TestState>) {
           return { results: [] as T[] };
         },
         async run() {
-          if (query.includes('INSERT INTO mainsite_posts (id, title')) {
+          if (query.includes('INSERT INTO mainsite_posts (id, title') && query.includes('SELECT')) {
+            const id = Number(this.values[0]);
+            const currentId = Number(this.values.at(-1));
+            const existing = state.posts.get(currentId);
+            if (existing) {
+              state.posts.set(id, {
+                ...existing,
+                id,
+                title: String(this.values[1]),
+                content: String(this.values[2]),
+                author: String(this.values[3]),
+                is_published: query.includes('?, created_at') ? Number(this.values[4] ?? 1) : existing.is_published,
+              });
+            }
+          } else if (query.includes('INSERT INTO mainsite_posts (id, title')) {
             const id = Number(this.values[0]);
             state.posts.set(id, {
               ...createPost(id, String(this.values[1])),
@@ -124,6 +142,9 @@ function createDb(seed?: Partial<TestState>) {
           } else if (query.includes('UPDATE mainsite_ratings SET post_id')) {
             state.ratings = updateRefs(state.ratings, Number(this.values[0]), Number(this.values[1]));
           } else if (query.includes('UPDATE mainsite_post_ai_summaries SET post_id')) {
+            if (!state.posts.has(Number(this.values[0]))) {
+              throw new Error('FOREIGN KEY constraint failed');
+            }
             state.summaries = updateRefs(state.summaries, Number(this.values[0]), Number(this.values[1]));
           } else if (query.includes('UPDATE mainsite_shares SET post_id')) {
             state.shares = updateRefs(state.shares, Number(this.values[0]), Number(this.values[1]));
@@ -146,6 +167,8 @@ function createDb(seed?: Partial<TestState>) {
                 is_published: query.includes('is_published') ? Number(this.values[4] ?? 1) : existing.is_published,
               });
             }
+          } else if (query.includes('DELETE FROM mainsite_posts WHERE id = ?')) {
+            state.posts.delete(Number(this.values[0]));
           } else if (query.includes('UPDATE mainsite_posts SET title = ?')) {
             const id = Number(this.values.at(-1));
             const existing = state.posts.get(id);
