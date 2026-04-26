@@ -1,5 +1,20 @@
 # Changelog — Admin App
 
+## [v01.99.03] - 2026-04-26
+### Adicionado — sidebar auto-sort
+- Novo `src/lib/navItems.ts` com `sortNavItems()` helper que aplica regra de ordenação automática:
+  - `Visão Geral` SEMPRE primeiro
+  - `Configurações` SEMPRE último
+  - Demais módulos ordenados alfabeticamente por `label` via `localeCompare('pt-BR', { sensitivity: 'base' })` (acento-aware: `Astrólogo`, `Oráculo`)
+- Novo `src/moduleId.ts` com `ModuleId` union extraído (preserva re-export em App.tsx para back-compat de imports externos como `ModuleView.tsx`).
+- `src/App.tsx` `RAW_NAV_ITEMS` agora pode ter qualquer ordem — `navItems` derivada via `sortNavItems(RAW_NAV_ITEMS)`. Comentário acima do array documenta a regra para futuros módulos.
+- Adicionar/renomear módulo agora não requer reorder manual no array; ordem alfabética é re-calculada em runtime.
+- Regressão fechada: pós-Itaú→Calculadora rebrand, `Calculadora` ficou em ordem visual incorreta (depois de `Financeiro`); agora aparece corretamente entre `Astrólogo` e `Card Hub`.
+### Adicionado — testes
+- `src/App.test.tsx` (8 casos): pinning correto de overview/config, accent-aware ordering (Astrólogo<Calculadora<Oráculo<Telemetria), regressão da ordem Calculadora pós-rebrand, fallback para items pinados ausentes, preservação de label/icon.
+### Validação
+- `npm run lint` (clean), `npm test` (4 files / 31 tests green), `npm run build` OK.
+
 ## [v01.99.02] - 2026-04-26
 ### Corrigido — segundos 2 CodeQL alerts pós-flip
 - **`actions/missing-workflow-permissions`** em `.github/workflows/deploy.yml`: adicionado `permissions: contents: read` em escopo top-level + per-job em `detect_tlsrpt`. Default endurecido (workflow não consegue write em qualquer recurso sem declarar explicitamente).

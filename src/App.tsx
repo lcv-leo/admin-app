@@ -27,25 +27,12 @@ import './styles/variables.css';
 import './App.css';
 import { ComplianceBanner } from './components/ComplianceBanner';
 import { FloatingScrollButtons } from './components/FloatingScrollButtons';
+import { type NavItem, sortNavItems } from './lib/navItems';
+import type { ModuleId } from './moduleId';
 
-const APP_VERSION = 'APP v01.99.02';
+export type { ModuleId };
 
-export type ModuleId =
-  | 'overview'
-  | 'ai-status'
-  | 'astrologo'
-  | 'cardhub'
-  | 'cfdns'
-  | 'cfpw'
-  | 'config'
-  | 'financeiro'
-  | 'oraculo'
-  | 'calculadora'
-  | 'mainsite'
-  | 'mtasts'
-  | 'telemetria'
-  | 'tlsrpt'
-  | 'compliance';
+const APP_VERSION = 'APP v01.99.03';
 
 const MODULE_LABELS: Record<Exclude<ModuleId, 'overview'>, string> = {
   'ai-status': 'AI Status',
@@ -64,17 +51,24 @@ const MODULE_LABELS: Record<Exclude<ModuleId, 'overview'>, string> = {
   compliance: 'Conformidade e Licenças',
 };
 
-// Regra do menu lateral: Visão Geral sempre primeiro, Configurações sempre último,
-// e todos os demais módulos em ordem alfabética.
-const navItems: Array<{ id: ModuleId; label: string; icon: typeof PanelsTopLeft }> = [
+// Source-of-truth dos módulos do menu lateral. ORDEM AQUI NÃO IMPORTA —
+// `sortNavItems()` (em ./lib/navItems) aplica a regra automaticamente:
+//  - Visão Geral SEMPRE primeiro
+//  - Configurações SEMPRE último
+//  - Tudo entre os dois é ordenado alfabeticamente por `label`
+//    (localeCompare pt-BR, sensitivity:base — lida com acentos como `Astrólogo`/`Oráculo`)
+//
+// Adicionar/renomear módulo: editar este array em qualquer posição. Não
+// precisa reordenar manualmente — a ordem visível é derivada em runtime.
+const RAW_NAV_ITEMS: NavItem[] = [
   { id: 'overview', label: 'Visão Geral', icon: PanelsTopLeft },
   { id: 'ai-status', label: 'AI Status', icon: Brain },
   { id: 'astrologo', label: 'Astrólogo', icon: Sparkles },
+  { id: 'calculadora', label: 'Calculadora', icon: Database },
   { id: 'cardhub', label: 'Card Hub', icon: LayoutGrid },
   { id: 'cfdns', label: 'CF DNS', icon: Globe },
   { id: 'cfpw', label: 'CF P&W', icon: Globe },
   { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
-  { id: 'calculadora', label: 'Calculadora', icon: Database },
   { id: 'mainsite', label: 'MainSite', icon: Globe },
   { id: 'mtasts', label: 'MTA-STS', icon: ShieldCheck },
   { id: 'oraculo', label: 'Oráculo', icon: BrainCircuit },
@@ -82,6 +76,8 @@ const navItems: Array<{ id: ModuleId; label: string; icon: typeof PanelsTopLeft 
   { id: 'tlsrpt', label: 'TLS-RPT', icon: ShieldAlert },
   { id: 'config', label: 'Configurações', icon: Wrench },
 ];
+
+const navItems: NavItem[] = sortNavItems(RAW_NAV_ITEMS);
 
 const HOMEPAGE_CONFIG_KEY = 'admin-app/homepage';
 
