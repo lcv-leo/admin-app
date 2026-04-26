@@ -226,26 +226,50 @@ export const FontSize = Extension.create({
 
 const INDENT_LEVELS = [0, 1.5, 2.5, 3.5];
 
-/** TextIndent — four indent levels via paragraph/heading attribute */
+/** TextIndent — four indent levels via paragraph/heading attribute.
+ * Paragraphs default to 1.5rem (first non-zero level) so new content gets
+ * automatic first-line indent without manual increaseIndent. Headings stay at 0
+ * because indenting headings is wrong by typographic convention. parseHTML
+ * preserves whatever the existing inline style says (legacy roundtrip safe).
+ */
 export const TextIndent = Extension.create({
   name: 'textIndent',
   addGlobalAttributes() {
+    const parseIndent = (el: HTMLElement) => {
+      const v = el.style.textIndent;
+      if (!v) return null;
+      const n = parseFloat(v);
+      return Number.isNaN(n) ? null : n;
+    };
+    const renderIndent = (attrs: { textIndent?: number | null }) => {
+      if (!attrs.textIndent) return {};
+      return { style: `text-indent: ${attrs.textIndent}rem` };
+    };
     return [
       {
-        types: ['paragraph', 'heading'],
+        // Paragraphs: bare <p> without inline style picks up the default 1.5
+        // on parse, so opening + saving an existing post normalizes it.
+        types: ['paragraph'],
+        attributes: {
+          textIndent: {
+            default: 1.5,
+            parseHTML: (el) => parseIndent(el),
+            renderHTML: renderIndent,
+          },
+        },
+      },
+      {
+        // Headings stay strict: bare heading = 0 (no auto-indent). User can
+        // still increase if needed via toolbar.
+        types: ['heading'],
         attributes: {
           textIndent: {
             default: 0,
             parseHTML: (el) => {
-              const v = el.style.textIndent;
-              if (!v) return 0;
-              const n = parseFloat(v);
-              return Number.isNaN(n) ? 0 : n;
+              const parsed = parseIndent(el);
+              return parsed === null ? 0 : parsed;
             },
-            renderHTML: (attrs) => {
-              if (!attrs.textIndent) return {};
-              return { style: `text-indent: ${attrs.textIndent}rem` };
-            },
+            renderHTML: renderIndent,
           },
         },
       },

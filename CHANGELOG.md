@@ -1,5 +1,12 @@
 # Changelog — Admin App
 
+## [v01.99.04] - 2026-04-26
+### Alterado — PostEditor TextIndent default
+- `src/modules/mainsite/editor/extensions.ts` (TextIndent extension): paragraph default mudou de `0` para `1.5` (primeiro nível não-zero de `INDENT_LEVELS = [0, 1.5, 2.5, 3.5]`); novos parágrafos criados no editor saem com `style="text-indent: 1.5rem"` automaticamente, sem precisar de `increaseIndent` manual.
+- Headings continuam com default `0` (não são auto-indentados, por convenção tipográfica).
+- `parseHTML` para parágrafos passou a retornar `null` quando não há `text-indent` inline — o default 1.5 é aplicado, então parágrafos `<p>` "nus" (sem inline) carregados no editor (ex.: o conteúdo legado de "Sobre Este Site") são auto-promovidos a 1.5rem ao salvar. Headings preservam o roundtrip estrito (parseHTML retorna `0` quando bare).
+- Resolve a regressão observada em "MainSite/Posts e Conteúdo/Sobre Este Site": o conteúdo institucional foi importado/escrito sem `increaseIndent` e ficou sem o `text-indent: 1.5rem` inline que os posts regulares carregavam, fazendo a `AboutPage` renderizar parágrafos sem identação.
+
 ## [v01.99.03] - 2026-04-26
 ### Adicionado — sidebar auto-sort
 - Novo `src/lib/navItems.ts` com `sortNavItems()` helper que aplica regra de ordenação automática:
