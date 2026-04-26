@@ -1,5 +1,14 @@
 # Changelog — Admin App
 
+## [v01.99.00] - 2026-04-26
+### Adicionado — Phase 3 sweep (flip readiness foundation, puramente aditivo)
+- **`CONTRIBUTING.md`**: guia para issues + PRs cobrindo gates locais (`lint`, `test`, `test:admin-motor`, `build`), wrangler dry-run, action pinning, versioning, D1 schema discipline.
+- **`CODE_OF_CONDUCT.md`**: Contributor Covenant 2.1 com canal `alert@lcvmail.com` + ladder de enforcement.
+- **`.github/CODEOWNERS`**: `* @lcv-leo` como owner default.
+- **`src/lib/apiClient.ts` (novo, opt-in)**: foundation com `safeJson<T>()` + `apiFetch()` + `apiFetchJson<T>()`. Helpers defensivos para o padrão da v01.10.00 do oraculo-financeiro (Content-Type check antes de `res.json()`) e timeout per-call via AbortController. Sites de fetch existentes NÃO foram migrados — adoção é opt-in incremental.
+### Não alterado
+- Os 88+ sites de fetch existentes em `src/modules/*` permanecem com `res.json()` direto e sem `AbortController`. Migração mecânica em massa foi adiada para preservar funcionalidade (operator directive 2026-04-26: "no function reduction unless explicitly asked").
+
 ## [v01.98.02] - 2026-04-26
 ### Phase 1 sweep — telemetry helper unification (audit MEDIUM #11)
 - Novo `admin-motor/src/handlers/routes/_lib/ai-telemetry.ts` exporta `logAiUsage()` + `AiUsageLog` interface.
