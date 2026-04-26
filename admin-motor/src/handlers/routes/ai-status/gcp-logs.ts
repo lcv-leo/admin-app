@@ -67,12 +67,9 @@ export const onRequestGet = async (context: {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err: unknown) {
-    const isError = err instanceof Error;
+    console.error('[ai-status/gcp-logs] unhandled error', err);
     return new Response(
-      JSON.stringify({
-        error: isError ? err.message : String(err),
-        stack: isError ? err.stack : undefined,
-      }),
+      JSON.stringify({ error: 'Erro interno ao consultar GCP Cloud Logging.' }),
       {
         status: 500,
         headers: { 'Content-Type': 'application/json' },

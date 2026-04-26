@@ -25,8 +25,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       },
     );
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }), {
+    console.error('[workers-ai/translate] unhandled error', err);
+    return new Response(JSON.stringify({ ok: false, error: 'Erro interno ao traduzir.' }), {
       status: 500,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 };

@@ -20,8 +20,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }), {
+    console.error('[workers-ai/sentiment] unhandled error', err);
+    return new Response(JSON.stringify({ ok: false, error: 'Erro interno ao analisar sentimento.' }), {
       status: 500,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 };

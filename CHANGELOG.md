@@ -1,5 +1,10 @@
 # Changelog — Admin App
 
+## [v01.99.01] - 2026-04-26
+### Corrigido — Code Scanning post-public-flip alerts (CodeQL)
+- **`js/stack-trace-exposure` × 4**: error responses em `admin-motor/.../workers-ai/{tags,translate,sentiment}.ts` e `admin-motor/.../ai-status/gcp-logs.ts` deixaram de retornar `err.message`/`err.stack` para o cliente. Agora `console.error` server-side + JSON genérico 500 ao cliente.
+- **`js/incomplete-multi-character-sanitization` × 2**: `src/modules/mainsite/editor/extensions.ts:566` (Word HTML strip) e `src/modules/mainsite/editor/utils.ts:17` (caption strip) agora fazem loop até estabilizar para resistir a padrões aninhados que sobreviveriam num único pass de regex.
+
 ## [v01.99.00] - 2026-04-26
 ### Adicionado — Phase 3 sweep (flip readiness foundation, puramente aditivo)
 - **`CONTRIBUTING.md`**: guia para issues + PRs cobrindo gates locais (`lint`, `test`, `test:admin-motor`, `build`), wrangler dry-run, action pinning, versioning, D1 schema discipline.

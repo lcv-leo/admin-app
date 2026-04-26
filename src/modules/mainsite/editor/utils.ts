@@ -13,11 +13,17 @@ export const isYoutubeUrl = (url: string): boolean => /(?:youtube\.com|youtu\.be
 export function migrateLegacyCaptions(html: string): string {
   if (!html) return html;
 
-  const normalizeCaption = (caption: string) =>
-    caption
-      .replace(/<[^>]+>/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+  const normalizeCaption = (caption: string) => {
+    // Loop até estabilizar para resistir a padrões aninhados (`<a<b>>`) onde
+    // um único pass deixaria caracteres residuais.
+    let prev = '';
+    let out = caption;
+    while (prev !== out) {
+      prev = out;
+      out = out.replace(/<[^>]+>/g, '');
+    }
+    return out.replace(/\s+/g, ' ').trim();
+  };
 
   const wrappedImagePattern =
     /<p[^>]*>\s*(<img\b[^>]*>)\s*<\/p>\s*<p[^>]*text-align\s*:\s*center[^>]*>\s*(?:<em>|<i>)\s*([\s\S]*?)\s*(?:<\/em>|<\/i>)\s*<\/p>/gi;

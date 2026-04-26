@@ -35,8 +35,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: err instanceof Error ? err.message : String(err) }), {
+    console.error('[workers-ai/tags] unhandled error', err);
+    return new Response(JSON.stringify({ ok: false, error: 'Erro interno ao gerar tags.' }), {
       status: 500,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 };

@@ -563,9 +563,14 @@ export const WordPasteHandler = Extension.create({
 
             let clean = html;
             // 1. Remove os blocos XML ocultos do VML/Office (bloatware cego gerado pelo Word)
-            clean = clean.replace(/<!--[\s\S]*?-->/g, '');
-            clean = clean.replace(/<o:p>\s*<\/o:p>/gi, '');
-            clean = clean.replace(/<o:p>.*?<\/o:p>/gi, '');
+            // Loop até estabilizar para evitar incompletude com padrões repetidos/aninhados.
+            let prev = '';
+            while (prev !== clean) {
+              prev = clean;
+              clean = clean.replace(/<!--[\s\S]*?-->/g, '');
+              clean = clean.replace(/<o:p>\s*<\/o:p>/gi, '');
+              clean = clean.replace(/<o:p>.*?<\/o:p>/gi, '');
+            }
 
             // 2. Transforma as declarações do Word de text-align que o Tiptap não assimila inicialmente
             clean = clean.replace(/text-align:\s*start/gi, 'text-align: left');
