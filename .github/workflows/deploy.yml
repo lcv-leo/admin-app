@@ -19,9 +19,14 @@ concurrency:
   group: deploy-main
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   detect_tlsrpt:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       deploy_tlsrpt: ${{ steps.detect.outputs.deploy_tlsrpt }}
       reason: ${{ steps.detect.outputs.reason }}

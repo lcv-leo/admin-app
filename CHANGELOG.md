@@ -1,5 +1,10 @@
 # Changelog — Admin App
 
+## [v01.99.02] - 2026-04-26
+### Corrigido — segundos 2 CodeQL alerts pós-flip
+- **`actions/missing-workflow-permissions`** em `.github/workflows/deploy.yml`: adicionado `permissions: contents: read` em escopo top-level + per-job em `detect_tlsrpt`. Default endurecido (workflow não consegue write em qualquer recurso sem declarar explicitamente).
+- **`js/incomplete-multi-character-sanitization`** em `src/modules/mainsite/editor/extensions.ts:570`: o loop-until-stable não satisfez a análise estática do CodeQL (não consegue provar terminação). Substituído por **DOMParser-based** (`new DOMParser().parseFromString` + `createTreeWalker(SHOW_COMMENT)` + `querySelectorAll('*')` para tags com namespace `:`). Parser-based sanitization é a recomendação canônica do CodeQL para esta classe.
+
 ## [v01.99.01] - 2026-04-26
 ### Corrigido — Code Scanning post-public-flip alerts (CodeQL)
 - **`js/stack-trace-exposure` × 4**: error responses em `admin-motor/.../workers-ai/{tags,translate,sentiment}.ts` e `admin-motor/.../ai-status/gcp-logs.ts` deixaram de retornar `err.message`/`err.stack` para o cliente. Agora `console.error` server-side + JSON genérico 500 ao cliente.

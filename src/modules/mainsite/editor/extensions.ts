@@ -561,16 +561,25 @@ export const WordPasteHandler = Extension.create({
               return html;
             }
 
-            let clean = html;
             // 1. Remove os blocos XML ocultos do VML/Office (bloatware cego gerado pelo Word)
-            // Loop até estabilizar para evitar incompletude com padrões repetidos/aninhados.
-            let prev = '';
-            while (prev !== clean) {
-              prev = clean;
-              clean = clean.replace(/<!--[\s\S]*?-->/g, '');
-              clean = clean.replace(/<o:p>\s*<\/o:p>/gi, '');
-              clean = clean.replace(/<o:p>.*?<\/o:p>/gi, '');
+            // Parser-based: usa DOMParser para remover comentários e tags <o:p>,
+            // evitando classes de incompletude de regex multi-character (CodeQL js/incomplete-multi-character-sanitization).
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+
+            // Remove todos os comment nodes
+            const walker = doc.createTreeWalker(doc, NodeFilter.SHOW_COMMENT);
+            const comments: Comment[] = [];
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+              comments.push(n as Comment);
             }
+            for (const c of comments) c.remove();
+
+            // Remove tags Office <o:p> (qualquer namespace prefix com :)
+            for (const el of Array.from(doc.querySelectorAll('*'))) {
+              if (el.tagName.includes(':')) el.remove();
+            }
+
+            let clean = doc.body.innerHTML;
 
             // 2. Transforma as declarações do Word de text-align que o Tiptap não assimila inicialmente
             clean = clean.replace(/text-align:\s*start/gi, 'text-align: left');
