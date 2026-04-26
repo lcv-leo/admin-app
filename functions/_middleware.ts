@@ -2,7 +2,6 @@
 const SECRET_ALIASES = {
   CLOUDFLARE_PW: ['cloudflare-pw'],
   GEMINI_API_KEY: ['gemini-api-key'],
-  CF_AI_GATEWAY: ['cf-ai-gateway'],
   RESEND_API_KEY: ['resend-api-key'],
   RESEND_APPKEY: ['resend-appkey', 'resend-app-key'],
   SUMUP_API_KEY_PRIVATE: ['sumup-api-key-private', 'sumup_api_key_private'],
@@ -27,7 +26,6 @@ const SECRET_ALIASES = {
 const CRITICAL_KEYS = [
   'CLOUDFLARE_PW',
   'GEMINI_API_KEY',
-  'CF_AI_GATEWAY',
   'SUMUP_API_KEY_PRIVATE',
   'SUMUP_MERCHANT_CODE',
   'MP_ACCESS_TOKEN',

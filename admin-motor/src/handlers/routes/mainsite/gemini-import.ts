@@ -11,7 +11,6 @@ interface Env {
   GEMINI_API_KEY: string;
   JINA_API_KEY?: string;
   BIGDATA_DB?: D1Database;
-  CF_AI_GATEWAY?: string;
 }
 
 interface D1Database {

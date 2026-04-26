@@ -1,5 +1,13 @@
 # Changelog — Admin App
 
+## [v01.98.01] - 2026-04-26
+### Phase 1 sweep — CF_AI_GATEWAY purge (audit MEDIUM #17)
+- **`functions/_middleware.ts`**: removidas referências a `CF_AI_GATEWAY` em `SECRET_ALIASES` (linha 5) E em `CRITICAL_KEYS` (linha 30). Sem isso, middleware emitiria log infinito `[Env Resolver] Secrets críticos ausentes no runtime: CF_AI_GATEWAY`.
+- **`admin-motor/src/handlers/routes/mainsite/gemini-import.ts`**: removida declaração `CF_AI_GATEWAY?: string;` da interface `Env` (plumbing morto).
+- Origem: 2026-04-06 expurgação documentada no histórico do CHANGELOG indicava remoção total de `CF_AI_GATEWAY`/`CF_AI_TOKEN`, mas referências sobreviveram em 3 sites no admin-app. Auditoria trilateral (Codex+Gemini) 2026-04-25 sinalizou — agora fechado.
+### Validação
+- `npm run lint`, `npm run test:admin-motor` (23/23 green), `npm run build`.
+
 ## [v01.98.00] - 2026-04-26
 ### Calculadora brand purge — structural rename (Phase 2D)
 - **Diretório/arquivo renames**:
