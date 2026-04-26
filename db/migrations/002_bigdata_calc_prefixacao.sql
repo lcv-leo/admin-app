@@ -1,9 +1,9 @@
 -- admin-app / bigdata_db
--- Migration 002: domínio Calculadora Calculadora com prefixação por contexto
+-- Migration 002: domínio  Calculadora com prefixação por contexto
 -- Objetivo: criar estrutura base do módulo Calculadora no banco unificado sem colisão nominal.
 
 -- ============================================================================
--- TABELAS (prefixo obrigatório: calculadora_)
+-- TABELAS (prefixo obrigatório: calc_)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS calc_ptax_cache (
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS calc_rate_limit_hits (
 );
 
 -- ============================================================================
--- ÍNDICES (prefixo obrigatório: idx_calculadora_...)
+-- ÍNDICES (prefixo obrigatório: idx_calc_...)
 -- ============================================================================
 
 CREATE INDEX IF NOT EXISTS idx_calc_backtest_created_at
@@ -73,7 +73,7 @@ ON calc_rate_limit_policies(updated_at DESC);
 -- NOTAS DE CUTOVER
 -- ============================================================================
 -- 1) Aplicar esta migration no banco unificado bigdata_db.
--- 2) Adaptar backend do domínio Calculadora para ler/escrever nas tabelas prefixadas.
+-- 2) Adaptar backend do domínio  para ler/escrever nas tabelas prefixadas.
 -- 3) Revisar/normalizar valores de route_key com contexto explícito (ex.: calculadora/cotacao).
 -- 4) Homologar no admin-app mantendo admin legado ativo.
 -- 5) Só depois executar corte definitivo do legado.

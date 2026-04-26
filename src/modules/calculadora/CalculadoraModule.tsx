@@ -91,7 +91,7 @@ export function CalculadoraModule() {
 
         setParametrosForm(payload.parametros_form);
         if (shouldNotify) {
-          showNotification('Parâmetros administrativos do Calculadora recarregados.', 'success');
+          showNotification('Parâmetros administrativos do  recarregados.', 'success');
         }
       } catch {
         showNotification('Não foi possível carregar os parâmetros da Calculadora.', 'error');
@@ -138,7 +138,7 @@ export function CalculadoraModule() {
       }
 
       await loadParametros();
-      showNotification(withTrace('Parâmetros administrativos do Calculadora salvos com sucesso.', payload), 'success');
+      showNotification(withTrace('Parâmetros administrativos do  salvos com sucesso.', payload), 'success');
     } catch {
       showNotification('Não foi possível salvar os parâmetros da Calculadora.', 'error');
     } finally {
@@ -153,7 +153,7 @@ export function CalculadoraModule() {
           <Database size={22} />
         </div>
         <div>
-          <h3>Calculadora — Calculadora Administrativa</h3>
+          <h3>Calculadora Financeira</h3>
         </div>
       </div>
 

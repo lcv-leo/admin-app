@@ -52,7 +52,16 @@ const ICON_RULES: IconRule[] = [
   { keywords: ['receita', 'revenue', 'faturamento', 'billing revenue'], icon: '💰' },
   { keywords: ['financeiro', 'financial', 'financas', 'finance', 'dinheiro', 'money', 'cash', 'moeda'], icon: '💰' },
   {
-    keywords: ['calculadora', 'bradesco', 'santander', 'nubank', 'inter', 'c6 bank', 'caixa economica', 'banco do brasil'],
+    keywords: [
+      'calculadora',
+      'bradesco',
+      'santander',
+      'nubank',
+      'inter',
+      'c6 bank',
+      'caixa economica',
+      'banco do brasil',
+    ],
     icon: '🏦',
   },
   { keywords: ['banco', 'bank', 'bancario', 'banking', 'caixa'], icon: '🏦' },

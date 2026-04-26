@@ -5524,7 +5524,7 @@ input[type="color"]:focus-visible {
   width: 100%;
 }
 
-/* ── PostEditor Prompt Modal ── */
+/*/* ── PostEditor Prompt Modal ── */
 .admin-modal-overlay {
   position: fixed;
   inset: 0;

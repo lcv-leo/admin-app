@@ -1,5 +1,34 @@
 # Changelog — Admin App
 
+## [v01.98.00] - 2026-04-26
+### Calculadora brand purge — structural rename (Phase 2D)
+- **Diretório/arquivo renames**:
+  - `src/modules/calculadora/CalculadoraModule.tsx` → `src/modules/calculadora/CalculadoraModule.tsx`
+  - `admin-motor/src/handlers/routes/calculadora/{overview,parametros,sync}.ts` → `admin-motor/src/handlers/routes/calculadora/...`
+  - `admin-motor/src/handlers/routes/_lib/calculadora-admin.ts` → `_lib/calculadora-admin.ts`
+  - `functions/api/_lib/calculadora-admin.ts` → `_lib/calculadora-admin.ts`
+  - `db/migrations/002_bigdata_calc_prefixacao.sql` → `002_bigdata_calc_prefixacao.sql`
+  - `db/migrations/007_bigdata_calc_tabelas_complementares.sql` → `007_bigdata_calc_tabelas_complementares.sql`
+  - `docs/sync-calculadora-bigdata.md` → `docs/sync-calculadora-bigdata.md`
+  - `scripts/sync-calculadora-bigdata.ps1` → `scripts/sync-calculadora-bigdata.ps1`
+- **Identifier renames** em todo o código fonte:
+  - `CalculadoraModule` → `CalculadoraModule`
+  - `CalculadoraConfig` / `CalculadoraOverviewPayload` / `CalculadoraObservabilidadeSourceRow` / `CalculadoraRateLimitSourceRow` / `CalculadoraRateLimitPolicy` → `Calculadora*`
+  - `ModuleId 'calculadora'` → `'calculadora'`, `MODULE_LABELS.calculadora: 'Calculadora'` → `MODULE_LABELS.calculadora: 'Calculadora'`
+  - `MODULE_COMPONENTS['calculadora']` → `['calculadora']`, navItems entry, CSS `.module-shell-calculadora` → `.module-shell-calculadora`
+  - Form IDs `id="calculadora-..."` → `id="calculadora-..."`, `name="calculadoraParam..."` → `name="calculadoraParam..."`
+  - Fetch URLs e rotas: `/api/calculadora/*` → `/api/calculadora/*`
+  - D1 module config-key: `'calculadora-config'` → `'calculadora-config'` (migração via novo workflow `.github/workflows/d1-rename-module-config-key.yml`)
+- **Display strings**: header H3 do módulo agora é "Calculadora Financeira" (per operador 2026-04-26); todas as mensagens de erro/notificação usam "Calculadora" no lugar de "Calculadora"; SyncStatusCard, ConfigModule dropdown option, `iconSuggestion.ts` keyword, App.css comment todos limpos.
+- **Cloudflare custom domain refs**: `calculadora.lcv.app.br` → `calculadora.lcv.app.br`, `admin.lcv.app.br` → `admin.lcv.app.br` em `hub-config.ts` (admin-motor + functions).
+- **Hub config display**: `Calculadora Financeira` → `Calculadora Financeira`, `Calculadora Financeira Admin` → `Calculadora Financeira Admin`.
+- **Docs/scripts/migrations**: purga textual em todos os `docs/*.md`, `scripts/*.ps1`, e migration SQL filename references.
+- **Verificação final**: `grep -riE 'calculadora|calculadora|Calculadora|Calculadora|CALC'` em src/admin-motor/functions/docs/db/scripts/public retorna ZERO ocorrências em código ativo (apenas CHANGELOG histórico).
+### Validação
+- `npm run lint`, `npm run test:admin-motor` (8/23 green), `npm run build`.
+### Pós-deploy
+- Trigger `gh workflow run d1-rename-module-config-key.yml` para migrar a row em `admin_module_configs`.
+
 ## [v01.97.02] - 2026-04-25
 ### Calculadora brand purge — D1 SQL queries (Phase 2 atomic)
 - **`admin-motor` SQL queries renomeadas** para todas as 9 tabelas `calculadora_*` que pertencem ao domínio admin: `calc_rate_limit_policies`, `calc_rate_limit_hits`, `calc_parametros_customizados`, `calc_ptax_cache`, `calc_backtest_spot_vs_ptax`, `calc_oraculo_observabilidade`, `calc_email_rate_limit`, `calc_parametros_auditoria`, `calc_parametros_calculo` → prefixo `calc_*`. Inclui CREATE TABLE IF NOT EXISTS, SELECT, INSERT, ALTER, e índices (`idx_calculadora_*` → `idx_calc_*`).

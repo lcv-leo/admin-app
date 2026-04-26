@@ -1,10 +1,10 @@
 -- admin-app / bigdata_db
--- Migration 007: tabelas complementares do domínio Calculadora Calculadora
+-- Migration 007: tabelas complementares do domínio  Calculadora
 -- Objetivo: adicionar tabelas presentes em calculadora-calc-db que não constavam na migration 002.
 
 -- ============================================================================
--- TABELAS ATIVAS (prefixo obrigatório: calculadora_)
--- Usadas pelo código atual do calculadora após migração para BIGDATA_DB
+-- TABELAS ATIVAS (prefixo obrigatório: calc_)
+-- Usadas pelo código atual do calculadora-calculadora após migração para BIGDATA_DB
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS calc_parametros_customizados (
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS calc_parametros_auditoria (
 );
 
 -- ============================================================================
--- TABELAS LEGADO (prefixo obrigatório: calculadora_)
+-- TABELAS LEGADO (prefixo obrigatório: calc_)
 -- Existentes em calculadora-calc-db mas sem uso no código atual.
 -- Mantidas para preservar histórico de dados antes do cutover.
 -- ============================================================================
