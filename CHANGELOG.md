@@ -1,5 +1,14 @@
 # Changelog — Admin App
 
+## [v01.97.02] - 2026-04-25
+### Calculadora brand purge — D1 SQL queries (Phase 2 atomic)
+- **`admin-motor` SQL queries renomeadas** para todas as 9 tabelas `calculadora_*` que pertencem ao domínio admin: `calc_rate_limit_policies`, `calc_rate_limit_hits`, `calc_parametros_customizados`, `calc_ptax_cache`, `calc_backtest_spot_vs_ptax`, `calc_oraculo_observabilidade`, `calc_email_rate_limit`, `calc_parametros_auditoria`, `calc_parametros_calculo` → prefixo `calc_*`. Inclui CREATE TABLE IF NOT EXISTS, SELECT, INSERT, ALTER, e índices (`idx_calculadora_*` → `idx_calc_*`).
+- Arquivos atualizados: `admin-motor/src/handlers/routes/calculadora/{sync,parametros,overview}.ts`, `admin-motor/src/handlers/routes/_lib/calculadora-admin.ts`, `functions/api/_lib/calculadora-admin.ts`, `db/migrations/{002,007}_*.sql`.
+- 6 das 9 tabelas já tinham sido renomeadas em D1 em 2026-04-25 (run #24936141136 do calculadora-app); admin-app estava com queries half-broken para essas 6 desde então.
+- 3 tabelas restantes (`calc_email_rate_limit`, `calc_parametros_auditoria`, `calc_parametros_calculo`) ALTERadas em D1 via novo workflow `.github/workflows/d1-rename-calculadora-admin.yml` (workflow_dispatch one-off). Coordenação atômica admin-app + D1.
+### Validação
+- `npm run lint`, `npm run test:admin-motor` (8/23 green), `npm run build`.
+
 ## [v01.97.01] - 2026-04-25
 ### Public-flip prep (Auditoria Fase 0)
 - **D1 nil-UUID + GHA secret-injection**: `wrangler.json` (root), `admin-motor/wrangler.json` e `tlsrpt-motor/wrangler.json` substituem o `database_id` real por placeholder nil-UUID (`00000000-0000-0000-0000-000000000000`); o ID real é injetado em deploy via `D1_DATABASE_ID` (GitHub Secret) com substituição `jq` em ambos os jobs (`deploy_tlsrpt` e `deploy_admin`). Replica padrão do oraculo-financeiro v01.10.01. Achado BLOCKING #4 da auditoria 2026-04-25.
