@@ -1,0 +1,135 @@
+name: Auto-release on version bump
+
+# Universal tag convention (operator directive 2026-04-28): vXX.XX.XX with
+# two-digit zero-padded segments. APP_VERSION (in src/App.tsx) is
+# the source of truth; the tag is derived as `v${digits-only-from-APP_VERSION}`
+# which already has the universal padding.
+#
+# Idempotent on transition: checks BOTH the new universal format
+# (vXX.YY.ZZ) AND the legacy unpadded format (vX.Y.Z) for the current
+# version. If either exists on origin, the workflow exits without
+# creating anything. This prevents a duplicate release when the repo's
+# history has tags from before the universal convention was adopted
+# (e.g. `v2.0.10` legacy vs `v02.00.10` universal).
+#
+# Inspired by maestro-app's release.yml (Codex 2026-04-26) and
+# cross-review-mcp's auto-tag.yml. Adapted for the 8 LCV-Ideas-Software
+# repos that ship APP_VERSION'd Node/Vite/Worker applications.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Path of the file containing `const APP_VERSION = 'APP vXX.YY.ZZ';`.
+  VERSION_FILE: src/App.tsx
+
+jobs:
+  auto-release:
+    name: Create universal-format tag + GitHub Release if APP_VERSION was bumped
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main with full history
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Extract APP_VERSION + compute tags
+        id: version
+        run: |
+          set -euo pipefail
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo "::error::VERSION_FILE not found: $VERSION_FILE"
+            exit 1
+          fi
+          RAW=$(grep -E "APP_VERSION[[:space:]]*=[[:space:]]*['\"]APP v[0-9]+\.[0-9]+\.[0-9]+['\"]" "$VERSION_FILE" | head -1 || true)
+          if [ -z "$RAW" ]; then
+            echo "::error::Could not find 'APP_VERSION = APP vX.Y.Z' pattern in $VERSION_FILE"
+            exit 1
+          fi
+          DIGITS=$(echo "$RAW" | sed -E "s/.*APP v([0-9]+\.[0-9]+\.[0-9]+).*/\1/")
+          # Universal format: vXX.YY.ZZ. APP_VERSION already has zero-pad in
+          # the workspace convention (per .agents/workflows/version-control.md
+          # §1), so the digits string IS the universal tag body.
+          PAD=$(echo "$DIGITS" | awk -F. '{ printf "v%02d.%02d.%02d", $1, $2, $3 }')
+          # Legacy format: vX.Y.Z (digits stripped of leading zeros).
+          LEGACY=$(echo "$DIGITS" | awk -F. '{ printf "v%d.%d.%d", $1, $2, $3 }')
+          echo "raw_version=$DIGITS" >> "$GITHUB_OUTPUT"
+          echo "tag=$PAD" >> "$GITHUB_OUTPUT"
+          echo "legacy_tag=$LEGACY" >> "$GITHUB_OUTPUT"
+          echo "APP_VERSION='APP v${DIGITS}' → universal: $PAD, legacy: $LEGACY"
+
+      - name: Check if either tag already exists on origin
+        id: check
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          LEGACY_TAG: ${{ steps.version.outputs.legacy_tag }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${TAG} already exists; skipping."
+          elif [ "$TAG" != "$LEGACY_TAG" ] && git ls-remote --exit-code --tags origin "refs/tags/${LEGACY_TAG}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Legacy tag ${LEGACY_TAG} already exists for this version; skipping (transition guard)."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Neither ${TAG} nor ${LEGACY_TAG} exists; will create universal-format tag ${TAG}."
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        if: steps.check.outputs.exists == 'false'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          RAW_VERSION: ${{ steps.version.outputs.raw_version }}
+        run: |
+          set -euo pipefail
+          STRIPPED=$(echo "$RAW_VERSION" | awk -F. '{ printf "%d.%d.%d", $1, $2, $3 }')
+          NOTES=""
+          if [ -f CHANGELOG.md ]; then
+            for pattern in "APP v$RAW_VERSION" "v$RAW_VERSION" "v$STRIPPED" "$RAW_VERSION" "$STRIPPED"; do
+              CANDIDATE=$(awk -v ver="$pattern" '
+                $0 ~ "^## \\[" ver "\\]" { found=1; next }
+                found && /^## \[/ { exit }
+                found { print }
+              ' CHANGELOG.md 2>/dev/null || true)
+              if [ -n "$CANDIDATE" ]; then
+                NOTES="$CANDIDATE"
+                break
+              fi
+            done
+          fi
+          if [ -z "$NOTES" ]; then
+            NOTES="Release ${TAG}. See CHANGELOG.md for details."
+          fi
+          {
+            echo "notes<<RELEASE_NOTES_EOF"
+            echo "$NOTES"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create tag + GitHub Release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: ${{ steps.notes.outputs.notes }}
+        run: |
+          set -euo pipefail
+          gh release create "${TAG}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "${TAG}" \
+            --notes "$NOTES" \
+            --latest
+          echo "Created release ${TAG} at ${GITHUB_SHA}."
