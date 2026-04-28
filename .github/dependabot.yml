@@ -9,8 +9,6 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
-    assignees:
-      - "lcv-leo"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -26,8 +24,6 @@ updates:
       - "dependencies"
       - "npm"
       - "frontend"
-    assignees:
-      - "lcv-leo"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -83,8 +79,6 @@ updates:
       - "dependencies"
       - "npm"
       - "worker"
-    assignees:
-      - "lcv-leo"
     commit-message:
       prefix: "deps"
       include: "scope"

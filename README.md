@@ -57,7 +57,7 @@ You will need:
 ### 1. Clone + install
 
 ```bash
-git clone https://github.com/lcv-leo/admin-app.git
+git clone https://github.com/LCV-Ideas-Software/admin-app.git
 cd admin-app
 npm ci
 ```
