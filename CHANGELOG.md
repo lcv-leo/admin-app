@@ -1,5 +1,16 @@
 # Changelog — Admin App
 
+## [v01.99.06] - 2026-04-27
+### Alterado — migração GitHub org + Pages/Sponsors custom domain
+- Repositório transferido para `LCV-Ideas-Software/admin-app`; README e rodapé de compliance apontam para o repositório público da organização.
+- `.github/FUNDING.yml` passa a usar `https://admin-app.lcv.app.br/` como link custom do botão Sponsor, preservando `github: lcv-leo`.
+- Dependabot deixa de atribuir PRs ao usuário e ganha workflow `Dependabot Automerge` restrito a `dependabot[bot]`, sem checkout de código de PR.
+### Validação
+- `npm run lint`.
+- `npm run build`.
+- YAML dos workflows/dependabot parseado via `js-yaml`.
+- Pages custom domain `https://admin-app.lcv.app.br/` respondeu HTTP 200.
+
 ## [v01.99.05] - 2026-04-27
 ### Corrigido — regressão pós-flip-público no sanitizer de posts MainSite
 - `admin-motor/src/handlers/routes/mainsite/_lib/sanitize-post-html.ts`: hardening introduzido em v01.97.00 (commit `2f27dba`, "audit Phase 0 — sanitize posts") restringiu `allowedStyles['*']` a uma única propriedade (`text-align`) e omitiu `h1..h6`, `li`, `ul`, `ol`, `iframe`, `figure`, `mark` de `allowedAttributes`. Resultado: tudo que as extensões Tiptap emitem como inline `style` em headings, lists, figures e media (TextAlign em headings; EditorSpacing line-height/margin-top/margin-bottom em paragraphs+headings+listItem+bulletList+orderedList — listas eram a falha mais grave por afetar todos os posts com listas; FontSize, FontFamily, Color em spans; TextIndent em paragraphs+headings; CustomResizableImage width/height em img; FigureImageNode width/max-width/display em figure+img; Table width/min-width em table+col) era silenciosamente descartado pelo `sanitize-html` no `POST/PUT /api/mainsite/posts` antes de chegar à D1. Operador relatou: alinhamento de H3 perdido, espaçamento entre linhas/parágrafos não persistia, font-size e inserção de linhas em branco descartados, re-edição não restaurava o estado das ferramentas — sintomas consistentes com persistência incompleta sem qualquer erro visível.
