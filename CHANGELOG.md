@@ -1,5 +1,9 @@
 # Changelog — Admin App
 
+## [Unreleased]
+### Alterado
+- site/index.html deixou de carregar o widget/SDK SumUp e passou a encaminhar apoios para https://www.lcv.dev/sponsor?project=admin-app, com backend dedicado sponsor-motor via Mercado Pago Checkout Pro.
+
 ## [v02.01.00] - 2026-05-06
 ### Removido — painel Financeiro e superfícies de pagamento
 - Removido integralmente o módulo `Financeiro` do menu, roteamento lazy, union `ModuleId`, testes E2E e CSS dedicado.
