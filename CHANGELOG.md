@@ -3,6 +3,7 @@
 ## [Unreleased]
 ### Alterado
 - site/index.html deixou de carregar o widget/SDK SumUp e passou a encaminhar apoios para https://www.lcv.dev/sponsor?project=admin-app, com backend dedicado sponsor-motor via Mercado Pago Checkout Pro.
+- Sync inicial do MainSite grava `mainsite/ratelimit` apenas como toggles (`chatbot`, `email`, `comments`), alinhado ao rate limit nativo da Cloudflare; limites numericos nao sao mais semeados em D1.
 
 ## [v02.01.00] - 2026-05-06
 ### Removido — painel Financeiro e superfícies de pagamento

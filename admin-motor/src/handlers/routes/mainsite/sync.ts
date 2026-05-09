@@ -38,8 +38,9 @@ const DEFAULT_SETTINGS: Array<{ id: string; payload: Record<string, unknown> }> 
   {
     id: 'mainsite/ratelimit',
     payload: {
-      chatbot: { enabled: false, maxRequests: 5, windowMinutes: 1 },
-      email: { enabled: false, maxRequests: 3, windowMinutes: 15 },
+      chatbot: { enabled: false },
+      email: { enabled: false },
+      comments: { enabled: true },
     },
   },
   {
