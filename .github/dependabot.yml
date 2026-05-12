@@ -1,6 +1,7 @@
 version: 2
 
 # StepSecurity Secure Registry auth (matches project .npmrc).
+# Install/dependency resolution only; operational npm commands use registry.npmjs.org.
 # Dependabot uses its own secret namespace; Actions secrets do not
 # propagate to Dependabot jobs.
 registries:
