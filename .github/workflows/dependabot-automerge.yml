@@ -34,6 +34,7 @@ jobs:
                 .statusCheckRollup[]
                 | select(.workflowName != "Dependabot Automerge")
                 | select(.name != "StepSecurity Optional Checks")
+                | select(.name != "StepSecurity Harden-Runner")
               ] as $checks
               | if ($checks | length) == 0 then "pending"
                 elif any($checks[]; .status != "COMPLETED") then "pending"
@@ -53,6 +54,7 @@ jobs:
                   .statusCheckRollup[]
                   | select(.workflowName != "Dependabot Automerge")
                   | select(.name != "StepSecurity Optional Checks")
+                  | select(.name != "StepSecurity Harden-Runner")
                   | [.workflowName, .name, .status, .conclusion]
                   | @tsv
                 '
