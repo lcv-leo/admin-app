@@ -291,6 +291,12 @@ describe('Maestro AI settings', () => {
       expect.stringContaining('/secrets'),
       expect.objectContaining({ method: 'POST' }),
     );
+    const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject([
+      {
+        scopes: ['workers', 'ai_gateway'],
+      },
+    ]);
     expect(JSON.stringify(payload.settings)).not.toContain('new-secret-claude');
     vi.unstubAllGlobals();
   });
@@ -471,6 +477,20 @@ describe('maestro provider request construction', () => {
       { role: 'user', content: prompt },
     ]);
     expect(body.search_mode).toBe('web');
+  });
+
+  it('treats an authenticated empty provider response as a successful health check', () => {
+    expect(
+      maestroAiTestHooks.publicApiHealthResult('gemini', {
+        text: '',
+        model: 'gemini-2.5-pro',
+      }),
+    ).toMatchObject({
+      agent: 'gemini',
+      ok: true,
+      message: 'Chamada autenticada aceita; resposta textual vazia.',
+      model: 'gemini-2.5-pro',
+    });
   });
 });
 

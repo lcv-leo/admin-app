@@ -324,9 +324,9 @@ export function MaestroAiModule() {
     perplexity: '',
   });
   const [protocolText, setProtocolText] = useState('');
-  const [maxCostUsd, setMaxCostUsd] = useState(0);
+  const [maxCostUsd, setMaxCostUsd] = useState<number | ''>(0);
   const [maxRuntimeMinutes, setMaxRuntimeMinutes] = useState<number | ''>('');
-  const [maxCycles, setMaxCycles] = useState(2);
+  const [maxCycles, setMaxCycles] = useState<number | ''>(2);
   const [rates, setRates] = useState<Record<AgentKey, AgentRate>>(EMPTY_RATES);
   const [models, setModels] = useState<Record<AgentKey, string>>(EMPTY_MODELS);
   const [testResults, setTestResults] = useState<ApiTestResult[]>([]);
@@ -480,6 +480,32 @@ export function MaestroAiModule() {
   };
 
   const saveSettings = async () => {
+    if (!settings) {
+      showNotification('Aguarde o carregamento das configurações antes de salvar.', 'error');
+      return;
+    }
+    const nextMaxCostUsd = Number(maxCostUsd);
+    const nextMaxRuntimeMinutes = maxRuntimeMinutes === '' ? null : Number(maxRuntimeMinutes);
+    const nextMaxCycles = Number(maxCycles);
+    if (protocolText.trim().length < 100) {
+      showNotification('Protocolo editorial integral deve ter pelo menos 100 caracteres.', 'error');
+      return;
+    }
+    if (!Number.isFinite(nextMaxCostUsd) || nextMaxCostUsd <= 0) {
+      showNotification('Teto financeiro em USD deve ser positivo.', 'error');
+      return;
+    }
+    if (!Number.isInteger(nextMaxCycles) || nextMaxCycles < 1 || nextMaxCycles > 5) {
+      showNotification('Ciclos máximos devem ser um inteiro entre 1 e 5.', 'error');
+      return;
+    }
+    if (
+      nextMaxRuntimeMinutes != null &&
+      (!Number.isFinite(nextMaxRuntimeMinutes) || nextMaxRuntimeMinutes < 1 || nextMaxRuntimeMinutes > 720)
+    ) {
+      showNotification('Limite de tempo opcional deve ficar entre 1 e 720 minutos.', 'error');
+      return;
+    }
     setSavingSettings(true);
     try {
       const api_keys = Object.fromEntries(
@@ -491,9 +517,9 @@ export function MaestroAiModule() {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             protocol_text: protocolText,
-            max_cost_usd: maxCostUsd,
-            max_runtime_minutes: maxRuntimeMinutes === '' ? null : Number(maxRuntimeMinutes),
-            max_cycles: maxCycles,
+            max_cost_usd: nextMaxCostUsd,
+            max_runtime_minutes: nextMaxRuntimeMinutes,
+            max_cycles: nextMaxCycles,
             rates,
             models,
             api_keys,
@@ -511,6 +537,10 @@ export function MaestroAiModule() {
   };
 
   const testApis = async () => {
+    if (!settings) {
+      showNotification('Aguarde o carregamento das configurações antes de testar.', 'error');
+      return;
+    }
     setTestingApis(true);
     setTestResults([]);
     try {
@@ -1115,11 +1145,16 @@ export function MaestroAiModule() {
                   type="button"
                   className="primary-button"
                   onClick={() => void saveSettings()}
-                  disabled={savingSettings}
+                  disabled={savingSettings || loadingSettings || !settings}
                 >
                   {savingSettings ? <Loader2 size={16} className="spin" /> : <Save size={16} />} Salvar
                 </button>
-                <button type="button" className="ghost-button" onClick={() => void testApis()} disabled={testingApis}>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => void testApis()}
+                  disabled={testingApis || loadingSettings || !settings}
+                >
                   {testingApis ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />} Testar chaves
                 </button>
               </div>
@@ -1156,7 +1191,10 @@ export function MaestroAiModule() {
                   min="0.01"
                   step="0.01"
                   value={maxCostUsd}
-                  onChange={(event) => setMaxCostUsd(Number(event.target.value))}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setMaxCostUsd(value === '' ? '' : Number(value));
+                  }}
                 />
               </div>
               <div className="field-group maestro-cost-field">
@@ -1168,7 +1206,10 @@ export function MaestroAiModule() {
                   max="5"
                   step="1"
                   value={maxCycles}
-                  onChange={(event) => setMaxCycles(Number(event.target.value))}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setMaxCycles(value === '' ? '' : Number(value));
+                  }}
                 />
               </div>
               <div className="field-group maestro-cost-field">
@@ -1286,7 +1327,7 @@ export function MaestroAiModule() {
                 type="button"
                 className="primary-button"
                 onClick={() => void saveSettings()}
-                disabled={savingSettings}
+                disabled={savingSettings || loadingSettings || !settings}
               >
                 {savingSettings ? <Loader2 size={16} className="spin" /> : <Save size={16} />} Salvar configurações
               </button>

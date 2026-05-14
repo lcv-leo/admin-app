@@ -33,7 +33,7 @@ import { useNavigate, useParams } from './router-context';
 
 export type { ModuleId };
 
-const APP_VERSION = 'APP v02.02.02';
+const APP_VERSION = 'APP v02.02.03';
 
 const MODULE_LABELS: Record<Exclude<ModuleId, 'overview'>, string> = {
   'ai-status': 'AI Status',

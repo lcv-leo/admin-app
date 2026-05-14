@@ -4,6 +4,24 @@
 ### Alterado
 - Sync inicial do MainSite grava `mainsite/ratelimit` apenas como toggles (`chatbot`, `email`, `comments`), alinhado ao rate limit nativo da Cloudflare; limites numericos nao sao mais semeados em D1.
 
+## [v02.02.03] - 2026-05-14
+### Corrigido
+- **Maestro AI web**: o teste de chaves/API deixou de tratar resposta textual vazia de Gemini e Perplexity como falha quando a chamada autenticada foi aceita; falhas reais continuam vindo de chave ausente, rate card ausente ou erro HTTP/API do provedor.
+- **Maestro AI web**: salvamento de configurações agora valida no cliente o protocolo, teto financeiro, ciclos e limite de tempo antes do `PUT /api/maestro-ai/settings`, evitando `400` previsível por conversão silenciosa de campo numérico vazio para `0`.
+
+### Alterado
+- **Maestro AI web**: `api_test_finished` passou a registrar `failed_agents` com agente, modelo e mensagem sanitizada para facilitar diagnóstico no Cloudflare Observability.
+- **Secret Store**: substituição de API keys pela UI preserva os escopos `workers` e `ai_gateway`, evitando reduzir o alcance de segredos já usados pelo motor.
+
+### Validação
+- `npm run test:admin-motor -- sessions.test.ts` → 17 testes verdes.
+- `npm run build` → OK.
+- `npm run lint -- --quiet` → OK.
+- `cross-review-v2` sessão `df052926-0e62-4592-ae81-f9fb7722d29c` → converged READY em 1 round.
+
+### Versão
+- APP v02.02.02 → APP v02.02.03
+
 ## [v02.02.02] - 2026-05-14
 ### Alterado
 - **Maestro AI web**: campos numericos do card `Custos` reduzidos pela metade para evitar corte lateral dos inputs de teto financeiro, ciclos, limite de tempo e valores de tokens.

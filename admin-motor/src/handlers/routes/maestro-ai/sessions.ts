@@ -212,7 +212,10 @@ const DEFAULT_RATES: Record<ProviderKey, ProviderRates> = {
 const PROVIDER_KEYS: ProviderKey[] = ['claude', 'codex', 'gemini', 'deepseek', 'grok', 'perplexity'];
 const MAX_OUTPUT_TOKENS = 20_000;
 const SETTINGS_ID = 'default';
-const SECRET_STORE_SCOPE = 'workers';
+const SECRET_STORE_SCOPES = ['workers', 'ai_gateway'] as const;
+const API_TEST_SYSTEM =
+  'You are an API health-check endpoint. Return a short plain-text acknowledgement only.';
+const API_TEST_PROMPT = 'Reply with exactly: OK';
 
 const SECRET_NAMES: Record<ProviderKey, string> = {
   claude: 'MAESTRO_ANTHROPIC_API_KEY',
@@ -727,7 +730,7 @@ async function upsertSecretStoreSecret(env: MaestroAiEnv, agent: ProviderKey, va
   const existing = (await listSecretStoreSecrets(env)).find((secret) => secret.name === name && secret.status !== 'deleted');
   const body = {
     value: secretValue,
-    scopes: [SECRET_STORE_SCOPE],
+    scopes: [...SECRET_STORE_SCOPES],
     comment: `Managed by admin-app Maestro AI settings for ${AGENT_LABELS[agent]}.`,
   };
   if (existing?.id) {
@@ -964,11 +967,14 @@ async function callProvider(
   prompt: string,
   models: Partial<Record<ProviderKey, string>>,
   maxOutputTokens = MAX_OUTPUT_TOKENS,
+  systemOverride?: string,
 ): Promise<ProviderCallResult> {
   const apiKey = secretForAgent(env, agent);
   if (!apiKey) throw new Error(`${AGENT_LABELS[agent]} API key is not configured in admin-motor secrets.`);
   const model = sanitizeText(models[agent], 120) || DEFAULT_MODELS[agent];
-  const system = `You are ${AGENT_LABELS[agent]} inside Maestro Editorial AI. Internal coordination must be in en_US. Operator-facing deliverables must be in pt_BR. Follow the current Maestro role contract exactly.`;
+  const system =
+    systemOverride ??
+    `You are ${AGENT_LABELS[agent]} inside Maestro Editorial AI. Internal coordination must be in en_US. Operator-facing deliverables must be in pt_BR. Follow the current Maestro role contract exactly.`;
 
   if (agent === 'gemini') {
     const ai = new GoogleGenAI({ apiKey });
@@ -1106,8 +1112,21 @@ function buildProviderHttpRequest(
   };
 }
 
+function publicApiHealthResult(
+  agent: ProviderKey,
+  result: ProviderCallResult,
+): { agent: ProviderKey; ok: true; message: string; model?: string } {
+  return {
+    agent,
+    ok: true,
+    message: result.text.slice(0, 120) || 'Chamada autenticada aceita; resposta textual vazia.',
+    model: result.model,
+  };
+}
+
 export const maestroAiTestHooks = {
   buildProviderHttpRequest,
+  publicApiHealthResult,
   validateRevisionGuard,
 };
 
@@ -1761,19 +1780,8 @@ export async function handleMaestroAiSettingsTestPost(context: RequestContext): 
         continue;
       }
       try {
-        const result = await callProvider(
-          context.env,
-          agent,
-          'Return exactly: MAESTRO_API_TEST_OK',
-          models,
-          64,
-        );
-        results.push({
-          agent,
-          ok: /MAESTRO_API_TEST_OK/i.test(result.text) || result.text.length > 0,
-          message: result.text.slice(0, 120) || 'Resposta vazia.',
-          model: result.model,
-        });
+        const result = await callProvider(context.env, agent, API_TEST_PROMPT, models, 256, API_TEST_SYSTEM);
+        results.push(publicApiHealthResult(agent, result));
       } catch (error) {
         results.push({
           agent,
@@ -1785,6 +1793,13 @@ export async function handleMaestroAiSettingsTestPost(context: RequestContext): 
     logMaestro('info', 'api_test_finished', {
       total: results.length,
       failed: results.filter((result) => !result.ok).length,
+      failed_agents: results
+        .filter((result) => !result.ok)
+        .map((result) => ({
+          agent: result.agent,
+          model: result.model ?? models[result.agent],
+          message: sanitizeText(result.message, 300),
+        })),
     });
     return json({ ok: true, results });
   } catch (error) {
