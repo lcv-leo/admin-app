@@ -2,7 +2,9 @@
 // Descrição: Endpoint que usa Llama-3 (Cloudflare Workers AI) para gerar tags automaticamente.
 
 interface Env {
-  AI: any;
+  AI: {
+    run(model: string, input: unknown): Promise<unknown>;
+  };
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -21,7 +23,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       { role: 'user', content: data.text },
     ];
 
-    const response = await ((context as any).data?.env || context.env).AI.run('@cf/meta/llama-3-8b-instruct', {
+    const response = await (context.data?.env ?? context.env).AI.run('@cf/meta/llama-3-8b-instruct', {
       messages,
     });
 

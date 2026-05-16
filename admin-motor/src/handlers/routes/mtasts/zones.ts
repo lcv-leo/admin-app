@@ -43,11 +43,11 @@ export async function onRequestGet(context: Context) {
   const startedAt = Date.now();
   console.debug('[mtasts/zones] request:start');
   try {
-    const payload = await listCloudflareZones((context as any).data?.env || context.env);
+    const payload = await listCloudflareZones(context.data?.env ?? context.env);
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'mtasts',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -78,9 +78,9 @@ export async function onRequestGet(context: Context) {
     const message = error instanceof Error ? error.message : 'Falha ao carregar zonas do MTA-STS';
     console.error('[mtasts/zones] request:error', { error: message });
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'mtasts',
           source: 'bigdata_db',
           fallbackUsed: false,

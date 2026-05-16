@@ -141,7 +141,7 @@ export async function onRequestPost(context: Context) {
   const rawBodyJson = String(payload.rawBodyJson ?? '');
 
   try {
-    const accountInfo = await resolveCloudflarePwAccount((context as any).data?.env || context.env);
+    const accountInfo = await resolveCloudflarePwAccount(context.data?.env ?? context.env);
 
     let result: unknown = null;
 
@@ -151,7 +151,7 @@ export async function onRequestPost(context: Context) {
           return toError('scriptName é obrigatório para get-worker-schedules.', trace, 400);
         }
         result = await getCloudflareWorkerSchedules(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           scriptName,
         );
@@ -163,7 +163,7 @@ export async function onRequestPost(context: Context) {
           return toError('scriptName é obrigatório para update-worker-schedules.', trace, 400);
         }
         result = await updateCloudflareWorkerSchedules(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           scriptName,
           schedules,
@@ -176,7 +176,7 @@ export async function onRequestPost(context: Context) {
           return toError('scriptName é obrigatório para get-worker-usage-model.', trace, 400);
         }
         result = await getCloudflareWorkerUsageModel(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           scriptName,
         );
@@ -188,7 +188,7 @@ export async function onRequestPost(context: Context) {
           return toError('scriptName e usageModel são obrigatórios para update-worker-usage-model.', trace, 400);
         }
         result = await updateCloudflareWorkerUsageModel(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           scriptName,
           usageModel,
@@ -200,11 +200,7 @@ export async function onRequestPost(context: Context) {
         if (!scriptName) {
           return toError('scriptName é obrigatório para list-worker-secrets.', trace, 400);
         }
-        result = await listCloudflareWorkerSecrets(
-          (context as any).data?.env || context.env,
-          accountInfo.accountId,
-          scriptName,
-        );
+        result = await listCloudflareWorkerSecrets(context.data?.env ?? context.env, accountInfo.accountId, scriptName);
         break;
       }
 
@@ -213,7 +209,7 @@ export async function onRequestPost(context: Context) {
           return toError('scriptName, secretName e secretValue são obrigatórios para add-worker-secret.', trace, 400);
         }
         result = await addCloudflareWorkerSecret(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           scriptName,
           secretName,
@@ -227,7 +223,7 @@ export async function onRequestPost(context: Context) {
           return toError('scriptName e secretName são obrigatórios para delete-worker-secret.', trace, 400);
         }
         result = await deleteCloudflareWorkerSecret(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           scriptName,
           secretName,
@@ -240,7 +236,7 @@ export async function onRequestPost(context: Context) {
           return toError('projectName é obrigatório para create-page-project.', trace, 400);
         }
         result = await createCloudflarePagesProject(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           projectName,
           projectBranch,
@@ -267,7 +263,7 @@ export async function onRequestPost(context: Context) {
         }
 
         result = await updateCloudflarePagesProjectSettings(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           projectName,
           parsedSettings,
@@ -279,11 +275,7 @@ export async function onRequestPost(context: Context) {
         if (!projectName) {
           return toError('projectName é obrigatório para list-page-domains.', trace, 400);
         }
-        result = await listCloudflarePagesDomains(
-          (context as any).data?.env || context.env,
-          accountInfo.accountId,
-          projectName,
-        );
+        result = await listCloudflarePagesDomains(context.data?.env ?? context.env, accountInfo.accountId, projectName);
         break;
       }
 
@@ -292,7 +284,7 @@ export async function onRequestPost(context: Context) {
           return toError('projectName e domainName são obrigatórios para add-page-domain.', trace, 400);
         }
         result = await addCloudflarePagesDomain(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           projectName,
           domainName,
@@ -305,7 +297,7 @@ export async function onRequestPost(context: Context) {
           return toError('projectName e domainName são obrigatórios para delete-page-domain.', trace, 400);
         }
         result = await deleteCloudflarePagesDomain(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           projectName,
           domainName,
@@ -318,7 +310,7 @@ export async function onRequestPost(context: Context) {
           return toError('projectName e deploymentId são obrigatórios para retry-page-deployment.', trace, 400);
         }
         result = await retryCloudflarePagesDeployment(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           projectName,
           deploymentId,
@@ -331,7 +323,7 @@ export async function onRequestPost(context: Context) {
           return toError('projectName e deploymentId são obrigatórios para rollback-page-deployment.', trace, 400);
         }
         result = await rollbackCloudflarePagesDeployment(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           projectName,
           deploymentId,
@@ -344,7 +336,7 @@ export async function onRequestPost(context: Context) {
           return toError('projectName e deploymentId são obrigatórios para get-page-deployment-logs.', trace, 400);
         }
         result = await getCloudflarePagesDeploymentLogs(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           projectName,
           deploymentId,
@@ -357,7 +349,7 @@ export async function onRequestPost(context: Context) {
           return toError('scriptName é obrigatório para list-worker-versions.', trace, 400);
         }
         result = await listCloudflareWorkerVersions(
-          (context as any).data?.env || context.env,
+          context.data?.env ?? context.env,
           accountInfo.accountId,
           scriptName,
         );
@@ -368,7 +360,7 @@ export async function onRequestPost(context: Context) {
         if (!zoneId) {
           return toError('zoneId é obrigatório para list-worker-routes.', trace, 400);
         }
-        result = await listCloudflareWorkerRoutes((context as any).data?.env || context.env, zoneId);
+        result = await listCloudflareWorkerRoutes(context.data?.env ?? context.env, zoneId);
         break;
       }
 
@@ -376,12 +368,7 @@ export async function onRequestPost(context: Context) {
         if (!zoneId || !routePattern || !scriptName) {
           return toError('zoneId, routePattern e scriptName são obrigatórios para add-worker-route.', trace, 400);
         }
-        result = await addCloudflareWorkerRoute(
-          (context as any).data?.env || context.env,
-          zoneId,
-          routePattern,
-          scriptName,
-        );
+        result = await addCloudflareWorkerRoute(context.data?.env ?? context.env, zoneId, routePattern, scriptName);
         break;
       }
 
@@ -389,7 +376,7 @@ export async function onRequestPost(context: Context) {
         if (!zoneId || !routeId) {
           return toError('zoneId e routeId são obrigatórios para delete-worker-route.', trace, 400);
         }
-        result = await deleteCloudflareWorkerRoute((context as any).data?.env || context.env, zoneId, routeId);
+        result = await deleteCloudflareWorkerRoute(context.data?.env ?? context.env, zoneId, routeId);
         break;
       }
 
@@ -397,12 +384,7 @@ export async function onRequestPost(context: Context) {
         if (!rawMethod || !rawPath) {
           return toError('rawMethod e rawPath são obrigatórios para raw-cloudflare-request.', trace, 400);
         }
-        result = await runCloudflareRawRequest(
-          (context as any).data?.env || context.env,
-          rawMethod,
-          rawPath,
-          rawBodyJson,
-        );
+        result = await runCloudflareRawRequest(context.data?.env ?? context.env, rawMethod, rawPath, rawBodyJson);
         break;
       }
 
@@ -410,9 +392,9 @@ export async function onRequestPost(context: Context) {
         return toError(`Ação não suportada: ${action}`, trace, 400);
     }
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -447,9 +429,9 @@ export async function onRequestPost(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : `Falha ao executar ação ${action}.`;
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,

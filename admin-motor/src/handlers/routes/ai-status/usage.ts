@@ -6,6 +6,16 @@ import type { D1Database } from '../../../../../functions/api/_lib/operational';
 
 // Env: { BIGDATA_DB: D1Database } — via context.data?.env || context.env
 
+type Env = {
+  BIGDATA_DB?: D1Database;
+};
+
+type Context = {
+  request: Request;
+  env: Env;
+  data?: { env?: Env };
+};
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -62,8 +72,8 @@ interface ModelRow {
   output_tokens: number;
 }
 
-export const onRequestGet = async (context: any) => {
-  const env = context.data?.env || context.env;
+export const onRequestGet = async (context: Context) => {
+  const env = context.data?.env ?? context.env;
   const db = env?.BIGDATA_DB;
   if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.' }, 503);
 
@@ -153,9 +163,9 @@ export const onRequestGet = async (context: any) => {
 };
 
 // POST: Registrar um novo log de uso (chamado internamente pelos endpoints de AI)
-export const onRequestPost = async (context: any) => {
+export const onRequestPost = async (context: Context) => {
   const { request } = context;
-  const env = context.data?.env || context.env;
+  const env = context.data?.env ?? context.env;
   const db = env?.BIGDATA_DB;
   if (!db) return json({ ok: false, error: 'BIGDATA_DB não configurado.' }, 503);
 

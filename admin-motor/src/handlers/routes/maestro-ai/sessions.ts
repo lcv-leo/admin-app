@@ -141,6 +141,22 @@ type ProviderCallResult = {
   model: string;
 };
 
+type ProviderResponsePayload = {
+  content?: Array<{ type?: string; text?: string }>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
+  output_text?: string;
+  output?: Array<{ content?: Array<{ text?: string; type?: string }> }>;
+  choices?: Array<{ message?: { content?: string } }>;
+  error?: { message?: string };
+  message?: string;
+  raw?: string;
+};
+
 type HttpProviderKey = Exclude<ProviderKey, 'gemini'>;
 
 type ProviderHttpRequest = {
@@ -1165,11 +1181,11 @@ export const maestroAiTestHooks = {
   validateRevisionGuard,
 };
 
-async function parseProviderResponse(response: Response): Promise<any> {
+async function parseProviderResponse(response: Response): Promise<ProviderResponsePayload> {
   const body = await response.text();
-  let parsed: any;
+  let parsed: ProviderResponsePayload;
   try {
-    parsed = body ? JSON.parse(body) : {};
+    parsed = body ? (JSON.parse(body) as ProviderResponsePayload) : {};
   } catch {
     parsed = { raw: body };
   }

@@ -409,7 +409,6 @@ export function AstrologoModule() {
           <div className="astro-section">
             <div className="form-grid">
               <div className="field-group">
-                {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field heading (read-only value below) */}
                 <label>Forças Globais: Tatwas</label>
                 <div className="astro-kv-list">
                   <div className="astro-kv">
@@ -423,7 +422,6 @@ export function AstrologoModule() {
                 </div>
               </div>
               <div className="field-group">
-                {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field heading (read-only values below) */}
                 <label>Forças Globais: Numerologia</label>
                 <div className="astro-kv-list">
                   <div className="astro-kv">
@@ -449,7 +447,6 @@ export function AstrologoModule() {
             <h5 className="astro-section__title astro-section__title--tropical">Módulo I: Astrológico Tropical</h5>
             {tropical.astrologia?.length > 0 && (
               <>
-                {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field heading */}
                 <label>Astrologia ({tropical.astrologia.length > 12 ? '13 Signos' : '12 Signos'})</label>
                 <div className="astro-grid astro-grid--4">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -466,7 +463,6 @@ export function AstrologoModule() {
             )}
             {tropical.umbanda?.length > 0 && (
               <>
-                {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field heading */}
                 <label>Umbanda</label>
                 <div className="astro-grid astro-grid--3">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -490,7 +486,6 @@ export function AstrologoModule() {
             </h5>
             {astronomica.astrologia?.length > 0 && (
               <>
-                {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field heading */}
                 <label>Astrologia ({astronomica.astrologia.length > 12 ? '13 Signos' : '12 Signos'})</label>
                 <div className="astro-grid astro-grid--4">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -507,7 +502,6 @@ export function AstrologoModule() {
             )}
             {astronomica.umbanda?.length > 0 && (
               <>
-                {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field heading */}
                 <label>Umbanda</label>
                 <div className="astro-grid astro-grid--3">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}

@@ -16,7 +16,7 @@ const json = (data: unknown, status = 200) =>
     headers: toHeaders(),
   });
 
-const resolveParametrosDb = (context: Context) => ((context as any).data?.env || context.env).BIGDATA_DB;
+const resolveParametrosDb = (context: Context) => (context.data?.env ?? context.env).BIGDATA_DB;
 const resolveOperationalSource = () => 'bigdata_db' as const;
 
 export async function onRequestGet(context: Context) {

@@ -568,7 +568,6 @@ export function HubCardsModule(props: HubCardsModuleProps) {
         </div>
 
         <div className="field-group">
-          {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only section heading (no single input below) */}
           <label>Cards do módulo</label>
           <article className={`quality-banner quality-banner--${qualityMetrics.status}`}>
             <div className="quality-banner__main">

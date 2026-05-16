@@ -130,7 +130,6 @@ export function NewsPanel() {
     [settings.enabledSources, settings.maxItems, settings.sources],
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intencional — re-fetch apenas quando fetchKey (fontes/max) ou refreshMinutes mudam, não a cada mudança em `settings` (que inclui `localKeywords`)
   useEffect(() => {
     setLoading(true);
     void fetchNews(settings);

@@ -880,7 +880,6 @@ export function OraculoModule() {
             {taxaCache ? (
               <div className="form-grid" style={{ paddingTop: '0.5rem' }}>
                 <div className="field-group">
-                  {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field label (read-only value below) */}
                   <label>Status</label>
                   <p
                     style={{
@@ -895,7 +894,6 @@ export function OraculoModule() {
                 {taxaCache.ok && (
                   <>
                     <div className="field-group">
-                      {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field label (read-only value below) */}
                       <label>Fonte</label>
                       <p style={{ margin: 0 }}>
                         {taxaCache.fonte === 'cache'
@@ -906,19 +904,16 @@ export function OraculoModule() {
                       </p>
                     </div>
                     <div className="field-group">
-                      {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field label (read-only value below) */}
                       <label>Data de Referência</label>
                       <p style={{ margin: 0 }}>{taxaCache.dataReferencia ?? '—'}</p>
                     </div>
                     <div className="field-group">
-                      {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field label (read-only value below) */}
                       <label>Taxa Média Indicativa</label>
                       <p style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--accent, #1a73e8)', margin: 0 }}>
                         {taxaCache.taxaMediaIndicativa?.toFixed(2)}% a.a.
                       </p>
                     </div>
                     <div className="field-group">
-                      {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only field label (read-only value below) */}
                       <label>Última Atualização</label>
                       <p style={{ margin: 0 }}>
                         {taxaCache.atualizadoEm ? new Date(taxaCache.atualizadoEm).toLocaleString('pt-BR') : '—'}

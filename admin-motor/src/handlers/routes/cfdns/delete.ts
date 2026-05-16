@@ -41,11 +41,11 @@ export async function onRequestDelete(context: Context) {
   }
 
   try {
-    await deleteCloudflareDnsRecord((context as any).data?.env || context.env, zoneId, recordId);
+    await deleteCloudflareDnsRecord(context.data?.env ?? context.env, zoneId, recordId);
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfdns',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -78,9 +78,9 @@ export async function onRequestDelete(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao remover registro DNS.';
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfdns',
           source: 'bigdata_db',
           fallbackUsed: false,

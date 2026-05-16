@@ -16,20 +16,20 @@
 
 The version history at a glance:
 
-| Release | Scope |
-|---|---|
-| **`v02.02.03`** | **Maestro AI settings/test hardening.** The web API-key test now treats authenticated empty provider text from Gemini/Perplexity as a successful health check instead of a false failure, logs failed agents with sanitized details, validates settings locally before saving to avoid preventable 400 responses, and preserves both `workers` and `ai_gateway` Secret Store scopes when keys are replaced. |
-| **`v02.02.02`** | **Maestro AI cost-field sizing.** Reduced the Maestro AI web cost and token-rate inputs so the `Custos` card no longer clips numeric fields in the admin layout while preserving the existing configuration model. |
+| Release         | Scope                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`v02.02.03`** | **Maestro AI settings/test hardening.** The web API-key test now treats authenticated empty provider text from Gemini/Perplexity as a successful health check instead of a false failure, logs failed agents with sanitized details, validates settings locally before saving to avoid preventable 400 responses, and preserves both `workers` and `ai_gateway` Secret Store scopes when keys are replaced.                                                                                                                                                                                                                                                                           |
+| **`v02.02.02`** | **Maestro AI cost-field sizing.** Reduced the Maestro AI web cost and token-rate inputs so the `Custos` card no longer clips numeric fields in the admin layout while preserving the existing configuration model.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **`v02.02.01`** | **Maestro AI web polish.** Refined the web module into one continuous screen with two complete sections, `Sessão` and `Configurações`. Settings now persist the editorial protocol, provider token rates, required max cost, optional time limit, max cycles, provider models, and provider API key updates; raw provider keys are written through to Cloudflare Secret Store and are never returned to the browser. Session autos are append-only artifacts in D1 with text, diff context, revision report, link audit and metadata per turn; when unanimity produces a final text, `Criar Post` opens the existing MainSite `PostEditor` already populated with the Maestro output. |
-| **`v02.02.00`** | **Maestro AI web/API module.** Added a new `Maestro AI` module inside the admin dashboard, reusing the existing MainSite `PostEditor` and running the editorial circular review flow through provider APIs only. Provider API keys are read exclusively from Cloudflare Secret Store bindings (`MAESTRO_*`), and financial ceilings/rate cards must be configured before paid calls run. |
-| **`v02.01.02`** | **Site sponsor card iteration.** `site/index.html` GitHub Sponsors iframe (caixa branca cross-origin) substituído por link card dark navy com ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões (lcv.dev/sponsor primário, GitHub Sponsors alternativa). Companion ship Phase 3 (12 repos). |
-| **`v02.01.01`** | **Site visual identity refresh.** `site/index.html` (GitHub Pages) reskinneada para a nova identidade dark-first navy/cyan da org LCV (`#050b18`/`#38bdf8`/`#34d399`, gradientes radiais, glow shadows, gradient text no h1). Coordinated Phase 2 companion ship (calculadora, oraculo, astrologo, admin, mainsite, maestro, mtasts). Sem mudança no app runtime. |
-| **`v02.01.00`** | **Financeiro removed + dependency/workflow hygiene.** Removed the Financeiro module, admin-motor finance/SumUp/fees routes, SumUp/MP/PIX runtime bindings, MainSite fee/donation-trigger controls, and the SumUp SDK; updated direct dependencies and confirmed Dependabot/GitHub Actions coverage. |
-| **`v02.00.00`** | **Rigorous security + UX audit.** Magic-byte upload validation in `admin-motor` (matches the renamed-binary fix shipped in `mainsite-worker v02.18.00`). Top-level Error Boundary in `main.tsx` so render-phase exceptions no longer crash the admin into a blank page. ESC dismissal on the PostEditor `PromptModal` (WCAG 2.1 AA gap closure for the only non-Radix dialog in the app). Major bump forced by the `vXX.XX.XX` 2-digit ceiling at v01.99 — not a structural change. |
-| **`v01.99.07`** | **README organizational standardization.** Adopted the shared repository README opening pattern: harmonized visual identity, added a concise status block, and introduced the top-level version-history table. |
-| **`v01.99.06`** | **GitHub organization migration and publication alignment.** Moved the public repository surface to `LCV-Ideas-Software/admin-app`, aligned Sponsor/Page custom-domain references, and hardened Dependabot automerge behavior. |
-| **`v01.99.05`** | **MainSite PostEditor sanitizer regression fix.** Restored Tiptap HTML roundtrip fidelity for headings, lists, media, tables, spacing, and text formatting without dropping the XSS hardening baseline. |
-| **`v01.99.04`** | **Editorial formatting parity round.** Continued the MainSite formatting/parity work that prepared the app for the later sanitizer and publishing fixes. |
+| **`v02.02.00`** | **Maestro AI web/API module.** Added a new `Maestro AI` module inside the admin dashboard, reusing the existing MainSite `PostEditor` and running the editorial circular review flow through provider APIs only. Provider API keys are read exclusively from Cloudflare Secret Store bindings (`MAESTRO_*`), and financial ceilings/rate cards must be configured before paid calls run.                                                                                                                                                                                                                                                                                              |
+| **`v02.01.02`** | **Site sponsor card iteration.** `site/index.html` GitHub Sponsors iframe (caixa branca cross-origin) substituído por link card dark navy com ❤ pink + meta cyan + seta animada; card movido para DEPOIS dos botões (lcv.dev/sponsor primário, GitHub Sponsors alternativa). Companion ship Phase 3 (12 repos).                                                                                                                                                                                                                                                                                                                                                                       |
+| **`v02.01.01`** | **Site visual identity refresh.** `site/index.html` (GitHub Pages) reskinneada para a nova identidade dark-first navy/cyan da org LCV (`#050b18`/`#38bdf8`/`#34d399`, gradientes radiais, glow shadows, gradient text no h1). Coordinated Phase 2 companion ship (calculadora, oraculo, astrologo, admin, mainsite, maestro, mtasts). Sem mudança no app runtime.                                                                                                                                                                                                                                                                                                                     |
+| **`v02.01.00`** | **Financeiro removed + dependency/workflow hygiene.** Removed the Financeiro module, admin-motor finance/SumUp/fees routes, SumUp/MP/PIX runtime bindings, MainSite fee/donation-trigger controls, and the SumUp SDK; updated direct dependencies and confirmed Dependabot/GitHub Actions coverage.                                                                                                                                                                                                                                                                                                                                                                                   |
+| **`v02.00.00`** | **Rigorous security + UX audit.** Magic-byte upload validation in `admin-motor` (matches the renamed-binary fix shipped in `mainsite-worker v02.18.00`). Top-level Error Boundary in `main.tsx` so render-phase exceptions no longer crash the admin into a blank page. ESC dismissal on the PostEditor `PromptModal` (WCAG 2.1 AA gap closure for the only non-Radix dialog in the app). Major bump forced by the `vXX.XX.XX` 2-digit ceiling at v01.99 — not a structural change.                                                                                                                                                                                                   |
+| **`v01.99.07`** | **README organizational standardization.** Adopted the shared repository README opening pattern: harmonized visual identity, added a concise status block, and introduced the top-level version-history table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **`v01.99.06`** | **GitHub organization migration and publication alignment.** Moved the public repository surface to `LCV-Ideas-Software/admin-app`, aligned Sponsor/Page custom-domain references, and hardened Dependabot automerge behavior.                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **`v01.99.05`** | **MainSite PostEditor sanitizer regression fix.** Restored Tiptap HTML roundtrip fidelity for headings, lists, media, tables, spacing, and text formatting without dropping the XSS hardening baseline.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **`v01.99.04`** | **Editorial formatting parity round.** Continued the MainSite formatting/parity work that prepared the app for the later sanitizer and publishing fixes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## What it does
 
@@ -59,22 +59,22 @@ The web Maestro AI module runs through provider APIs. Its UI is intentionally sm
 
 Provider API keys can be entered in `Configurações`, but raw values are used only once by the backend to write to Cloudflare Secret Store. Saved key values are never returned to the browser. Provider credentials are exposed to the Worker through these `admin-motor/wrangler.json` Secret Store bindings:
 
-| Binding | Secret Store name |
-|---|---|
-| `MAESTRO_OPENAI_API_KEY` | `MAESTRO_OPENAI_API_KEY` |
-| `MAESTRO_ANTHROPIC_API_KEY` | `MAESTRO_ANTHROPIC_API_KEY` |
-| `MAESTRO_GEMINI_API_KEY` | `MAESTRO_GEMINI_API_KEY` |
-| `MAESTRO_DEEPSEEK_API_KEY` | `MAESTRO_DEEPSEEK_API_KEY` |
-| `MAESTRO_GROK_API_KEY` | `MAESTRO_GROK_API_KEY` |
+| Binding                      | Secret Store name            |
+| ---------------------------- | ---------------------------- |
+| `MAESTRO_OPENAI_API_KEY`     | `MAESTRO_OPENAI_API_KEY`     |
+| `MAESTRO_ANTHROPIC_API_KEY`  | `MAESTRO_ANTHROPIC_API_KEY`  |
+| `MAESTRO_GEMINI_API_KEY`     | `MAESTRO_GEMINI_API_KEY`     |
+| `MAESTRO_DEEPSEEK_API_KEY`   | `MAESTRO_DEEPSEEK_API_KEY`   |
+| `MAESTRO_GROK_API_KEY`       | `MAESTRO_GROK_API_KEY`       |
 | `MAESTRO_PERPLEXITY_API_KEY` | `MAESTRO_PERPLEXITY_API_KEY` |
 
 The Worker also uses infrastructure-only bindings/vars to write provider keys into the same Secret Store:
 
-| Runtime item | Purpose |
-|---|---|
-| `CLOUDFLARE_PW` | Cloudflare API token used by `admin-motor` to upsert Secret Store values. |
-| `CF_ACCOUNT_ID` | Cloudflare account id. |
-| `MAESTRO_SECRET_STORE_ID` | Secret Store id used by Maestro AI. |
+| Runtime item              | Purpose                                                                   |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `CLOUDFLARE_PW`           | Cloudflare API token used by `admin-motor` to upsert Secret Store values. |
+| `CF_ACCOUNT_ID`           | Cloudflare account id.                                                    |
+| `MAESTRO_SECRET_STORE_ID` | Secret Store id used by Maestro AI.                                       |
 
 These Cloudflare values are not user-facing Maestro AI settings. They are deployment infrastructure for the Worker.
 
@@ -109,6 +109,7 @@ Three independent compute surfaces, one shared D1 database (`bigdata_db`), one s
 ## Deploy your own fork
 
 You will need:
+
 - A Cloudflare account ([free tier](https://www.cloudflare.com/plans/)) with Pages + Workers + D1 + R2 enabled.
 - A Cloudflare Zero Trust account (free for ≤50 users) for Access JWT auth.
 - The Cloudflare CLI [`wrangler`](https://developers.cloudflare.com/workers/wrangler/).
@@ -136,6 +137,7 @@ npx wrangler r2 bucket create mainsite-media
 ### 3. Wire `database_id` into all three `wrangler.json`
 
 Replace `00000000-0000-0000-0000-000000000000` in:
+
 - `wrangler.json` (root, Pages app)
 - `admin-motor/wrangler.json`
 - `tlsrpt-motor/wrangler.json`
@@ -146,9 +148,9 @@ Replace `00000000-0000-0000-0000-000000000000` in:
     {
       "binding": "BIGDATA_DB",
       "database_name": "bigdata_db",
-      "database_id": "<your-d1-id-from-step-2>"
-    }
-  ]
+      "database_id": "<your-d1-id-from-step-2>",
+    },
+  ],
 }
 ```
 

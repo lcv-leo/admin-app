@@ -82,12 +82,12 @@ export async function onRequestPost(context: Context) {
     }
 
     const saved = recordId
-      ? await updateCloudflareDnsRecord((context as any).data?.env || context.env, zoneId, recordId, record)
-      : await createCloudflareDnsRecord((context as any).data?.env || context.env, zoneId, record);
+      ? await updateCloudflareDnsRecord(context.data?.env ?? context.env, zoneId, recordId, record)
+      : await createCloudflareDnsRecord(context.data?.env ?? context.env, zoneId, record);
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfdns',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -122,9 +122,9 @@ export async function onRequestPost(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao salvar registro DNS.';
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfdns',
           source: 'bigdata_db',
           fallbackUsed: false,

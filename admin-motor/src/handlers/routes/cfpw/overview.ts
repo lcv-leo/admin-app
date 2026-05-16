@@ -70,19 +70,19 @@ export async function onRequestGet(context: Context) {
   const trace = createResponseTrace(context.request);
 
   try {
-    const accountInfo = await resolveCloudflarePwAccount((context as any).data?.env || context.env);
+    const accountInfo = await resolveCloudflarePwAccount(context.data?.env ?? context.env);
 
     const [workersRaw, pagesRaw] = await Promise.all([
-      listCloudflareWorkers((context as any).data?.env || context.env, accountInfo.accountId),
-      listCloudflarePagesProjects((context as any).data?.env || context.env, accountInfo.accountId),
+      listCloudflareWorkers(context.data?.env ?? context.env, accountInfo.accountId),
+      listCloudflarePagesProjects(context.data?.env ?? context.env, accountInfo.accountId),
     ]);
 
     const workers = workersRaw.map(mapWorker);
     const pages = pagesRaw.map(mapProject);
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -125,9 +125,9 @@ export async function onRequestGet(context: Context) {
     const message =
       error instanceof Error ? error.message : 'Falha ao carregar overview de Cloudflare Pages & Workers.';
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,

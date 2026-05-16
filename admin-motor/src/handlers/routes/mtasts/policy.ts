@@ -73,14 +73,14 @@ export async function onRequestGet(context: Context) {
   }
 
   try {
-    const dnsSnapshot = await getCloudflareDnsSnapshot((context as any).data?.env || context.env, domain, zoneId);
+    const dnsSnapshot = await getCloudflareDnsSnapshot(context.data?.env ?? context.env, domain, zoneId);
 
     let savedPolicy: string | null = null;
     let savedEmail: string | null = null;
     let lastGeneratedId: string | null = null;
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
-      const policyRow = await ((context as any).data?.env || context.env).BIGDATA_DB.prepare(`
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
+      const policyRow = await (context.data?.env ?? context.env).BIGDATA_DB.prepare(`
         SELECT policy_text, tlsrpt_email
         FROM mtasts_mta_sts_policies
         WHERE domain = ?
@@ -89,7 +89,7 @@ export async function onRequestGet(context: Context) {
         .bind(domain)
         .first<DbPolicyRow>();
 
-      const historyRow = await ((context as any).data?.env || context.env).BIGDATA_DB.prepare(`
+      const historyRow = await (context.data?.env ?? context.env).BIGDATA_DB.prepare(`
         SELECT gerado_em
         FROM mtasts_history
         WHERE domain = ?
@@ -113,9 +113,9 @@ export async function onRequestGet(context: Context) {
       mxRecords: dnsSnapshot.mxRecords,
     };
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'mtasts',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -152,9 +152,9 @@ export async function onRequestGet(context: Context) {
       error: message,
     });
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'mtasts',
           source: 'bigdata_db',
           fallbackUsed: false,

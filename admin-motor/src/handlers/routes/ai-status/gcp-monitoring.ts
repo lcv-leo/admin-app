@@ -4,6 +4,16 @@
 
 // Env: { GCP_SA_KEY?: string, GCP_PROJECT_ID?: string } — via context.data?.env || context.env
 
+type Env = {
+  GCP_SA_KEY?: string;
+  GCP_PROJECT_ID?: string;
+};
+
+type Context = {
+  env: Env;
+  data?: { env?: Env };
+};
+
 interface ServiceAccountKey {
   type?: string;
   project_id?: string;
@@ -192,8 +202,8 @@ interface MonitoringResponse {
   error?: { code: number; message: string };
 }
 
-export const onRequestGet = async (context: any) => {
-  const env = context.data?.env || context.env;
+export const onRequestGet = async (context: Context) => {
+  const env = context.data?.env ?? context.env;
   const saKey = env?.GCP_SA_KEY;
   const projectId = env?.GCP_PROJECT_ID;
 

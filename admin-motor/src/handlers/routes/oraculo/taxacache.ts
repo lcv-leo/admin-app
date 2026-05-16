@@ -4,6 +4,18 @@
 
 // Env: { BIGDATA_DB } — via context.data?.env || context.env
 
+import type { D1Database } from '../../../../../functions/api/_lib/operational';
+
+type Env = {
+  BIGDATA_DB?: D1Database;
+};
+
+type Context = {
+  request: Request;
+  env: Env;
+  data?: { env?: Env };
+};
+
 interface TaxaIpcaCache {
   data_referencia: string;
   taxa_indicativa: number;
@@ -109,9 +121,9 @@ function parseCSV(csvText: string): ParseResult {
   return { titulos: results, totalLines: lines.length, sampleRow };
 }
 
-export const onRequestGet = async (context: any) => {
+export const onRequestGet = async (context: Context) => {
   const { request } = context;
-  const env = context.data?.env || context.env;
+  const env = context.data?.env ?? context.env;
   const db = env?.BIGDATA_DB;
   if (!db || typeof db.prepare !== 'function') return json({ ok: false, error: 'BIGDATA_DB indisponível.' }, 503);
 

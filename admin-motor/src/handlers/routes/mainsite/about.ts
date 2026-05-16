@@ -189,7 +189,7 @@ export async function onRequestGet(context: MainsiteContext) {
   const trace = createResponseTrace(context.request);
 
   try {
-    const db = requireDb((context as any).data?.env || context.env);
+    const db = requireDb(context.data?.env ?? context.env);
     await ensureAboutTable(db);
     const about = await readAbout(db);
 
@@ -206,7 +206,7 @@ export async function onRequestPut(context: MainsiteContext) {
   const trace = createResponseTrace(context.request);
 
   try {
-    const db = requireDb((context as any).data?.env || context.env);
+    const db = requireDb(context.data?.env ?? context.env);
     await ensureAboutTable(db);
     const body = (await context.request.json()) as {
       title?: unknown;
@@ -349,9 +349,9 @@ export async function onRequestPut(context: MainsiteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao salvar Sobre Este Site';
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'mainsite',
           source: 'bigdata_db',
           fallbackUsed: false,

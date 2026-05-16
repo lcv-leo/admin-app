@@ -26,11 +26,9 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'off',
     },
   },
-  // admin-motor: relaxar no-explicit-any para handlers API com respostas dinâmicas da Cloudflare
   {
     files: ['admin-motor/**/*.ts'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },

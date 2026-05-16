@@ -118,8 +118,8 @@ const resolveMainActiveIds = (
 
 export const handleCleanupDeploymentsGet = async (context: CleanupContext) => {
   try {
-    const { accountId } = await resolveCloudflarePwAccount(context.env as any);
-    const projects = await listCloudflarePagesProjects(context.env as any, accountId);
+    const { accountId } = await resolveCloudflarePwAccount(context.env);
+    const projects = await listCloudflarePagesProjects(context.env, accountId);
 
     let totalDeployments = 0;
     let totalObsolete = 0;
@@ -138,8 +138,8 @@ export const handleCleanupDeploymentsGet = async (context: CleanupContext) => {
 
         try {
           const [projectDetails, deployments] = await Promise.all([
-            getCloudflarePagesProject(context.env as any, accountId, projectName).catch(() => null),
-            listCloudflarePagesDeployments(context.env as any, accountId, projectName),
+            getCloudflarePagesProject(context.env, accountId, projectName).catch(() => null),
+            listCloudflarePagesDeployments(context.env, accountId, projectName),
           ]);
 
           const sorted = [...deployments].sort((a, b) => {
@@ -216,11 +216,11 @@ export const handleCleanupDeploymentsPost = async (context: CleanupContext) => {
       return jsonResponse({ error: 'projectName e deploymentId são obrigatórios.' }, 400);
     }
 
-    const { accountId } = await resolveCloudflarePwAccount(context.env as any);
+    const { accountId } = await resolveCloudflarePwAccount(context.env);
 
     const [project, deployments] = await Promise.all([
-      getCloudflarePagesProject(context.env as any, accountId, projectName),
-      listCloudflarePagesDeployments(context.env as any, accountId, projectName),
+      getCloudflarePagesProject(context.env, accountId, projectName),
+      listCloudflarePagesDeployments(context.env, accountId, projectName),
     ]);
 
     const target = deployments.find((d) => String(d.id ?? '').trim() === deploymentId);
@@ -248,7 +248,7 @@ export const handleCleanupDeploymentsPost = async (context: CleanupContext) => {
     }
 
     const forceDelete = isPreviewDeployment(target);
-    await deleteCloudflarePagesDeployment(context.env as any, accountId, projectName, deploymentId, forceDelete);
+    await deleteCloudflarePagesDeployment(context.env, accountId, projectName, deploymentId, forceDelete);
 
     return jsonResponse({
       ok: true,

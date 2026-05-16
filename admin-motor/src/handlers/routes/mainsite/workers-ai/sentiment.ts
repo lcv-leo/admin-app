@@ -2,7 +2,9 @@
 // Descrição: Endpoint que usa Distilbert (Cloudflare Workers AI) para análise de sentimento.
 
 interface Env {
-  AI: any;
+  AI: {
+    run(model: string, input: unknown): Promise<unknown>;
+  };
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -12,7 +14,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return new Response(JSON.stringify({ ok: false, error: 'Text required' }), { status: 400 });
     }
 
-    const response = await ((context as any).data?.env || context.env).AI.run('@cf/huggingface/distilbert-sst-2-int8', {
+    const response = await (context.data?.env ?? context.env).AI.run('@cf/huggingface/distilbert-sst-2-int8', {
       text: data.text,
     });
 

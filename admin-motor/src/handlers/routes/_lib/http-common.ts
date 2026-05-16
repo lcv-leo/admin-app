@@ -64,7 +64,7 @@ export const CACHEABLE_HEADERS: Record<string, string> = {
  * @param secure Whether to include security headers
  * @returns Complete headers object
  */
-export function createJsonHeaders(additional?: Record<string, string>, secure = true): Record<string, any> {
+export function createJsonHeaders(additional?: Record<string, string>, secure = true): Record<string, string> {
   const base = secure ? SECURE_HEADERS : STANDARD_JSON_HEADERS;
   return {
     ...base,

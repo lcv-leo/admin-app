@@ -46,9 +46,9 @@ export async function onRequestGet(context: Context) {
   const trace = createResponseTrace(context.request);
 
   try {
-    const resolved = await resolveHubConfig((context as any).data?.env || context.env, 'adminhub');
+    const resolved = await resolveHubConfig(context.data?.env ?? context.env, 'adminhub');
 
-    await logHubEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+    await logHubEvent((context.data?.env ?? context.env).BIGDATA_DB, {
       module: 'adminhub',
       action: 'config-read',
       source: resolved.source,
@@ -76,7 +76,7 @@ export async function onRequestGet(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao carregar configuração do adminhub';
 
-    await logHubEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+    await logHubEvent((context.data?.env ?? context.env).BIGDATA_DB, {
       module: 'adminhub',
       action: 'config-read',
       source: 'bigdata_db',
@@ -93,7 +93,7 @@ export async function onRequestPut(context: Context) {
   const trace = createResponseTrace(context.request);
 
   // Validate authentication for PUT operations
-  const env = (context as any).data?.env || context.env;
+  const env = context.data?.env ?? context.env;
   const authContext = await validatePutAuth(context.request, env.ADMINHUB_BEARER_TOKEN, {
     teamDomain: env.CF_ACCESS_TEAM_DOMAIN,
     audience: env.CF_ACCESS_AUD,
@@ -103,7 +103,7 @@ export async function onRequestPut(context: Context) {
     return unauthorizedResponse(authContext.error || 'No authentication provided');
   }
 
-  if (!((context as any).data?.env || context.env).BIGDATA_DB) {
+  if (!(context.data?.env ?? context.env).BIGDATA_DB) {
     return buildErrorResponse('BIGDATA_DB não configurado no runtime.', trace, 503);
   }
 
@@ -111,14 +111,9 @@ export async function onRequestPut(context: Context) {
     const body = (await context.request.json()) as { cards?: HubCard[] };
     const adminActor = resolveAdminActorFromRequest(context.request, body as Record<string, unknown>);
     const cards = parseCardsFromBody(body);
-    const updated = await saveCardsToDb(
-      ((context as any).data?.env || context.env).BIGDATA_DB,
-      'adminhub',
-      cards,
-      adminActor,
-    );
+    const updated = await saveCardsToDb((context.data?.env ?? context.env).BIGDATA_DB, 'adminhub', cards, adminActor);
 
-    await logHubEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+    await logHubEvent((context.data?.env ?? context.env).BIGDATA_DB, {
       module: 'adminhub',
       action: 'config-save',
       source: 'bigdata_db',
@@ -144,7 +139,7 @@ export async function onRequestPut(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao salvar configuração do adminhub';
 
-    await logHubEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+    await logHubEvent((context.data?.env ?? context.env).BIGDATA_DB, {
       module: 'adminhub',
       action: 'config-save',
       source: 'bigdata_db',

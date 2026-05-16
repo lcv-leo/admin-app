@@ -34,7 +34,6 @@ export function PopupPortal({ isOpen, onClose, title = 'LCV Admin', children }: 
   const lastFocusedElementRef = useRef<HTMLElement | null>(null);
 
   // Open or close the popup window
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `onClose` and `containerEl` INTENTIONALLY omitted — `containerEl` is set BY this effect (including it causes cleanup→reopen loop spawning infinite OS windows); `onClose` must not re-trigger the effect when the parent recreates its callback reference
   useEffect(() => {
     if (!isOpen) {
       if (popupWindow && !popupWindow.closed) {

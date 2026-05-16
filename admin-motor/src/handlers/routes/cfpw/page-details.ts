@@ -50,11 +50,11 @@ export async function onRequestGet(context: Context) {
   }
 
   try {
-    const accountInfo = await resolveCloudflarePwAccount((context as any).data?.env || context.env);
+    const accountInfo = await resolveCloudflarePwAccount(context.data?.env ?? context.env);
 
     const [projectResult, deploymentsResult] = await Promise.allSettled([
-      getCloudflarePagesProject((context as any).data?.env || context.env, accountInfo.accountId, projectName),
-      listCloudflarePagesDeployments((context as any).data?.env || context.env, accountInfo.accountId, projectName),
+      getCloudflarePagesProject(context.data?.env ?? context.env, accountInfo.accountId, projectName),
+      listCloudflarePagesDeployments(context.data?.env ?? context.env, accountInfo.accountId, projectName),
     ]);
 
     const warnings: PartialWarning[] = [];
@@ -82,9 +82,9 @@ export async function onRequestGet(context: Context) {
       throw new Error(fatal);
     }
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -120,9 +120,9 @@ export async function onRequestGet(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : `Falha ao carregar detalhes do Pages ${projectName}.`;
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,

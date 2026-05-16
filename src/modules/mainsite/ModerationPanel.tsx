@@ -783,7 +783,6 @@ export function ModerationPanel({ showNotification }: ModerationPanelProps) {
 
                 {/* Categorias críticas */}
                 <div style={{ marginBottom: '4px' }}>
-                  {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only group heading (chips below are buttons, not form controls) */}
                   <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px' }}>
                     Categorias monitoradas pela IA
                   </label>

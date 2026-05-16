@@ -695,7 +695,6 @@ export function RatingsPanel({ showNotification }: RatingsPanelProps) {
 
                         {/* Rating */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                          {/* biome-ignore lint/a11y/noLabelWithoutControl: display-only group heading (rating is a button group, not a form control) */}
                           <label style={{ fontSize: '12px', fontWeight: 500, minWidth: '60px' }}>Estrelas:</label>
                           <div style={{ display: 'flex', gap: '4px' }}>
                             {[1, 2, 3, 4, 5].map((s) => (

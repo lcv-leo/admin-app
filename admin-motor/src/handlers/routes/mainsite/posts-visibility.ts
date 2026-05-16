@@ -79,7 +79,7 @@ export async function onRequestPost(context: MainsiteContext) {
   const trace = createResponseTrace(context.request);
 
   try {
-    const db = requireDb((context as any).data?.env || context.env);
+    const db = requireDb(context.data?.env ?? context.env);
     await ensureIsPublishedColumn(db);
 
     const body = (await context.request.json()) as { id?: unknown; is_published?: unknown };
@@ -138,9 +138,9 @@ export async function onRequestPost(context: MainsiteContext) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao alternar visibilidade do post do MainSite';
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'mainsite',
           source: 'bigdata_db',
           fallbackUsed: false,

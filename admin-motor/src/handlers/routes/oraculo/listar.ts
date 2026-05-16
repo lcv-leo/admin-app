@@ -1,9 +1,20 @@
-// D1 types (via context.data?.env || context.env): db.prepare().bind().all(), db.batch()
-// Env: { BIGDATA_DB: D1Database } — accessed dynamically
+import type { D1Database } from '../../../../../functions/api/_lib/operational';
 
-export const onRequestGet = async (context: any) => {
+// Env: { BIGDATA_DB: D1Database } — via context.data?.env || context.env
+
+type Env = {
+  BIGDATA_DB?: D1Database;
+};
+
+type Context = {
+  request: Request;
+  env: Env;
+  data?: { env?: Env };
+};
+
+export const onRequestGet = async (context: Context) => {
   const { request } = context;
-  const env = context.data?.env || context.env;
+  const env = context.data?.env ?? context.env;
   const url = new URL(request.url);
   const tipo = url.searchParams.get('tipo') ?? 'tesouro-ipca';
   const limit = parseInt(url.searchParams.get('limit') ?? '50', 10);

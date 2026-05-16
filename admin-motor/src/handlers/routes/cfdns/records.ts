@@ -54,16 +54,16 @@ export async function onRequestGet(context: Context) {
   }
 
   try {
-    const payload = await listCloudflareDnsRecords((context as any).data?.env || context.env, zoneId, {
+    const payload = await listCloudflareDnsRecords(context.data?.env ?? context.env, zoneId, {
       page,
       perPage,
       type,
       search,
     });
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfdns',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -96,9 +96,9 @@ export async function onRequestGet(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao carregar registros DNS da zona.';
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfdns',
           source: 'bigdata_db',
           fallbackUsed: false,

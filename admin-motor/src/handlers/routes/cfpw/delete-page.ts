@@ -58,12 +58,12 @@ export async function onRequestPost(context: Context) {
   }
 
   try {
-    const accountInfo = await resolveCloudflarePwAccount((context as any).data?.env || context.env);
-    await deleteCloudflarePagesProject((context as any).data?.env || context.env, accountInfo.accountId, projectName);
+    const accountInfo = await resolveCloudflarePwAccount(context.data?.env ?? context.env);
+    await deleteCloudflarePagesProject(context.data?.env ?? context.env, accountInfo.accountId, projectName);
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,
@@ -93,9 +93,9 @@ export async function onRequestPost(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : `Falha ao remover projeto ${projectName}.`;
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'cfpw',
           source: 'bigdata_db',
           fallbackUsed: false,

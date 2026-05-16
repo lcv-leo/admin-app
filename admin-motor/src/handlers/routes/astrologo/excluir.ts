@@ -9,7 +9,7 @@ const json = (data: unknown, status = 200) =>
     headers: toHeaders(),
   });
 
-const resolveDb = (context: Context) => ((context as any).data?.env || context.env).BIGDATA_DB;
+const resolveDb = (context: Context) => (context.data?.env ?? context.env).BIGDATA_DB;
 const resolveOperationalSource = () => 'bigdata_db' as const;
 
 export async function onRequestPost(context: Context) {
@@ -32,9 +32,9 @@ export async function onRequestPost(context: Context) {
 
     await db.prepare('DELETE FROM astrologo_mapas WHERE id = ?').bind(id).run();
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'astrologo',
           source,
           fallbackUsed: false,
@@ -54,9 +54,9 @@ export async function onRequestPost(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao excluir mapa do Astrólogo';
 
-    if (((context as any).data?.env || context.env).BIGDATA_DB) {
+    if ((context.data?.env ?? context.env).BIGDATA_DB) {
       try {
-        await logModuleOperationalEvent(((context as any).data?.env || context.env).BIGDATA_DB, {
+        await logModuleOperationalEvent((context.data?.env ?? context.env).BIGDATA_DB, {
           module: 'astrologo',
           source,
           fallbackUsed: false,
