@@ -1,37 +1,33 @@
 # Security Policy
 
-## Reporting a Vulnerability
+## Supported status
 
-If you discover a security vulnerability in this repository, please do **not** open a public issue. Instead, please report it privately to the repository maintainer.
+Latest supported release: v02.02.06. The current main branch is also supported for security fixes until the next release is published.
 
-**Contact:** alert@lcvmail.com
+## Reporting a vulnerability
+
+Please do not open a public issue for suspected vulnerabilities, credential leaks, private data exposure, authentication bypasses, payment-flow issues, supply-chain issues, or deployment misconfiguration.
+
+Report privately by email:
+
+- lcv@lcv.dev
+
+If GitHub private vulnerability reporting is enabled for this repository, that channel is also acceptable.
 
 Please include:
-- Description of the vulnerability
-- Steps to reproduce (if applicable)
-- Potential impact
-- Suggested fix (if you have one)
 
-We will acknowledge your report within 24 hours and work to resolve the issue promptly.
+- affected repository, component, route, package, workflow, or public surface;
+- affected version, release tag, commit SHA, or deployment URL when known;
+- impact and exploitability;
+- reproduction steps or a safe proof of concept, if available;
+- whether any credential, personal data, payment data, private editorial material, or operational secret may be involved.
 
-## Supported Versions
+## Scope
 
-| Version | Supported |
-|---------|-----------|
-| Latest  | ✅ |
-| Previous releases | ⚠️ Security updates only |
+In scope: application code, Workers/Pages functions, package publication, GitHub Actions, dependency and supply-chain configuration, repository publication boundaries, security documentation, and public service configuration documented in this repository.
 
-## Security Measures
+Out of scope: social engineering, physical attacks, denial-of-service testing without prior written authorization, spam, automated noisy scanning, and reports that rely only on outdated browser or dependency versions without a concrete vulnerable path in this repository.
 
-This repository employs:
-- **Code Scanning (CodeQL)**: Automated static analysis on all commits
-- **Dependency Scanning (Dependabot)**: Automated dependency vulnerability detection
-- **Secret Scanning**: Detection and remediation of exposed secrets
-- **Branch Protection**: Required status checks before merge to main
+## Coordinated disclosure
 
-## Best Practices
-
-- Keep dependencies up-to-date
-- Use strong authentication (SSH keys, personal access tokens)
-- Review pull requests carefully before merge
-- Report any suspicious activity immediately
+LCV Ideas & Software will triage reports privately, request clarification when needed, and coordinate remediation before public disclosure. Public disclosure should wait until a fix or mitigation is available, unless there is an immediate user-safety reason to do otherwise.

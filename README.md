@@ -5,6 +5,10 @@
 # admin-app
 
 [![status: stable](https://img.shields.io/badge/status-stable-brightgreen.svg)](#status)
+[![release](https://img.shields.io/github/v/release/LCV-Ideas-Software/admin-app?sort=semver)](https://github.com/LCV-Ideas-Software/admin-app/releases)
+[![Deploy](https://github.com/LCV-Ideas-Software/admin-app/actions/workflows/deploy.yml/badge.svg)](https://github.com/LCV-Ideas-Software/admin-app/actions/workflows/deploy.yml)
+[![Pages](https://github.com/LCV-Ideas-Software/admin-app/actions/workflows/pages.yml/badge.svg)](https://github.com/LCV-Ideas-Software/admin-app/actions/workflows/pages.yml)
+[![CodeQL](https://github.com/LCV-Ideas-Software/admin-app/actions/workflows/codeql.yml/badge.svg)](https://github.com/LCV-Ideas-Software/admin-app/actions/workflows/codeql.yml)
 [![runtime: Cloudflare Pages + Workers](https://img.shields.io/badge/runtime-Cloudflare%20Pages%20%2B%20Workers-orange.svg)](https://workers.cloudflare.com/)
 [![framework: React 19 + Vite 8](https://img.shields.io/badge/framework-React%2019%20%2B%20Vite%208-61dafb.svg)](https://react.dev/)
 [![backend: Hono on Workers](https://img.shields.io/badge/backend-Hono%20on%20Workers-f97316.svg)](https://hono.dev/)
@@ -208,13 +212,14 @@ The real D1 ID is kept out of git; it lives only as a GitHub Actions secret.
 ## Repository conventions
 
 - **License**: [AGPL-3.0-or-later](./LICENSE). Network-service trigger applies: running a modified fork as a public service obligates you to publish modifications.
+- **Notices**: see [NOTICE](./NOTICE) and [THIRDPARTY](./THIRDPARTY.md).
 - **Security disclosure**: see [SECURITY.md](./SECURITY.md).
-- **Contributing**: see [CONTRIBUTING.md](./CONTRIBUTING.md). PRs require GREEN gates locally (`lint`, `test`, `test:admin-motor`, `build`) + SHA-pinned actions.
-- **Code of Conduct**: see [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md). Contributor Covenant 2.1.
+- **Code of conduct**: see [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 - **Changelog**: [CHANGELOG.md](./CHANGELOG.md).
-- **Sponsorship**: see the repo's `Sponsor` button or [.github/FUNDING.yml](./.github/FUNDING.yml).
-- **Code owners**: [.github/CODEOWNERS](./.github/CODEOWNERS).
-- **Action pinning**: all GitHub Actions are pinned by full SHA (supply-chain hardening baseline).
+- **Contributing**: see [CONTRIBUTING.md](./CONTRIBUTING.md).
+- **Sponsorship**: see the repo's `Sponsor` button or [central sponsor page](https://www.lcv.dev/sponsor).
+- **Action pinning**: all GitHub Actions are pinned by full SHA per supply-chain hardening baseline.
+- **Code owners**: [.github/CODEOWNERS](.github/CODEOWNERS).
 
 ## Links
 
