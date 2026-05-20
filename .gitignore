@@ -81,6 +81,9 @@ test-results/
 **/schema.sql
 schema.sql
 
+# Data-bearing bootstrap SQL kept local only; schema migrations remain tracked.
+db/migrations/010_bigdata_hubs_bootstrap_data.sql
+
 # Internal one-off scripts (not essential for install/run)
 clean-types.cjs
 fix-env.cjs

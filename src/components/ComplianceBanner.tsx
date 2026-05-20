@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Leonardo Cardozo Vargas
+ * Copyright (C) 2026 LCV Ideas & Software
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import type React from 'react';
@@ -35,7 +35,7 @@ export const ComplianceBanner: React.FC<ComplianceBannerProps> = ({ onViewLicens
       role="contentinfo"
       aria-label="Rodapé de conformidade de licenciamento"
     >
-      <span>Copyright © 2026 Leonardo Cardozo Vargas</span>
+      <span>Copyright © 2026 LCV Ideas & Software</span>
       <span aria-hidden="true">|</span>
       <a
         href="/licencas"

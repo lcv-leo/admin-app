@@ -55,10 +55,3 @@ CREATE INDEX IF NOT EXISTS idx_mainsite_comments_parent
 
 CREATE INDEX IF NOT EXISTS idx_mainsite_ratings_post
     ON mainsite_ratings(post_id);
-
--- ============================================================================
--- SEED: Configurações de Moderação
--- ============================================================================
-
-INSERT OR IGNORE INTO mainsite_settings (id, payload)
-VALUES ('mainsite/moderation', '{"autoApproveThreshold":0.3,"autoRejectThreshold":0.8,"criticalCategories":["Toxic","Insult","Profanity","Sexual","Violent","Derogatory"],"requireApproval":false,"commentsEnabled":true,"ratingsEnabled":true,"allowAnonymous":true,"maxCommentLength":2000,"maxNestingDepth":2}');

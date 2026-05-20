@@ -75,4 +75,4 @@ By participating, you agree to follow [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
 
 ## Maintainer
 
-Single maintainer: [@lcv-leo](https://github.com/lcv-leo). Response time best-effort.
+Single maintainer: [@example-beneficiary](https://github.com/example-beneficiary). Response time best-effort.

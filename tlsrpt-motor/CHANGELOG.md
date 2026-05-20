@@ -15,7 +15,7 @@
 
 ## [v03.01.00] — 2026-03-24
 ### Alterado
-- Migração de persistência para `bigdata_db` com tabela prefixada `tlsrpt_relatorios_tls`
+- Migração de persistência para `example_db` com tabela prefixada `tlsrpt_relatorios_tls`
 
 ### Infra
 - Versionamento atualizado para `v3.1.0` no código e `package.json` 3.1.0

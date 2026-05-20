@@ -70,22 +70,6 @@ CREATE TABLE IF NOT EXISTS mainsite_financial_logs (
 );
 
 -- ============================================================================
--- SEEDS INICIAIS DE SETTINGS (chave com contexto explícito)
--- ============================================================================
-
-INSERT OR IGNORE INTO mainsite_settings (id, payload)
-VALUES ('mainsite/appearance', '{"allowAutoMode":true,"light":{"bgColor":"#ffffff","bgImage":"","fontColor":"#333333","titleColor":"#111111"},"dark":{"bgColor":"#131314","bgImage":"","fontColor":"#E3E3E3","titleColor":"#8AB4F8"},"shared":{"fontSize":"1.15rem","titleFontSize":"1.8rem","fontFamily":"sans-serif"}}');
-
-INSERT OR IGNORE INTO mainsite_settings (id, payload)
-VALUES ('mainsite/rotation', '{"enabled":false,"interval":60,"last_rotated_at":0}');
-
-INSERT OR IGNORE INTO mainsite_settings (id, payload)
-VALUES ('mainsite/ratelimit', '{"chatbot":{"enabled":false,"maxRequests":5,"windowMinutes":1},"email":{"enabled":false,"maxRequests":3,"windowMinutes":15}}');
-
-INSERT OR IGNORE INTO mainsite_settings (id, payload)
-VALUES ('mainsite/disclaimers', '{"enabled":true,"items":[{"id":"default","title":"Aviso","text":"Texto de exemplo.","buttonText":"Concordo"}]}');
-
--- ============================================================================
 -- ÍNDICES (prefixo obrigatório: idx_mainsite_...)
 -- ============================================================================
 

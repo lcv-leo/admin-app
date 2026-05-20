@@ -210,7 +210,7 @@
 ### Alterado — migração GitHub org + Pages/Sponsors custom domain
 
 - Repositório transferido para `LCV-Ideas-Software/admin-app`; README e rodapé de compliance apontam para o repositório público da organização.
-- `.github/FUNDING.yml` passa a usar `https://admin-app.lcv.app.br/` como link custom do botão Sponsor, preservando `github: lcv-leo`.
+- `.github/FUNDING.yml` passa a usar `https://admin-app.lcv.app.br/` como link custom do botão Sponsor, preservando `github: example-beneficiary`.
 - Dependabot deixa de atribuir PRs ao usuário e ganha workflow `Dependabot Automerge` restrito a `dependabot[bot]`, sem checkout de código de PR.
 
 ### Validação
@@ -291,7 +291,7 @@
 
 - **`CONTRIBUTING.md`**: guia para issues + PRs cobrindo gates locais (`lint`, `test`, `test:admin-motor`, `build`), wrangler dry-run, action pinning, versioning, D1 schema discipline.
 - **`CODE_OF_CONDUCT.md`**: Contributor Covenant 2.1 com canal `alert@lcvmail.com` + ladder de enforcement.
-- **`.github/CODEOWNERS`**: `* @lcv-leo` como owner default.
+- **`.github/CODEOWNERS`**: `* @example-beneficiary` como owner default.
 - **`src/lib/apiClient.ts` (novo, opt-in)**: foundation com `safeJson<T>()` + `apiFetch()` + `apiFetchJson<T>()`. Helpers defensivos para o padrão da v01.10.00 do oraculo-financeiro (Content-Type check antes de `res.json()`) e timeout per-call via AbortController. Sites de fetch existentes NÃO foram migrados — adoção é opt-in incremental.
 
 ### Não alterado
@@ -610,7 +610,7 @@
 
 ### Banco de dados
 
-- **Migration 012** ([`012_bigdata_mainsite_publishing.sql`](db/migrations/012_bigdata_mainsite_publishing.sql)): `ALTER TABLE mainsite_posts ADD COLUMN is_published INTEGER NOT NULL DEFAULT 1` + `INSERT OR IGNORE` para seed de `mainsite/publishing`. Aplicada diretamente na `bigdata_db` via Cloudflare D1 API (31 posts existentes ficam todos visíveis após migração, nenhuma mudança de comportamento sem configuração ativa do admin).
+- **Migration 012** ([`012_bigdata_mainsite_publishing.sql`](db/migrations/012_bigdata_mainsite_publishing.sql)): `ALTER TABLE mainsite_posts ADD COLUMN is_published INTEGER NOT NULL DEFAULT 1` + `INSERT OR IGNORE` para seed de `mainsite/publishing`. Aplicada diretamente na `example_db` via Cloudflare D1 API (31 posts existentes ficam todos visíveis após migração, nenhuma mudança de comportamento sem configuração ativa do admin).
 
 ### Motivação
 
@@ -2885,9 +2885,9 @@
 ### Alterado
 
 - **News Panel**: reescrito com layout de lista scrollável (5 notícias visíveis) substituindo carousel. Controles movidos para o módulo Configurações.
-- **UX — Remoção de jargão técnico**: ~25 textos técnicos removidos de 11 módulos (bigdata_db, SDK, D1, DNS, Cloudflare, cockpit, etc.) substituídos por linguagem amigável.
+- **UX — Remoção de jargão técnico**: ~25 textos técnicos removidos de 11 módulos (example_db, SDK, D1, DNS, Cloudflare, cockpit, etc.) substituídos por linguagem amigável.
 - **ConfigModule**: notificações e descrições de sync substituídas por linguagem amigável.
-- **Telemetria**: badge "bigdata_db" substituído por "operacional".
+- **Telemetria**: badge "example_db" substituído por "operacional".
 
 ## [v01.43.00] — 2026-03-24
 
@@ -2956,7 +2956,7 @@
 
 ### Adicionado
 
-- **ConfigModule — Ajustes do MainSite**: nova seção com appearance + rotation, leitura/escrita no `bigdata_db` via merge-save (preserva disclaimers).
+- **ConfigModule — Ajustes do MainSite**: nova seção com appearance + rotation, leitura/escrita no `example_db` via merge-save (preserva disclaimers).
 
 ### Melhorado
 
@@ -3069,7 +3069,7 @@
 ### Alterado
 
 - Overview form compactado: input + botão em linha horizontal (`.overview-inline-form`).
-- "fonte: bigdata_db" renderizado como badge estilizado (`.source-badge`, teal pill).
+- "fonte: example_db" renderizado como badge estilizado (`.source-badge`, teal pill).
 - JSON textareas (appearance/rotation/disclaimers) substituídos por formulários estruturados.
 - Textarea de conteúdo de post substituído por editor TipTap com suporte a Markdown na colagem.
 
@@ -3116,7 +3116,7 @@
 
 ### Removido
 
-- Status badges (`Access protegido`, `bigdata_db reservado`) do topbar em `App.tsx`.
+- Status badges (`Access protegido`, `example_db reservado`) do topbar em `App.tsx`.
 - Metrics-grid de `MtastsModule`, `MainsiteModule`, `CalculadoraModule`, `HubCardsModule`, `ConfigModule`.
 - Campo "Administrador responsável" de `MtastsModule`, `MainsiteModule`, `CalculadoraModule`, `HubCardsModule`, `AstrologoModule`.
 - Campo "Fonte atual" de `HubCardsModule`.
@@ -3133,9 +3133,9 @@
 
 ### Corrigido
 
-- Eliminada emissão de `source: legacy-admin` nos endpoints auditados de `astrologo` e `calculadora`, com padronização para `bigdata_db`.
-- Tipo de evento operacional em `functions/api/_lib/operational.ts` alinhado ao baseline atual (`bigdata_db` e `bootstrap-default`).
-- Executada normalização dos eventos históricos em `adminapp_module_events` no `bigdata_db`, convertendo fontes legadas para `bigdata_db` para refletir o estado operacional vigente no painel.
+- Eliminada emissão de `source: legacy-admin` nos endpoints auditados de `astrologo` e `calculadora`, com padronização para `example_db`.
+- Tipo de evento operacional em `functions/api/_lib/operational.ts` alinhado ao baseline atual (`example_db` e `bootstrap-default`).
+- Executada normalização dos eventos históricos em `adminapp_module_events` no `example_db`, convertendo fontes legadas para `example_db` para refletir o estado operacional vigente no painel.
 
 ### Alterado
 
@@ -3154,7 +3154,7 @@
 ### Alterado
 
 - Higienizadas descrições de sync nos módulos `Calculadora` e `MTA-STS` para remover referência textual a migração legada já superada em operação interna.
-- Mensagens agora descrevem sincronização diretamente no `bigdata_db`, mantendo o contexto de observabilidade do cockpit.
+- Mensagens agora descrevem sincronização diretamente no `example_db`, mantendo o contexto de observabilidade do cockpit.
 - Versão da aplicação incrementada para `APP v01.31.12` em `src/App.tsx`.
 
 ## [v01.31.11] — 2026-03-24
@@ -3178,8 +3178,8 @@
 ### Corrigido
 
 - Alinhados contratos de `fonte` no frontend para refletir o estado operacional atual sem ponte legada nos módulos `Calculadora` e `MTA-STS`.
-- `src/modules/hubs/HubCardsModule.tsx` atualizado para refletir fontes reais do backend (`bigdata_db` e `bootstrap-default`).
-- `functions/api/calculadora/overview.ts` teve a tipagem de payload ajustada para origem exclusiva em `bigdata_db`.
+- `src/modules/hubs/HubCardsModule.tsx` atualizado para refletir fontes reais do backend (`example_db` e `bootstrap-default`).
+- `functions/api/calculadora/overview.ts` teve a tipagem de payload ajustada para origem exclusiva em `example_db`.
 - `functions/api/mtasts/overview.ts` corrigido para remover referência a tipo legado inexistente no mapper de histórico.
 
 ### Alterado
@@ -3193,7 +3193,7 @@
 
 - Removidas emissões de telemetria com `source: legacy-admin` nos endpoints do `admin-app` auditados nesta etapa.
 - `functions/api/astrologo/ler.ts` e `functions/api/astrologo/excluir.ts` agora priorizam `BIGDATA_DB` (com fallback de compatibilidade) e registram fonte operacional coerente.
-- `functions/api/astrologo/enviar-email.ts` agora registra telemetria como `bigdata_db`.
+- `functions/api/astrologo/enviar-email.ts` agora registra telemetria como `example_db`.
 - `functions/api/calculadora/rate-limit.ts` e `functions/api/calculadora/parametros.ts` agora priorizam `BIGDATA_DB` e removem espelhamento legado redundante no fluxo de rate limit.
 
 ### Alterado
@@ -3255,13 +3255,13 @@
 
 ### Alterado
 
-- Padronização de leitura/gravação no domínio Calculadora para tabelas prefixadas em `bigdata_db`: `calc_parametros_customizados`, `calc_parametros_auditoria`, `calc_rate_limit_policies`, `calc_rate_limit_hits`, `calc_oraculo_observabilidade`.
+- Padronização de leitura/gravação no domínio Calculadora para tabelas prefixadas em `example_db`: `calc_parametros_customizados`, `calc_parametros_auditoria`, `calc_rate_limit_policies`, `calc_rate_limit_hits`, `calc_oraculo_observabilidade`.
 - Padronização de leitura/gravação no domínio Astrólogo para tabelas prefixadas: `astrologo_rate_limit_policies` e `astrologo_api_rate_limits`.
 - Remoção de dependência de tabelas sem prefixo em utilitários de rate limit do `admin-app` (namespace dedicado `adminapp_rate_limit_policies` para uso interno consolidado).
 
 ### Infraestrutura
 
-- `bigdata_db` higienizado para eliminar tabelas duplicadas sem prefixação após migração segura de dados residuais: removidas `parametros_customizados`, `parametros_auditoria`, `rate_limit_policies`, `rate_limit_hits`, `api_rate_limits`.
+- `example_db` higienizado para eliminar tabelas duplicadas sem prefixação após migração segura de dados residuais: removidas `parametros_customizados`, `parametros_auditoria`, `rate_limit_policies`, `rate_limit_hits`, `api_rate_limits`.
 
 ## [v01.31.01] — 2026-03-24
 

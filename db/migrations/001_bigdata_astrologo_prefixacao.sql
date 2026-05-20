@@ -36,19 +36,6 @@ CREATE TABLE IF NOT EXISTS astrologo_rate_limit_policies (
 );
 
 -- ============================================================================
--- SEEDS INICIAIS (rota com contexto explícito)
--- ============================================================================
-
-INSERT OR IGNORE INTO astrologo_rate_limit_policies (route, enabled, max_requests, window_minutes)
-VALUES ('astrologo/calcular', 1, 10, 10);
-
-INSERT OR IGNORE INTO astrologo_rate_limit_policies (route, enabled, max_requests, window_minutes)
-VALUES ('astrologo/analisar', 1, 6, 15);
-
-INSERT OR IGNORE INTO astrologo_rate_limit_policies (route, enabled, max_requests, window_minutes)
-VALUES ('astrologo/enviar-email', 1, 4, 60);
-
--- ============================================================================
 -- ÍNDICES (prefixo obrigatório: idx_astrologo_...)
 -- ============================================================================
 

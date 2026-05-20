@@ -80,7 +80,7 @@ The Worker also uses infrastructure-only bindings/vars to write provider keys in
 
 These Cloudflare values are not user-facing Maestro AI settings. They are deployment infrastructure for the Worker.
 
-Execution controls are explicit: every Maestro AI session requires a positive max cost and positive per-provider input/output rates before any paid provider call is made; an optional time limit can also be configured. The editable default rate card is seeded from the current provider list prices for Claude Opus 4.7, GPT-5.5, Gemini 2.5 Pro, DeepSeek V4 Pro, Grok 4.20 Multi-Agent and Perplexity Sonar Reasoning Pro; Perplexity also carries its search request fee. The editorial protocol is persisted in the shared Cloudflare D1 database `bigdata_db` through the `BIGDATA_DB` binding (`maestro_ai_settings`) and loaded automatically by every session. Link/evidence checks run inside the engine and are reported through session events.
+Execution controls are explicit: every Maestro AI session requires a positive max cost and positive per-provider input/output rates before any paid provider call is made; an optional time limit can also be configured. The editable default rate card is seeded from the current provider list prices for Claude Opus 4.7, GPT-5.5, Gemini 2.5 Pro, DeepSeek V4 Pro, Grok 4.20 Multi-Agent and Perplexity Sonar Reasoning Pro; Perplexity also carries its search request fee. The editorial protocol is persisted in the shared Cloudflare D1 database `example_db` through the `BIGDATA_DB` binding (`maestro_ai_settings`) and loaded automatically by every session. Link/evidence checks run inside the engine and are reported through session events.
 
 The desktop app writes session folders and Markdown files. The web module stores the same operational idea as D1-backed autos:
 
@@ -99,14 +99,14 @@ Cloudflare Access (Zero Trust JWT)
         └─→ /api/* (catch-all Pages Function proxy)
               ├─→ admin-motor (Cloudflare Worker, Hono)   ──┐
               │     └─ JWT-validated route surface (~75 routes)  │
-              │                                                  ├─→ D1 (bigdata_db)
+              │                                                  ├─→ D1 (example_db)
               ├─→ tlsrpt-motor (Cloudflare Worker)              │
               │     └─ TLS-RPT report ingest (email handler)     │
               │     └─ /report/* (admin-only listing, CORS-restricted) ─┘
               └─→ R2 (mainsite-media bucket, shared with mainsite-app)
 ```
 
-Three independent compute surfaces, one shared D1 database (`bigdata_db`), one shared R2 bucket. The Pages app is the operator UI; `admin-motor` is the operational backend (auth-gated by Cloudflare Access JWT); `tlsrpt-motor` ingests TLS-RPT reports via SMTP and serves them read-only.
+Three independent compute surfaces, one shared D1 database (`example_db`), one shared R2 bucket. The Pages app is the operator UI; `admin-motor` is the operational backend (auth-gated by Cloudflare Access JWT); `tlsrpt-motor` ingests TLS-RPT reports via SMTP and serves them read-only.
 
 ## Deploy your own fork
 
@@ -130,7 +130,7 @@ npm ci
 ### 2. Create your D1 database + R2 bucket
 
 ```bash
-npx wrangler d1 create bigdata_db
+npx wrangler d1 create example_db
 # wrangler outputs:
 #   database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 npx wrangler r2 bucket create mainsite-media
@@ -149,7 +149,7 @@ Replace `00000000-0000-0000-0000-000000000000` in:
   "d1_databases": [
     {
       "binding": "BIGDATA_DB",
-      "database_name": "bigdata_db",
+      "database_name": "example_db",
       "database_id": "<your-d1-id-from-step-2>",
     },
   ],
@@ -160,7 +160,7 @@ Replace `00000000-0000-0000-0000-000000000000` in:
 
 ```bash
 for f in db/migrations/*.sql; do
-  npx wrangler d1 execute bigdata_db --remote --file "$f"
+  npx wrangler d1 execute example_db --remote --file "$f"
 done
 ```
 
@@ -218,7 +218,7 @@ The real D1 ID is kept out of git; it lives only as a GitHub Actions secret.
 
 ## License
 
-Copyright (C) 2026 Leonardo Cardozo Vargas.
+Copyright (C) 2026 LCV Ideas & Software
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 

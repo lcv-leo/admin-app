@@ -22,6 +22,3 @@ ALTER TABLE mainsite_posts ADD COLUMN is_published INTEGER NOT NULL DEFAULT 1;
 --   hidden  → listagem vazia, detalhe 404 (folha em branco no frontend)
 -- notice_title / notice_message: string livre opcional, renderizada na área de
 -- conteúdo do PostReader APENAS quando mode='hidden'. Vazias → folha em branco.
-
-INSERT OR IGNORE INTO mainsite_settings (id, payload)
-VALUES ('mainsite/publishing', '{"mode":"normal","notice_title":"","notice_message":""}');
