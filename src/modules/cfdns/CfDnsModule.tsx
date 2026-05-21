@@ -20,6 +20,11 @@ import {
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNotification } from '../../components/Notification';
+import {
+  classifyRegistrarWorkflowState,
+  extractRegistrarWorkflowAction,
+  shouldStopRegistrarPolling,
+} from './registrarWorkflow';
 
 type ZoneItem = {
   id: string;
@@ -91,6 +96,7 @@ type RegistrarAvailabilityPayload = {
   request_id?: string;
   account?: RegistrarAccount;
   domains?: RegistrarAvailability[];
+  skipped?: string[];
 };
 
 type RegistrarWorkflowPayload = {
@@ -102,11 +108,9 @@ type RegistrarWorkflowPayload = {
   workflow_missing?: boolean;
 };
 
-type RegistrarSettingsPatch = {
-  domain: string;
-  label: string;
-  auto_renew: boolean;
-};
+type RegistrarSettingsPatch =
+  | { kind: 'registration'; domain: string; label: string; auto_renew: boolean }
+  | { kind: 'domain'; domain: string; label: string; locked?: boolean; privacy?: boolean };
 
 type DnsRecord = {
   id?: string;
@@ -1261,9 +1265,20 @@ export function CfDnsModule() {
         }
 
         const nextDomains = Array.isArray(payload.domains) ? payload.domains : [];
+        const skippedDomains = Array.isArray(payload.skipped) ? payload.skipped : [];
         setRegistrarAccount(payload.account ?? registrarAccount);
         setRegistrarCheckResults(nextDomains);
-        showNotification(withReq('Checagem Registrar concluída.', payload), 'success');
+        if (skippedDomains.length > 0) {
+          showNotification(
+            withReq(
+              `Checagem concluída; ${skippedDomains.length} entrada(s) ignorada(s) por formato inválido: ${skippedDomains.join(', ')}.`,
+              payload,
+            ),
+            'info',
+          );
+        } else {
+          showNotification(withReq('Checagem Registrar concluída.', payload), 'success');
+        }
         return nextDomains;
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Não foi possível checar domínios no Registrar.';
@@ -1334,6 +1349,55 @@ export function CfDnsModule() {
       }
     },
     [adminActor, showNotification],
+  );
+
+  const pollRegistrarRegistrationStatus = useCallback(
+    async (domainName: string) => {
+      const domain = normalizeDomainInput(domainName);
+      if (!domain) {
+        return;
+      }
+
+      // Polling limitado pós-criação: o registro sempre inicia assíncrono
+      // (Prefer: respond-async). Para nos estados que não avançam sozinhos.
+      const MAX_POLLS = 6;
+      const INTERVAL_MS = 3000;
+
+      for (let attempt = 0; attempt < MAX_POLLS; attempt += 1) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, INTERVAL_MS);
+        });
+
+        try {
+          const response = await fetch(
+            `/api/cfdns/registrar/registration-status?domain=${encodeURIComponent(domain)}`,
+            { headers: { 'X-Admin-Actor': adminActor } },
+          );
+          const payload = await parseApiPayload<RegistrarWorkflowPayload>(
+            response,
+            'Falha ao consultar workflow de registro',
+          );
+
+          if (!response.ok || !payload.ok) {
+            break;
+          }
+
+          const status = payload.status ?? null;
+          setRegistrarRegistrationStatus(status);
+
+          if (status?.completed || shouldStopRegistrarPolling(status?.state)) {
+            if (classifyRegistrarWorkflowState(status?.state) === 'succeeded') {
+              await loadRegistrarRegistrations();
+            }
+            break;
+          }
+        } catch {
+          // Polling é best-effort; o operador ainda pode usar o botão "Status".
+          break;
+        }
+      }
+    },
+    [adminActor, loadRegistrarRegistrations],
   );
 
   const loadRecords = useCallback(
@@ -1499,6 +1563,12 @@ export function CfDnsModule() {
       setRegistrarRegistrationStatus(payload.status ?? null);
       await loadRegistrarRegistrations();
       showNotification(withReq(`Workflow de registro iniciado para ${target.name}.`, payload), 'success');
+
+      // O registro inicia assíncrono: acompanha o workflow até um estado
+      // terminal sem exigir clique manual em "Status".
+      if (!shouldStopRegistrarPolling(payload.status?.state)) {
+        void pollRegistrarRegistrationStatus(target.name);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível registrar o domínio.';
       showNotification(message, 'error');
@@ -1525,26 +1595,57 @@ export function CfDnsModule() {
     setRegistrarActionLoading(`settings:${patch.domain}`);
     try {
       const query = new URLSearchParams({ domain: patch.domain });
-      const response = await fetch(`/api/cfdns/registrar/registration?${query.toString()}`, {
-        method: 'PATCH',
+
+      if (patch.kind === 'registration') {
+        // auto_renew passa pelo PATCH do workflow /registrar/registrations.
+        const response = await fetch(`/api/cfdns/registrar/registration?${query.toString()}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Actor': adminActor,
+          },
+          body: JSON.stringify({ auto_renew: patch.auto_renew }),
+        });
+        const payload = await parseApiPayload<RegistrarWorkflowPayload>(
+          response,
+          'Falha ao atualizar Cloudflare Registrar',
+        );
+
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error ?? 'Falha ao atualizar Cloudflare Registrar.');
+        }
+
+        setRegistrarUpdateStatus(payload.status ?? null);
+        await loadRegistrarRegistrations();
+        await loadRegistrarStatuses(patch.domain);
+        showNotification(withReq(`${patch.label} aplicado em ${patch.domain}.`, payload), 'success');
+        return;
+      }
+
+      // lock de transferência e privacidade WHOIS passam pelo PUT legado
+      // /registrar/domains — o PATCH de registrations não aceita esses campos.
+      const body: { locked?: boolean; privacy?: boolean } = {};
+      if (typeof patch.locked === 'boolean') {
+        body.locked = patch.locked;
+      }
+      if (typeof patch.privacy === 'boolean') {
+        body.privacy = patch.privacy;
+      }
+      const response = await fetch(`/api/cfdns/registrar/domain?${query.toString()}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'X-Admin-Actor': adminActor,
         },
-        body: JSON.stringify({ auto_renew: patch.auto_renew }),
+        body: JSON.stringify(body),
       });
-      const payload = await parseApiPayload<RegistrarWorkflowPayload>(
-        response,
-        'Falha ao atualizar Cloudflare Registrar',
-      );
+      const payload = await parseApiPayload<RegistrarPayload>(response, 'Falha ao atualizar domínio Registrar');
 
       if (!response.ok || !payload.ok) {
-        throw new Error(payload.error ?? 'Falha ao atualizar Cloudflare Registrar.');
+        throw new Error(payload.error ?? 'Falha ao atualizar domínio Registrar.');
       }
 
-      setRegistrarUpdateStatus(payload.status ?? null);
       await loadRegistrarRegistrations();
-      await loadRegistrarStatuses(patch.domain);
       showNotification(withReq(`${patch.label} aplicado em ${patch.domain}.`, payload), 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível atualizar Registrar.';
@@ -1762,6 +1863,35 @@ export function CfDnsModule() {
     } finally {
       setDeletingId('');
     }
+  };
+
+  const renderRegistrarWorkflow = (label: string, status: RegistrarWorkflowStatus | null) => {
+    const category = classifyRegistrarWorkflowState(status?.state);
+    const action = extractRegistrarWorkflowAction(status?.context);
+
+    return (
+      <div className={`cfdns-registrar-workflow-item cfdns-registrar-workflow-item--${category}`}>
+        <span>{label}</span>
+        <strong>{formatWorkflowState(status)}</strong>
+        <small>{formatDateTime(status?.updated_at)}</small>
+        {category === 'action_required' ? (
+          <small className="cfdns-registrar-workflow-note cfdns-registrar-workflow-note--alert">
+            <AlertTriangle size={12} /> Ação necessária do usuário{action ? `: ${action}` : ''}. O workflow não avança
+            sozinho.
+          </small>
+        ) : null}
+        {category === 'blocked' ? (
+          <small className="cfdns-registrar-workflow-note">
+            Bloqueado por terceiro (registro do TLD ou registrar de origem). Pode resolver sem ação sua.
+          </small>
+        ) : null}
+        {category === 'failed' ? (
+          <small className="cfdns-registrar-workflow-note cfdns-registrar-workflow-note--alert">
+            <AlertTriangle size={12} /> Workflow falhou. Revise o motivo antes de tentar novamente.
+          </small>
+        ) : null}
+      </div>
+    );
   };
 
   return (
@@ -2138,6 +2268,7 @@ export function CfDnsModule() {
                   className="ghost-button"
                   onClick={() =>
                     queueRegistrarSettingsPatch({
+                      kind: 'registration',
                       domain: selectedRegistration.domain_name,
                       label: selectedRegistration.auto_renew ? 'Auto-renew desativado' : 'Auto-renew ativado',
                       auto_renew: !selectedRegistration.auto_renew,
@@ -2147,6 +2278,46 @@ export function CfDnsModule() {
                 >
                   <RefreshCw size={16} />
                   {selectedRegistration.auto_renew ? 'Desativar auto-renew' : 'Ativar auto-renew'}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() =>
+                    queueRegistrarSettingsPatch({
+                      kind: 'domain',
+                      domain: selectedRegistration.domain_name,
+                      label:
+                        selectedRegistration.locked === true
+                          ? 'Lock de transferência desativado'
+                          : 'Lock de transferência ativado',
+                      locked: selectedRegistration.locked !== true,
+                    })
+                  }
+                  disabled={Boolean(registrarActionLoading)}
+                >
+                  <LockKeyhole size={16} />
+                  {selectedRegistration.locked === true ? 'Desbloquear transferência' : 'Bloquear transferência'}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() =>
+                    queueRegistrarSettingsPatch({
+                      kind: 'domain',
+                      domain: selectedRegistration.domain_name,
+                      label:
+                        selectedRegistration.privacy_mode === 'redaction'
+                          ? 'Privacidade WHOIS desativada'
+                          : 'Privacidade WHOIS ativada',
+                      privacy: selectedRegistration.privacy_mode !== 'redaction',
+                    })
+                  }
+                  disabled={Boolean(registrarActionLoading)}
+                >
+                  <ShieldCheck size={16} />
+                  {selectedRegistration.privacy_mode === 'redaction'
+                    ? 'Desativar privacidade WHOIS'
+                    : 'Ativar privacidade WHOIS'}
                 </button>
                 <button
                   type="button"
@@ -2164,22 +2335,14 @@ export function CfDnsModule() {
                 {registrarDashboardUrl ? (
                   <a className="ghost-button" href={registrarDashboardUrl} target="_blank" rel="noreferrer">
                     <ExternalLink size={16} />
-                    Renovar / lock / privacidade
+                    Renovar no dashboard
                   </a>
                 ) : null}
               </div>
 
               <div className="cfdns-registrar-workflows">
-                <div className="cfdns-registrar-workflow-item">
-                  <span>Registration workflow</span>
-                  <strong>{formatWorkflowState(registrarRegistrationStatus)}</strong>
-                  <small>{formatDateTime(registrarRegistrationStatus?.updated_at)}</small>
-                </div>
-                <div className="cfdns-registrar-workflow-item">
-                  <span>Update workflow</span>
-                  <strong>{formatWorkflowState(registrarUpdateStatus)}</strong>
-                  <small>{formatDateTime(registrarUpdateStatus?.updated_at)}</small>
-                </div>
+                {renderRegistrarWorkflow('Registration workflow', registrarRegistrationStatus)}
+                {renderRegistrarWorkflow('Update workflow', registrarUpdateStatus)}
               </div>
             </>
           ) : (

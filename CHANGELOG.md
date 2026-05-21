@@ -6,6 +6,33 @@
 
 - Sync inicial do MainSite grava `mainsite/ratelimit` apenas como toggles (`chatbot`, `email`, `comments`), alinhado ao rate limit nativo da Cloudflare; limites numericos nao sao mais semeados em D1.
 
+## [v02.02.07] - 2026-05-21
+
+### Adicionado
+
+- **CF DNS / Cloudflare Registrar**: nova rota `PUT /api/cfdns/registrar/domain` que atualiza transfer lock e privacidade WHOIS de domínios registrados pelo endpoint legado `PUT /registrar/domains/{domain}` — o `PATCH /registrar/registrations` aceita apenas `auto_renew`.
+- **CF DNS UI**: botões in-app para bloquear/desbloquear transferência e ativar/desativar privacidade WHOIS de domínios registrados, com confirmação explícita, substituindo o handoff ao dashboard nessas funções (o link ao dashboard permanece apenas para renovação, ainda sem endpoint público de API).
+- **CF DNS UI**: polling automático limitado do workflow de registro após a criação — acompanha estados `pending`/`in_progress` e para em estados terminais, `action_required` e `blocked`, sem exigir clique manual em `Status`.
+- **CF DNS UI**: destaque visual de `action_required` (exibindo a ação necessária de `context.action`), `blocked` e `failed` nos painéis de workflow de registro/update.
+
+### Corrigido
+
+- **Registrar `domain-check`**: um domínio malformado no lote não derruba mais a checagem inteira — entradas inválidas são separadas em `skipped` e os domínios válidos seguem sendo checados, alinhado ao contrato da API ("malformed names may be omitted").
+- **Registrar `registrations`**: a listagem de domínios registrados agora pagina (`cursor`/`page`) até esgotar todas as páginas, evitando truncamento silencioso de contas com muitos domínios.
+- **Registrar erros**: o rate-limit da Cloudflare (`HTTP 429`) é propagado como `429` em vez de achatado para `502`; token Cloudflare ausente passa a retornar `500` (erro de configuração) em vez de `502`.
+- **Registrar status de workflow**: a detecção de "workflow inexistente" passa a usar o status `HTTP 404` (sinal estável) em vez do código numérico `10000` somado ao texto da mensagem em inglês `no workflow found`.
+
+### Validação
+
+- APP v02.02.06 → APP v02.02.07.
+- `npm run lint` → OK.
+- `npm run biome` → OK.
+- `npm run format:public:check` → OK.
+- `npx tsc -b` → OK.
+- `npm run test:admin-motor` → 11 arquivos / 83 testes verdes (registrar.test.ts: 7 → 15).
+- `npm run test` → 5 arquivos / 34 testes verdes (novo `registrarWorkflow.test.ts`: 3 testes).
+- `cross-review` sessão `0f06b6d2-1713-4769-9d48-69ef922fa84f` → R2 unanimous READY 5/5 (codex + gemini + deepseek + grok + perplexity; modo single-round sem relator). R1 4/5 (codex NEEDS_EVIDENCE) fechada em R2: correção do limite do auto-poll + `REGISTRAR_LIST_MAX_PAGES` 50→200 + apêndice de evidências (citações oficiais, grep -n, logs crus).
+
 ## [v02.02.06] - 2026-05-18
 
 ### Corrigido
