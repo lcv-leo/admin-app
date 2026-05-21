@@ -22,6 +22,10 @@
 - **Registrar erros**: o rate-limit da Cloudflare (`HTTP 429`) é propagado como `429` em vez de achatado para `502`; token Cloudflare ausente passa a retornar `500` (erro de configuração) em vez de `502`.
 - **Registrar status de workflow**: a detecção de "workflow inexistente" passa a usar o status `HTTP 404` (sinal estável) em vez do código numérico `10000` somado ao texto da mensagem em inglês `no workflow found`.
 
+### Ferramentas
+
+- `.markdownlint.jsonc`: configuração do markdownlint alinhada às convenções de documentação do repositório (formato Keep a Changelog com seções repetidas por versão; README com banner/rodapé em HTML; tabelas e bullets em linhas longas). Elimina a grande maioria dos avisos falso-positivos do editor nos arquivos `.md` (raiz: ~1550 → 2; os 2 residuais são duplicidades estruturais reais em entradas antigas do changelog).
+
 ### Validação
 
 - APP v02.02.06 → APP v02.02.07.

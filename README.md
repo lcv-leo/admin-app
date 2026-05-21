@@ -98,7 +98,7 @@ Worker logs for the web engine use the fixed `MAESTRO_AI_WEB` prefix so Cloudfla
 
 ## Architecture
 
-```
+```text
 Cloudflare Access (Zero Trust JWT)
   └─→ admin-app (Cloudflare Pages, React 19 + Vite 8)
         └─→ /api/* (catch-all Pages Function proxy)
