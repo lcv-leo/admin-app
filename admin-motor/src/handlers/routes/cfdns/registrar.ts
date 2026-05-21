@@ -1,4 +1,5 @@
 import {
+  CloudflareRequestError,
   checkCloudflareRegistrarDomains,
   createCloudflareRegistrarRegistration,
   getCloudflareRegistrarRegistration,
@@ -6,6 +7,7 @@ import {
   getCloudflareRegistrarUpdateStatus,
   listCloudflareRegistrarRegistrations,
   searchCloudflareRegistrarDomains,
+  updateCloudflareRegistrarDomain,
   updateCloudflareRegistrarRegistration,
 } from '../_lib/cloudflare-api';
 import type { D1Database } from '../_lib/operational';
@@ -46,6 +48,19 @@ const toError = (message: string, trace: { request_id: string; timestamp: string
   );
 
 const getEnv = (context: Context) => context.data?.env ?? context.env;
+
+// Mapeia uma falha para o status HTTP que o admin deve ver. Rate-limit (429) da
+// Cloudflare é preservado; token ausente é erro de configuração (500); demais
+// falhas de upstream permanecem como 502 (bad gateway).
+const resolveUpstreamStatus = (error: unknown): number => {
+  if (error instanceof CloudflareRequestError && error.status === 429) {
+    return 429;
+  }
+  if (error instanceof Error && /Token Cloudflare ausente/.test(error.message)) {
+    return 500;
+  }
+  return 502;
+};
 
 const logRegistrarEvent = async (
   context: Context,
@@ -131,7 +146,7 @@ export async function onRequestGetRegistrations(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao listar domínios registrados na Cloudflare.';
     await logRegistrarEvent(context, trace, { action: 'registrar-registrations-list' }, message);
-    return toError(message, trace, 502);
+    return toError(message, trace, resolveUpstreamStatus(error));
   }
 }
 
@@ -162,7 +177,7 @@ export async function onRequestGetSearch(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao buscar domínios no Registrar.';
     await logRegistrarEvent(context, trace, { action: 'registrar-domain-search', q: options.q }, message);
-    return toError(message, trace, 502);
+    return toError(message, trace, resolveUpstreamStatus(error));
   }
 }
 
@@ -178,6 +193,7 @@ export async function onRequestPostCheck(context: Context) {
       accountSource: payload.account.source,
       domains: payload.domains.map((domain) => domain.name),
       count: payload.domains.length,
+      skippedCount: payload.skipped.length,
     });
 
     return new Response(
@@ -191,7 +207,11 @@ export async function onRequestPostCheck(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao checar disponibilidade no Registrar.';
     await logRegistrarEvent(context, trace, { action: 'registrar-domain-check' }, message);
-    return toError(message, trace, message.includes('JSON') || message.includes('domínio') ? 400 : 502);
+    return toError(
+      message,
+      trace,
+      message.includes('JSON') || message.includes('domínio') ? 400 : resolveUpstreamStatus(error),
+    );
   }
 }
 
@@ -232,7 +252,11 @@ export async function onRequestPostRegistration(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao registrar domínio no Registrar.';
     await logRegistrarEvent(context, trace, { action: 'registrar-registration-create' }, message);
-    return toError(message, trace, message.includes('obrigatório') || message.includes('years') ? 400 : 502);
+    return toError(
+      message,
+      trace,
+      message.includes('obrigatório') || message.includes('years') ? 400 : resolveUpstreamStatus(error),
+    );
   }
 }
 
@@ -262,7 +286,7 @@ export async function onRequestGetRegistration(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao consultar registro Registrar.';
     await logRegistrarEvent(context, trace, { action: 'registrar-registration-get', domain }, message);
-    return toError(message, trace, 502);
+    return toError(message, trace, resolveUpstreamStatus(error));
   }
 }
 
@@ -301,7 +325,11 @@ export async function onRequestPatchRegistration(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao atualizar registro Registrar.';
     await logRegistrarEvent(context, trace, { action: 'registrar-registration-update', domain }, message);
-    return toError(message, trace, message.includes('JSON') || message.includes('auto_renew') ? 400 : 502);
+    return toError(
+      message,
+      trace,
+      message.includes('JSON') || message.includes('auto_renew') ? 400 : resolveUpstreamStatus(error),
+    );
   }
 }
 
@@ -334,7 +362,7 @@ export async function onRequestGetRegistrationStatus(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao consultar status de registro Registrar.';
     await logRegistrarEvent(context, trace, { action: 'registrar-registration-status-get', domain }, message);
-    return toError(message, trace, 502);
+    return toError(message, trace, resolveUpstreamStatus(error));
   }
 }
 
@@ -367,6 +395,56 @@ export async function onRequestGetUpdateStatus(context: Context) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao consultar status de atualização Registrar.';
     await logRegistrarEvent(context, trace, { action: 'registrar-update-status-get', domain }, message);
-    return toError(message, trace, 502);
+    return toError(message, trace, resolveUpstreamStatus(error));
+  }
+}
+
+export async function onRequestPutDomain(context: Context) {
+  const trace = createResponseTrace(context.request);
+  const domain = getRequiredDomain(context.request);
+  if (!domain) {
+    return toError('Parâmetro domain é obrigatório.', trace, 400);
+  }
+
+  try {
+    const body = await readJsonBody<{ locked?: boolean; privacy?: boolean }>(context.request);
+    const patch: { locked?: boolean; privacy?: boolean } = {};
+    if (typeof body.locked === 'boolean') {
+      patch.locked = body.locked;
+    }
+    if (typeof body.privacy === 'boolean') {
+      patch.privacy = body.privacy;
+    }
+    if (patch.locked === undefined && patch.privacy === undefined) {
+      return toError('Informe locked e/ou privacy (booleano) para atualizar o domínio.', trace, 400);
+    }
+
+    const payload = await updateCloudflareRegistrarDomain(getEnv(context), domain, patch);
+    await logRegistrarEvent(context, trace, {
+      action: 'registrar-domain-update',
+      accountSource: payload.account.source,
+      domain,
+      locked: patch.locked ?? null,
+      privacy: patch.privacy ?? null,
+    });
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        ...trace,
+        ...payload,
+      }),
+      { headers: toHeaders() },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Falha ao atualizar domínio Registrar.';
+    await logRegistrarEvent(context, trace, { action: 'registrar-domain-update', domain }, message);
+    return toError(
+      message,
+      trace,
+      message.includes('JSON') || message.includes('locked') || message.includes('privacy')
+        ? 400
+        : resolveUpstreamStatus(error),
+    );
   }
 }

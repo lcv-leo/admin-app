@@ -35,6 +35,7 @@ import { onRequestDelete as handleCfdnsDeleteDelete } from './handlers/routes/cf
 import { onRequestGet as handleCfdnsRecordsGet } from './handlers/routes/cfdns/records';
 import {
   onRequestPostCheck as handleCfdnsRegistrarCheckPost,
+  onRequestPutDomain as handleCfdnsRegistrarDomainPut,
   onRequestGetRegistration as handleCfdnsRegistrarRegistrationGet,
   onRequestPatchRegistration as handleCfdnsRegistrarRegistrationPatch,
   onRequestPostRegistration as handleCfdnsRegistrarRegistrationPost,
@@ -456,6 +457,7 @@ app.get('/api/cfdns/registrar/registrations', (c) => handleCfdnsRegistrarRegistr
 app.post('/api/cfdns/registrar/registrations', (c) => handleCfdnsRegistrarRegistrationPost(rc(c)));
 app.get('/api/cfdns/registrar/registration', (c) => handleCfdnsRegistrarRegistrationGet(rc(c)));
 app.patch('/api/cfdns/registrar/registration', (c) => handleCfdnsRegistrarRegistrationPatch(rc(c)));
+app.put('/api/cfdns/registrar/domain', (c) => handleCfdnsRegistrarDomainPut(rc(c)));
 app.get('/api/cfdns/registrar/registration-status', (c) => handleCfdnsRegistrarRegistrationStatusGet(rc(c)));
 app.get('/api/cfdns/registrar/update-status', (c) => handleCfdnsRegistrarUpdateStatusGet(rc(c)));
 app.delete('/api/cfdns/delete', (c) => handleCfdnsDeleteDelete(rc(c)));

@@ -145,6 +145,11 @@ export type CloudflareRegistrarRegistrationPatch = {
   auto_renew: boolean;
 };
 
+export type CloudflareRegistrarDomainPatch = {
+  locked?: boolean;
+  privacy?: boolean;
+};
+
 const resolveToken = (env: EnvWithCloudflareToken) => {
   const byDnsToken = env.CLOUDFLARE_DNS?.trim();
   if (byDnsToken) {
@@ -196,7 +201,7 @@ const parseJsonOrThrow = <T>(rawText: string, fallback: string, response: Respon
   }
 };
 
-class CloudflareRequestError extends Error {
+export class CloudflareRequestError extends Error {
   readonly status: number;
   readonly code: number | string | null;
   readonly apiMessage: string | null;
@@ -218,10 +223,10 @@ const toFirstErrorDetails = (payload: CloudflareApiResponse<unknown>) => {
   };
 };
 
-const isNoRegistrarWorkflowFound = (error: unknown) =>
-  error instanceof CloudflareRequestError &&
-  String(error.code) === '10000' &&
-  /no workflow found/i.test(error.apiMessage ?? error.message);
+// O endpoint de status de workflow responde HTTP 404 quando não há workflow
+// para o domínio. O status é o sinal estável — o código numérico e o texto da
+// mensagem não são contrato e não devem ser usados para esta decisão.
+const isNoRegistrarWorkflowFound = (error: unknown) => error instanceof CloudflareRequestError && error.status === 404;
 
 const cloudflareRequest = async <T>(
   env: EnvWithCloudflareToken,
@@ -454,31 +459,77 @@ const normalizeRegistrarCreateInput = (input: CloudflareRegistrarCreateInput) =>
   return payload;
 };
 
+// Limite de segurança contra laço infinito caso a API ignore os parâmetros de
+// paginação. A terminação normal é por `total_pages`/`cursor`; este teto só age
+// se a API se comportar mal. 200 cobre o máximo de 100 domínios por conta mesmo
+// num page size degenerado de 1 item/página (200 > 100), com folga.
+const REGISTRAR_LIST_MAX_PAGES = 200;
+
 export const listCloudflareRegistrarRegistrations = async (
   env: EnvWithCloudflareToken,
 ): Promise<CloudflareRegistrarListResult> => {
   const account = await resolveCloudflareAccount(env);
-  const payload = await cloudflareRequestPayload<CloudflareRegistrarRegistration[]>(
-    env,
-    `/accounts/${encodeURIComponent(account.accountId)}/registrar/registrations`,
-    'Falha ao listar domínios registrados na Cloudflare',
-  );
-  const registrations = (Array.isArray(payload.result) ? payload.result : [])
-    .map(normalizeRegistrarRegistration)
-    .filter((registration) => registration.domain_name)
-    .sort((a, b) => a.domain_name.localeCompare(b.domain_name));
-  const info = payload.result_info ?? {};
+
+  // A lista é paginada: uma única chamada pode truncar silenciosamente contas
+  // com muitos domínios. Seguimos `cursor` (se presente) ou `page` até esgotar.
+  const byDomain = new Map<string, CloudflareRegistrarRegistration>();
+  let cursor = '';
+  let page = 1;
+  let totalCount = 0;
+
+  for (let fetched = 0; fetched < REGISTRAR_LIST_MAX_PAGES; fetched += 1) {
+    const query = new URLSearchParams();
+    if (cursor) {
+      query.set('cursor', cursor);
+    } else if (page > 1) {
+      query.set('page', String(page));
+    }
+    const queryString = query.toString();
+
+    const payload = await cloudflareRequestPayload<CloudflareRegistrarRegistration[]>(
+      env,
+      `/accounts/${encodeURIComponent(account.accountId)}/registrar/registrations${queryString ? `?${queryString}` : ''}`,
+      'Falha ao listar domínios registrados na Cloudflare',
+    );
+
+    const batch = Array.isArray(payload.result) ? payload.result : [];
+    for (const registration of batch.map(normalizeRegistrarRegistration)) {
+      if (registration.domain_name) {
+        byDomain.set(registration.domain_name, registration);
+      }
+    }
+
+    const info = payload.result_info ?? {};
+    totalCount = Number(info.total_count ?? totalCount);
+    const nextCursor = info.cursor ? String(info.cursor) : '';
+    const totalPages = Number(info.total_pages ?? 1);
+
+    if (batch.length === 0) {
+      break;
+    }
+    if (nextCursor && nextCursor !== cursor) {
+      cursor = nextCursor;
+      continue;
+    }
+    if (!nextCursor && Number.isFinite(totalPages) && page < totalPages) {
+      page += 1;
+      continue;
+    }
+    break;
+  }
+
+  const registrations = [...byDomain.values()].sort((a, b) => a.domain_name.localeCompare(b.domain_name));
 
   return {
     account,
     registrations,
     pagination: {
-      cursor: info.cursor ? String(info.cursor) : null,
-      page: Number(info.page ?? 1),
-      perPage: Number(info.per_page ?? registrations.length),
-      totalPages: Number(info.total_pages ?? 1),
-      totalCount: Number(info.total_count ?? registrations.length),
-      count: Number(info.count ?? registrations.length),
+      cursor: null,
+      page: 1,
+      perPage: registrations.length,
+      totalPages: 1,
+      totalCount: Math.max(totalCount, registrations.length),
+      count: registrations.length,
     },
   };
 };
@@ -522,13 +573,25 @@ export const searchCloudflareRegistrarDomains = async (
 
 export const checkCloudflareRegistrarDomains = async (env: EnvWithCloudflareToken, domains: string[]) => {
   const account = await resolveCloudflareAccount(env);
-  const normalizedDomains = domains.map(normalizeDomainName).filter(Boolean);
+
+  // A API documenta que nomes malformados podem ser omitidos da resposta — ou
+  // seja, um lote misto deve render resultados parciais, não falhar inteiro.
+  // Domínios inválidos são separados em `skipped` em vez de abortar a checagem.
+  const normalizedDomains: string[] = [];
+  const skipped: string[] = [];
+  for (const candidate of Array.isArray(domains) ? domains : []) {
+    try {
+      normalizedDomains.push(normalizeDomainName(String(candidate ?? '')));
+    } catch {
+      skipped.push(String(candidate ?? ''));
+    }
+  }
 
   if (normalizedDomains.length === 0) {
-    throw new Error('Informe ao menos um domínio para checagem Registrar.');
+    throw new Error('Informe ao menos um domínio válido para checagem Registrar.');
   }
   if (normalizedDomains.length > 20) {
-    throw new Error('A checagem Registrar aceita no máximo 20 domínios por chamada.');
+    throw new Error('A checagem Registrar aceita no máximo 20 domínios válidos por chamada.');
   }
 
   const result = await cloudflareRequest<{ domains?: CloudflareRegistrarAvailability[] }>(
@@ -546,6 +609,7 @@ export const checkCloudflareRegistrarDomains = async (env: EnvWithCloudflareToke
   return {
     account,
     domains: normalizeRegistrarDomainList(result),
+    skipped,
   };
 };
 
@@ -604,6 +668,41 @@ export const updateCloudflareRegistrarRegistration = async (
     account,
     status: normalizeRegistrarWorkflowStatus(status),
   };
+};
+
+// Lock de transferência e privacidade WHOIS não são aceitos pelo PATCH de
+// `/registrar/registrations` (que hoje só suporta `auto_renew`). O endpoint
+// documentado para esses campos é o legado `PUT /registrar/domains/{domain}`.
+export const updateCloudflareRegistrarDomain = async (
+  env: EnvWithCloudflareToken,
+  domainName: string,
+  patch: CloudflareRegistrarDomainPatch,
+) => {
+  const account = await resolveCloudflareAccount(env);
+  const normalizedDomain = normalizeDomainName(domainName);
+
+  const body: Record<string, boolean> = {};
+  if (typeof patch.locked === 'boolean') {
+    body.locked = patch.locked;
+  }
+  if (typeof patch.privacy === 'boolean') {
+    body.privacy = patch.privacy;
+  }
+  if (Object.keys(body).length === 0) {
+    throw new Error('Informe locked e/ou privacy para atualizar o domínio Registrar.');
+  }
+
+  await cloudflareRequest<unknown>(
+    env,
+    `/accounts/${encodeURIComponent(account.accountId)}/registrar/domains/${encodeURIComponent(normalizedDomain)}`,
+    `Falha ao atualizar domínio Registrar ${normalizedDomain}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    },
+  );
+
+  return { account };
 };
 
 export const getCloudflareRegistrarRegistration = async (env: EnvWithCloudflareToken, domainName: string) => {
