@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 LCV Ideas & Software
+ * Copyright © 2026 LCV Ideas & Software
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 /* eslint-disable react-refresh/only-export-components -- Barrel re-export pattern: re-exports Radix primitives alongside wrapper components. Fast refresh loses granularity here but these files rarely change. */

@@ -3,7 +3,7 @@
  * Renders at the bottom of the CF P&W module dashboard.
  * Phases: Dashboard, Events, Errors, Latency, Destinations
  *
- * Copyright (C) 2026 LCV Ideas & Software
+ * Copyright © 2026 LCV Ideas & Software
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 

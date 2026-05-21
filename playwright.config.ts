@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 LCV Ideas & Software
+ * Copyright © 2026 LCV Ideas & Software
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { defineConfig, devices } from '@playwright/test';
