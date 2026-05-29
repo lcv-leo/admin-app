@@ -81,7 +81,7 @@ jobs:
         run: |
           gh pr review "$PR_URL" --approve --body "Auto-approved Dependabot dependency update after the configured PR checks passed."
 
-      - name: Enable auto-merge
+      - name: Merge PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -90,10 +90,7 @@ jobs:
           if [ "$state" != "OPEN" ]; then
             exit 0
           fi
-          if [ "$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')" = "true" ]; then
-            exit 0
-          fi
-          gh pr merge "$PR_URL" --auto --squash --delete-branch
+          gh pr merge "$PR_URL" --squash --delete-branch
     timeout-minutes: 30
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
